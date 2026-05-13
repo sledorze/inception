@@ -4,8 +4,17 @@ import { defineConfig } from 'vitest/config'
 export default defineConfig({
   plugins: [react()],
   test: {
+    benchmark: {
+      include: ['packages/host/tests/perf/**/*.bench.ts'],
+    },
     coverage: {
-      exclude: ['packages/**/*.test.ts', 'packages/**/*.test.tsx', 'packages/**/*.spec.ts', 'packages/**/*.d.ts'],
+      exclude: [
+        'packages/**/*.test.ts',
+        'packages/**/*.test.tsx',
+        'packages/**/*.spec.ts',
+        'packages/**/*.bench.ts',
+        'packages/**/*.d.ts',
+      ],
       include: ['packages/host/src/**/*.ts', 'packages/frontend/src/**/*.{ts,tsx}'],
       provider: 'v8',
       reporter: ['text', 'html', 'json-summary'],

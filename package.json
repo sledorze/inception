@@ -4,6 +4,7 @@
   "private": true,
   "type": "module",
   "scripts": {
+    "bench": "vitest bench",
     "build:frontend": "cd packages/frontend && vite build",
     "check:test-conventions": "node --import tsx packages/host/src/checks/check-test-conventions.ts",
     "deps:check": "depcruise --validate .dependency-cruiser.cjs packages/host/src/ packages/frontend/src/",
@@ -70,6 +71,8 @@
     "pnpm": ">=10"
   },
   "pnpm": {
-    "onlyBuiltDependencies": []
+    "onlyBuiltDependencies": [
+      "better-sqlite3"
+    ]
   }
 }
