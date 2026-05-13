@@ -44,6 +44,17 @@ If you write code that holds raw bytes outside `runScript`, you are violating L1
 - Frontend test files: `*.test.ts` or `*.test.tsx`.
 - Files under `src/` are TypeScript, strict mode.
 
+## Effect over Promise (hard rule for `packages/host/src/`)
+
+All async operations must be expressed in Effect, never plain Promises or `async`/`await`:
+
+- **Wrapping Node.js / third-party async APIs**: use `Effect.tryPromise({ try: async () => ..., catch: e => new MyError({ cause: e }) })`. The `async () =>` callback is acceptable here — it is the bridge layer.
+- **Never write a standalone `async` function** outside of an `Effect.tryPromise` / `Effect.promise` callback. If you find yourself writing `async function foo()`, convert the whole function to `Effect.fn("Module.foo")(function*() { ... })`.
+- **Clock, not Date**: `Clock.currentTimeMillis` / `Clock.currentTimeNano` instead of `Date.now()` / `new Date()`. Pass the resolved `number` into `new Date(ms)` only for formatting. Enforced by `lefthook check-effect-patterns.sh`.
+- **Tests use `it.effect`**: import `{ it }` from `@effect/vitest`; never `Effect.runPromise` in test bodies. Enforced by `lefthook check-effect-patterns.sh`.
+
+Rationale: Effect enables `TestClock`, structured error channels, and deterministic tracing. Native Promises bypass all three.
+
 ## Forbidden by inherited rules
 
 - Importing Node.js built-ins (`node:fs`, etc.) from non-`packages/host/**` code (oxlint `import/no-nodejs-modules`).
