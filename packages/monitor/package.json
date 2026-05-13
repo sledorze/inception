@@ -1,0 +1,14 @@
+{
+  "name": "@app/monitor",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "start": "node --import tsx src/main.ts",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@app/host": "workspace:*",
+    "effect": "4.0.0-beta.66"
+  }
+}

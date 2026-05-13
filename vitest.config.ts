@@ -29,6 +29,7 @@ export default defineConfig({
     include: [
       'packages/host/src/**/*.test.ts',
       'packages/host/tests/**/*.spec.ts',
+      'packages/monitor/tests/**/*.unit.test.ts',
       'packages/frontend/src/**/*.test.ts',
       'packages/frontend/src/**/*.test.tsx',
     ],
