@@ -67,7 +67,7 @@ These items make Phase 1's traces _honest_ and _bounded_: per-handle info budget
 
 ## Phase 2 — Inner MCP toolset (Georges' surface)
 
-- [todo] **2.1** `list-tools` — Georges introspects his own capability set (answers Q1).
+- [done] **2.1** `list-tools` — Georges introspects his own capability set (answers Q1).
 - [todo] **2.2** `read-workspace` / `write-workspace` — confined to mount.
 - [todo] **2.3** `run-script` — submits authored code to the sandbox; returns stdout/exit/aggregate only.
 - [todo] **2.4** `fetch-handle-shape` — returns schema + redacted sample for a data handle.
