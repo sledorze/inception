@@ -48,7 +48,7 @@ Every item below ships **port + bootstrap adapter** per L2.14. Callers depend on
 
 These items make Phase 1's traces _honest_ and _bounded_: per-handle info budgets stop leak attempts, corroborators stop self-narration, the variant log gates selection, roles parametrise tool surfaces, the Supervisor watches risks. None of these are demonstrable until Phase 1 has produced a baseline trace.
 
-- [todo] **1.9** **Budget Ledger v0** (L1.6, §4.6): per-call/variant/cycle/handle/session debit on every event. Vector dimensions per §4.4 bootstrap (Cost dimension included for swap-readiness).
+- [done] **1.9** **Budget Ledger v0** (L1.6, §4.6): `BudgetLedger` port with `debit`/`get`/`reset`; `InMemoryBudgetLedger` adapter. All §4.6 dimensions tracked: tokens, costUsd, sandboxMs, infoBitsOut, mutations, policyDenials, rejections, reruns. Scope types: call/variant/cycle/handle/session/role-version. Protocol test (7 tests). Enforcement (halt on exceed) wired by Supervisor in 1.15.
 - [todo] **1.10** **Per-handle info-ledger** (L1.7): entropy estimator on aggregate returns (bootstrap formula in L1.7); close-on-exhaust; emits `HandleExhausted`. Lives behind the `DataHandle` port (1.7).
 - [todo] **1.11** **Host corroborator events** (L1.8): every tool execution emits a Host-side observation event paired with Georges' claim. Unpaired claims tagged `uncorroborated` and excluded from fitness scoring.
 - [todo] **1.13** **Role registry + `RoleSwitched` events** (L2.10): smallest viable subset — Architect + Implementer + Reviewer. Bootstrap per §4.1.
