@@ -21,10 +21,18 @@ export class HandleRevoked extends Schema.TaggedErrorClass<HandleRevoked>()('@ap
   handleId: Schema.String,
 }) {}
 
+// Emitted when the per-handle info-budget (L1.7) is exhausted.
+export class HandleExhausted extends Schema.TaggedErrorClass<HandleExhausted>()('@app/host/HandleExhausted', {
+  bitsConsumed: Schema.Number,
+  handleId: Schema.String,
+}) {}
+
 export interface DataHandle {
   readonly id: string
   readonly fetchShape: () => Effect.Effect<HandleShape, DataHandleError>
-  readonly runScript: (script: string) => Effect.Effect<AggregateResult, DataHandleError | HandleRevoked>
+  readonly runScript: (
+    script: string,
+  ) => Effect.Effect<AggregateResult, DataHandleError | HandleRevoked | HandleExhausted>
   readonly revoke: () => Effect.Effect<void>
   readonly isAlive: () => Effect.Effect<boolean>
 }

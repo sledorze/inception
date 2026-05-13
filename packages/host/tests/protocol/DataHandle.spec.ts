@@ -11,7 +11,7 @@ import { Effect, ManagedRuntime, Ref } from 'effect'
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
 import { FileBackedHandle } from '../../src/adapters/driven/FileBackedHandle.ts'
 import { InMemoryDataHandleRegistry } from '../../src/adapters/driven/InMemoryDataHandleRegistry.ts'
-import { DataHandleRegistry, HandleRevoked } from '../../src/ports/driven/DataHandle.ts'
+import { DataHandleRegistry, HandleExhausted, HandleRevoked } from '../../src/ports/driven/DataHandle.ts'
 import type { AggregateResult, DataHandle } from '../../src/ports/driven/DataHandle.ts'
 
 // ─── shared helpers ───────────────────────────────────────────────────────────
@@ -194,4 +194,86 @@ runContract('FileBackedHandle', async () => {
       'process.stdout.write(JSON.stringify({ row_count: rows.length - 1 }))',
     ].join('; '),
   }
+})
+
+// ─── FileBackedHandle info-ledger (L1.7) ─────────────────────────────────────
+
+describe('FileBackedHandle info-ledger (L1.7)', () => {
+  let filePath: string
+  let rt: ManagedRuntime.ManagedRuntime<DataHandleRegistry, never>
+
+  beforeEach(async () => {
+    filePath = join(tmpdir(), `handle-info-${randomUUID()}.csv`)
+    await writeFile(filePath, 'x\n1\n2\n3\n', 'utf8')
+    rt = ManagedRuntime.make(InMemoryDataHandleRegistry.layer)
+  })
+
+  afterEach(() => rt.dispose())
+
+  const run = <A>(eff: Effect.Effect<A, unknown, DataHandleRegistry>) => rt.runPromise(eff)
+
+  it('runScript fails with HandleExhausted once info-bit limit is reached (L1.7)', async () => {
+    // infoBitLimit = 1 bit forces exhaustion on the first non-empty output.
+    const handle = await run(
+      FileBackedHandle.create({
+        filePath,
+        id: randomUUID(),
+        infoBitLimit: 1,
+      }),
+    )
+    await run(
+      Effect.gen(function* () {
+        const reg = yield* DataHandleRegistry
+        yield* reg.register(handle)
+      }),
+    )
+    // First call should succeed (output may be empty), or fail with HandleExhausted
+    // immediately — either way, by the second call we must see HandleExhausted.
+    await run(
+      Effect.gen(function* () {
+        const reg = yield* DataHandleRegistry
+        const h = yield* reg.get(handle.id)
+        // Run once — may succeed or exhaust
+        yield* h.runScript('process.stdout.write("x")').pipe(Effect.ignore)
+        // Second run must be exhausted
+        yield* h.runScript('process.stdout.write("y")').pipe(
+          Effect.flip,
+          Effect.flatMap(e => (e instanceof HandleExhausted ? Effect.void : Effect.die('expected HandleExhausted'))),
+        )
+      }),
+    )
+  })
+
+  it('isAlive returns false after info-bit limit is exhausted (L1.7)', async () => {
+    const handle = await run(
+      FileBackedHandle.create({
+        filePath,
+        id: randomUUID(),
+        infoBitLimit: 1,
+      }),
+    )
+    await run(
+      Effect.gen(function* () {
+        const reg = yield* DataHandleRegistry
+        yield* reg.register(handle)
+      }),
+    )
+    // Exhaust the handle
+    await run(
+      Effect.gen(function* () {
+        const reg = yield* DataHandleRegistry
+        const h = yield* reg.get(handle.id)
+        yield* h.runScript('process.stdout.write("x")').pipe(Effect.ignore)
+        yield* h.runScript('process.stdout.write("y")').pipe(Effect.ignore)
+      }),
+    )
+    const alive = await run(
+      Effect.gen(function* () {
+        const reg = yield* DataHandleRegistry
+        const h = yield* reg.get(handle.id)
+        return yield* h.isAlive()
+      }),
+    )
+    expect(alive).toBeFalsy()
+  })
 })
