@@ -1,0 +1,172 @@
+# Inviolable Kernel Manifest (L0.5)
+#
+# Trusted Computing Base anchor for the AI-Native Factory.
+# Amendment requires unanimous re-signing by Claude + User-of-record + 2-of-3 Witnesses.
+# Content hash is identity (L0.4); path is alias. Changing content invalidates all signatures.
+#
+# bootstrap=true (L3.8): first provisioning; calibration continues from operational evidence.
+
+schema_version: '1'
+provisioned_at: '2026-05-13T00:00:00.000Z'
+bootstrap: true
+
+# ─── §1 Actor model ──────────────────────────────────────────────────────────
+
+actors:
+  claude:
+    role: outer-observer + substrate-builder
+    trust_domain: host
+    cannot:
+      - speak to Users in-session
+      - act as Georges
+      - bypass trace/policy substrate
+  georges:
+    role: AI inhabitant
+    trust_domain: sandbox
+    cannot:
+      - read Host source
+      - reach network beyond LLM endpoint
+      - persist outside managed workspace
+      - invoke unregistered tools
+  user:
+    role: external requester
+    trust_domain: external
+    cannot:
+      - modify Host directly
+      - reach Georges except via Host
+  supervisor:
+    role: in-process risk monitor
+    trust_domain: host
+  monitor:
+    role: out-of-process Supervisor cross-check
+    trust_domain: monitor
+  external_witness_pool:
+    role: constitutional third party
+    trust_domain: external
+    quorum: '2-of-3'
+    cannot:
+      - hold a production role
+      - write code
+      - run scripts
+      - make unilateral promotions
+
+# ─── L0.1 Laws-to-enforcement map ────────────────────────────────────────────
+
+laws_enforcement:
+  L0.1:
+    tier: 0
+    description: Every Law is paired with an enforcement module and a test.
+    enforcement_modules:
+      - packages/host/tests/laws/
+    trust_domain: host
+  L0.2:
+    tier: 0
+    description: Tier-1 amendments require ConstitutionalAmendment with 5-key quorum.
+    enforcement_modules:
+      - packages/host/src/domain/ceremony.ts
+      - packages/host/bin/ceremony.ts
+    trust_domain: host
+  L0.5:
+    tier: 0
+    description: Kernel artifacts signed with 5 long-lived keys; CI rejects unsigned kernel changes.
+    enforcement_modules:
+      - kernel/MANIFEST.yaml
+      - .github/workflows/kernel-signatures.yml
+    trust_domain: host
+  L1.3:
+    tier: 1
+    description: Georges-authored code touches real data only via DataHandle.runScript.
+    enforcement_modules:
+      - packages/host/src/ports/driven/DataHandle.ts
+    trust_domain: host
+  L1.6:
+    tier: 1
+    description: Per-cycle token/cost budget; exceeding halts the cycle.
+    enforcement_modules:
+      - packages/host/src/ports/driven/BudgetLedger.ts
+      - packages/host/src/adapters/driven/InMemoryBudgetLedger.ts
+    trust_domain: host
+  L1.7:
+    tier: 1
+    description: Per-handle information budget with DP noise; exceeding exhausts handle.
+    enforcement_modules:
+      - packages/host/src/ports/driven/DataHandle.ts
+      - packages/host/src/adapters/driven/DpFileBackedHandle.ts
+      - packages/host/src/domain/dp.ts
+    trust_domain: host
+  L1.8:
+    tier: 1
+    description: Every Georges claim paired with a Host corroborator event.
+    enforcement_modules:
+      - packages/host/src/domain/corroboration.ts
+    trust_domain: host
+  L2.13:
+    tier: 2
+    description: Configurable fraction of variants sampled outside Pareto best for exploration.
+    enforcement_modules:
+      - packages/host/src/ports/driven/BehaviourArchive.ts
+      - packages/host/src/adapters/driven/InMemoryBehaviourArchive.ts
+    trust_domain: host
+  L3.7:
+    tier: 3
+    description: Supervisor monitors risks; Monitor cross-checks from outside Host domain.
+    enforcement_modules:
+      - packages/host/src/ports/driven/Supervisor.ts
+      - packages/host/src/adapters/driven/InProcessSupervisor.ts
+      - packages/monitor/
+    trust_domain: monitor
+
+# ─── §10.1 TCB adapter manifests ─────────────────────────────────────────────
+
+tcb_adapters:
+  EventStore:
+    port: packages/host/src/ports/driven/EventStore.ts
+    bootstrap_adapter: packages/host/src/adapters/driven/SqliteEventStore.ts
+    fake_adapter: packages/host/src/adapters/driven/InMemoryEventStore.ts
+    invariants:
+      - tamper-evident hash chain (L1.4)
+      - append-only; no delete
+  DataHandle:
+    port: packages/host/src/ports/driven/DataHandle.ts
+    bootstrap_adapter: packages/host/src/adapters/driven/DpFileBackedHandle.ts
+    fake_adapter: packages/host/src/adapters/driven/FileBackedHandle.ts
+    invariants:
+      - runScript is the ONLY path Georges-authored code touches real data (L1.3)
+      - per-handle epsilon ledger; exhausts at epsilon_max (L1.7)
+      - DP noise Laplace for l1 Gaussian for l2 (L1.7)
+  SandboxExecutor:
+    port: packages/host/src/ports/driven/SandboxExecutor.ts
+    bootstrap_adapter: packages/host/src/adapters/driven/OsProcessSandboxExecutor.ts
+    fake_adapter: packages/host/src/adapters/driven/InMemorySandboxExecutor.ts
+    invariants:
+      - Georges cannot read Host source (L1.1, L1.2)
+      - CPU/wall/mem budgets enforced per execution
+
+# ─── L1.8 Corroboration discipline ───────────────────────────────────────────
+
+corroboration_discipline:
+  pairing: correlationId
+  rule: >
+    For every event emitted by Georges (actor=georges), the Host must emit a
+    matching corroborator event (actor=host) on the same correlationId before
+    the Georges event, or the claim is uncorroborated.
+  enforcement: packages/host/src/domain/corroboration.ts
+  audit: findUncorroboratedClaims(sessionId) returns uncorroborated Georges events.
+
+# ─── §6 External Witness pool manifest ───────────────────────────────────────
+
+witness_pool:
+  quorum_threshold: '2-of-3'
+  required_signers:
+    - claude
+    - user-of-record
+  public_key_paths:
+    claude: kernel/keys/claude.public.pem
+    user-of-record: kernel/keys/user-of-record.public.pem
+    witness1: kernel/keys/witness1.public.pem
+    witness2: kernel/keys/witness2.public.pem
+    witness3: kernel/keys/witness3.public.pem
+  amendment_scope:
+    - ConstitutionalAmendment
+    - KernelRotation
+  key_algorithm: Ed25519
