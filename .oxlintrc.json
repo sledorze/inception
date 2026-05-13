@@ -16,7 +16,7 @@
         "**/*.spec.ts",
         "**/*.config.ts",
         "**/*.config.mts",
-        "**/packages/backend/**"
+        "**/packages/host/**"
       ],
       "rules": {
         "import/no-nodejs-modules": "off"

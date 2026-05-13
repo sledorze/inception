@@ -5,18 +5,18 @@
   "type": "module",
   "scripts": {
     "build:frontend": "cd packages/frontend && vite build",
-    "check:test-conventions": "node --import tsx packages/backend/src/checks/check-test-conventions.ts",
-    "deps:check": "depcruise --validate .dependency-cruiser.cjs packages/backend/src/ packages/frontend/src/",
-    "dev": "tsx watch packages/backend/src/main.ts",
+    "check:test-conventions": "node --import tsx packages/host/src/checks/check-test-conventions.ts",
+    "deps:check": "depcruise --validate .dependency-cruiser.cjs packages/host/src/ packages/frontend/src/",
+    "dev": "tsx watch packages/host/src/main.ts",
     "dev:frontend": "cd packages/frontend && vite --host",
     "format": "prettier --write .",
     "format:check": "prettier --check .",
     "format:check:ci": "prettier --check . --log-level warn",
-    "lint": "oxlint . && node --import tsx packages/backend/src/checks/check-test-conventions.ts",
-    "lint:ci": "oxlint . --quiet && node --import tsx packages/backend/src/checks/check-test-conventions.ts",
+    "lint": "oxlint . && node --import tsx packages/host/src/checks/check-test-conventions.ts",
+    "lint:ci": "oxlint . --quiet && node --import tsx packages/host/src/checks/check-test-conventions.ts",
     "lint:fix": "oxlint --fix .",
     "prepare": "test -d .git && lefthook install || echo Skipping lefthook in CI",
-    "start": "node --import tsx packages/backend/src/main.ts",
+    "start": "node --import tsx packages/host/src/main.ts",
     "stryker": "stryker run",
     "stryker:changed": "bash scripts/stryker-changed.sh",
     "stryker:frontend": "stryker run stryker.frontend.config.json",
@@ -28,7 +28,7 @@
     "test:coverage:ci": "vitest run --coverage --reporter dot --silent",
     "test:e2e": "playwright test",
     "test:watch": "vitest",
-    "typecheck": "tsc --noEmit -p packages/backend/tsconfig.json && tsc --noEmit -p packages/frontend/tsconfig.json"
+    "typecheck": "tsc --noEmit -p packages/host/tsconfig.json && tsc --noEmit -p packages/frontend/tsconfig.json"
   },
   "devDependencies": {
     "@playwright/test": "^1.58.2",

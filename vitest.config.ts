@@ -6,7 +6,7 @@ export default defineConfig({
   test: {
     coverage: {
       exclude: ['packages/**/*.test.ts', 'packages/**/*.test.tsx', 'packages/**/*.d.ts'],
-      include: ['packages/backend/src/**/*.ts', 'packages/frontend/src/**/*.{ts,tsx}'],
+      include: ['packages/host/src/**/*.ts', 'packages/frontend/src/**/*.{ts,tsx}'],
       provider: 'v8',
       reporter: ['text', 'html', 'json-summary'],
       // Uncomment once tests are established (increase thresholds as coverage improves):
@@ -18,7 +18,7 @@ export default defineConfig({
       // },
     },
     include: [
-      'packages/backend/src/**/*.test.ts',
+      'packages/host/src/**/*.test.ts',
       'packages/frontend/src/**/*.test.ts',
       'packages/frontend/src/**/*.test.tsx',
     ],

@@ -19,7 +19,13 @@
   ],
   "semverGroups": [
     {
-      "label": "Use caret ranges for all dependencies",
+      "label": "Pin Effect v4 beta to exact version — beta APIs can break between minor bumps",
+      "dependencies": ["effect", "@effect/*"],
+      "packages": ["**"],
+      "range": ""
+    },
+    {
+      "label": "Use caret ranges for all other dependencies",
       "packages": ["**"],
       "dependencies": ["**"],
       "range": "^"

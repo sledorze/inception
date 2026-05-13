@@ -25,7 +25,7 @@ const findTestFiles = (dir: string): string[] => {
 }
 
 const rootDir = path.resolve(import.meta.dirname ?? '.', '../../..')
-const backendTests = findTestFiles(path.join(rootDir, 'packages/backend/src'))
+const backendTests = findTestFiles(path.join(rootDir, 'packages/host/src'))
 const frontendTests = findTestFiles(path.join(rootDir, 'packages/frontend/src'))
 const testFiles = [...backendTests, ...frontendTests]
 

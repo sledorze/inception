@@ -1,0 +1,38 @@
+import type { Effect } from 'effect'
+import { Context, Schema } from 'effect'
+
+export interface HandleShape {
+  readonly schema: unknown
+  readonly redactedSample: unknown
+}
+
+export interface AggregateResult {
+  readonly exitCode: number
+  readonly stdoutHash: string
+  readonly summary: string
+  readonly bitsConsumed: number
+}
+
+export class DataHandleError extends Schema.TaggedErrorClass<DataHandleError>()('@app/host/DataHandleError', {
+  cause: Schema.Defect,
+}) {}
+
+export class HandleRevoked extends Schema.TaggedErrorClass<HandleRevoked>()('@app/host/HandleRevoked', {
+  handleId: Schema.String,
+}) {}
+
+export interface DataHandle {
+  readonly id: string
+  readonly fetchShape: () => Effect.Effect<HandleShape, DataHandleError>
+  readonly runScript: (script: string) => Effect.Effect<AggregateResult, DataHandleError | HandleRevoked>
+  readonly revoke: () => Effect.Effect<void>
+  readonly isAlive: () => Effect.Effect<boolean>
+}
+
+export class DataHandleRegistry extends Context.Service<
+  DataHandleRegistry,
+  {
+    readonly get: (id: string) => Effect.Effect<DataHandle, HandleRevoked>
+    readonly register: (handle: DataHandle) => Effect.Effect<void>
+  }
+>()('@app/host/DataHandleRegistry') {}

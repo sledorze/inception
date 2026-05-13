@@ -6,7 +6,7 @@
       "outputs": ["dist/**"]
     },
     "//#deps:check": {
-      "inputs": ["packages/backend/src/**/*.ts", "packages/frontend/src/**/*.{ts,tsx}", ".dependency-cruiser.cjs"],
+      "inputs": ["packages/host/src/**/*.ts", "packages/frontend/src/**/*.{ts,tsx}", ".dependency-cruiser.cjs"],
       "outputs": []
     },
     "//#format:check": {
@@ -18,11 +18,11 @@
       "outputs": []
     },
     "//#lint": {
-      "inputs": ["packages/backend/src/**/*.ts", "packages/frontend/src/**/*.{ts,tsx}", ".oxlintrc.json"],
+      "inputs": ["packages/host/src/**/*.ts", "packages/frontend/src/**/*.{ts,tsx}", ".oxlintrc.json"],
       "outputs": []
     },
     "//#lint:ci": {
-      "inputs": ["packages/backend/src/**/*.ts", "packages/frontend/src/**/*.{ts,tsx}", ".oxlintrc.json"],
+      "inputs": ["packages/host/src/**/*.ts", "packages/frontend/src/**/*.{ts,tsx}", ".oxlintrc.json"],
       "outputs": []
     },
     "//#syncpack:check": {
@@ -34,18 +34,18 @@
       "outputs": []
     },
     "//#test:coverage": {
-      "inputs": ["packages/backend/src/**/*.ts", "packages/frontend/src/**/*.{ts,tsx}", "vitest.config.ts"],
+      "inputs": ["packages/host/src/**/*.ts", "packages/frontend/src/**/*.{ts,tsx}", "vitest.config.ts"],
       "outputs": ["coverage/**"]
     },
     "//#test:coverage:ci": {
-      "inputs": ["packages/backend/src/**/*.ts", "packages/frontend/src/**/*.{ts,tsx}", "vitest.config.ts"],
+      "inputs": ["packages/host/src/**/*.ts", "packages/frontend/src/**/*.{ts,tsx}", "vitest.config.ts"],
       "outputs": ["coverage/**"]
     },
     "//#typecheck": {
       "inputs": [
-        "packages/backend/src/**/*.ts",
+        "packages/host/src/**/*.ts",
         "packages/frontend/src/**/*.{ts,tsx}",
-        "packages/backend/tsconfig.json",
+        "packages/host/tsconfig.json",
         "packages/frontend/tsconfig.json"
       ],
       "outputs": []
