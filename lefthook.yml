@@ -63,8 +63,8 @@ pre-push:
       run: |
         branch=$(git branch --show-current)
         if [ "$branch" = "main" ]; then
-          echo "On main branch, skipping merge check"
-          exit 0
+          echo "Direct push to main is not allowed — open a PR instead."
+          exit 1
         fi
         git fetch origin main
         git merge origin/main --no-edit
@@ -75,13 +75,9 @@ pre-push:
       priority: 3
       run: pnpm test:e2e
 
-# commit-msg:
-#   commands:
-#     # Enforce conventional commits (feat:, fix:, docs:, etc.)
-#     conventional:
-#       run: |
-#         grep -qE "^(feat|fix|docs|style|refactor|test|chore|build|ci|perf|revert)(\(.+\))?: .+" "$1" || {
-#           echo "Commit message must follow Conventional Commits format"
-#           echo "   Examples: feat: add login, fix(auth): resolve token issue"
-#           exit 1
-#         }
+commit-msg:
+  commands:
+    conventional:
+      run: >
+        grep -qE "^(feat|fix|docs|style|refactor|test|chore|build|ci|perf|revert)(\(.+\))?: .+" {1}
+        || { echo "Commit message must follow Conventional Commits: <type>(<scope>): <desc>"; exit 1; }

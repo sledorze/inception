@@ -19,8 +19,8 @@
   ],
   "semverGroups": [
     {
-      "label": "Pin Effect v4 beta to exact version — beta APIs can break between minor bumps",
-      "dependencies": ["effect", "@effect/*"],
+      "label": "Pin nightly/beta dev tools to exact version — nightly builds break between daily drops",
+      "dependencies": ["effect", "@effect/*", "@typescript/native-preview"],
       "packages": ["**"],
       "range": ""
     },
