@@ -1,0 +1,5 @@
+title = "gitleaks config"
+
+[allowlist]
+description = "Vendored source — example/test secrets in external libraries are not real credentials"
+paths = ['''^vendor/''']

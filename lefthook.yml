@@ -10,7 +10,7 @@ pre-commit:
     # Prevent secrets from being committed
     gitleaks:
       glob: '*.{js,cjs,mjs,ts,jsx,tsx,py,json,yaml,yml,env,sh}'
-      run: gitleaks protect --staged --no-banner
+      run: gitleaks protect --staged --no-banner --config .gitleaks.toml
 
     # Lint Dockerfiles
     hadolint:
@@ -40,7 +40,7 @@ ci:
   parallel: true
   commands:
     gitleaks:
-      run: gitleaks detect --no-banner
+      run: gitleaks detect --no-banner --config .gitleaks.toml
 
     hadolint:
       glob: '**/Dockerfile*'
