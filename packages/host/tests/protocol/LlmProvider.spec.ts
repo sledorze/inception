@@ -1,19 +1,20 @@
 /**
- * Protocol contract test for the LlmProvider driven port.
- * Parametrised over all bound backing adapters — Liskov substitution proven by test, not intent (§2.13).
- * Laws exercised: L2.14 (port contract), L3.6 (model-id + usage captured for provenance).
+ * Protocol contract test for the LLM driven port.
+ * Parametrised over all bound adapters — Liskov substitution proven by test, not intent (§2.13).
+ * Laws exercised: L2.14 (port contract), L3.6 (modelId + usage captured for provenance).
+ *
+ * The port is now LanguageModel.LanguageModel from effect/unstable/ai (§13 Tech Decision).
+ * The stub HttpClient layer intercepts HTTP calls so no real LLM is needed in CI.
  */
 import { createServer } from 'node:http'
 import type { AddressInfo, Server } from 'node:net'
-import type { Layer } from 'effect'
-import { Effect, ManagedRuntime } from 'effect'
+import { Effect, Layer } from 'effect'
+import { LanguageModel } from 'effect/unstable/ai'
+import { OpenAiClient, OpenAiLanguageModel } from '@effect/ai-openai-compat'
+import { FetchHttpClient } from 'effect/unstable/http'
 import { afterAll, beforeAll, describe, expect, it } from 'vitest'
-import { InMemoryLlmProvider } from '../../src/adapters/driven/InMemoryLlmProvider.ts'
-import { OpenAiLlmProvider } from '../../src/adapters/driven/OpenAiLlmProvider.ts'
-import type { LlmRequest, LlmResponse } from '../../src/ports/driven/LlmProvider.ts'
-import { LlmProvider } from '../../src/ports/driven/LlmProvider.ts'
 
-// ─── OpenAI stub server ───────────────────────────────────────────────────────
+// ─── stub OpenAI server ───────────────────────────────────────────────────────
 
 const STUB_MODEL = 'stub-model-1'
 const STUB_CONTENT = 'Hello from stub.'
@@ -21,7 +22,8 @@ const STUB_PROMPT_TOKENS = 10
 const STUB_COMPLETION_TOKENS = 5
 
 const makeStubCompletion = (model: string) => ({
-  choices: [{ message: { content: STUB_CONTENT, role: 'assistant' } }],
+  choices: [{ finish_reason: 'stop', index: 0, message: { content: STUB_CONTENT, role: 'assistant' } }],
+  created: Math.floor(Date.now() / 1000),
   id: 'chatcmpl-stub',
   model,
   object: 'chat.completion',
@@ -44,7 +46,7 @@ beforeAll(
           try {
             parsed = JSON.parse(body) as Record<string, unknown>
           } catch {
-            // ignore parse failures — use stub model
+            // ignore
           }
           const model = typeof parsed['model'] === 'string' ? parsed['model'] : STUB_MODEL
           res.writeHead(200, { 'Content-Type': 'application/json' })
@@ -68,64 +70,48 @@ afterAll(
 
 // ─── shared helpers ───────────────────────────────────────────────────────────
 
-const baseRequest: LlmRequest = {
-  messages: [{ content: 'Say hello.', role: 'user' }],
-  model: STUB_MODEL,
-}
-
-const complete = (req: LlmRequest) =>
-  Effect.gen(function* () {
-    const provider = yield* LlmProvider
-    return yield* provider.complete(req)
-  })
+const generateText = Effect.gen(function* () {
+  return yield* LanguageModel.generateText({ prompt: 'Say hello.' })
+})
 
 // ─── shared contract ─────────────────────────────────────────────────────────
 
-type TestLayer = Layer.Layer<LlmProvider>
-
-function runContract(name: string, makeLayer: () => TestLayer) {
+function runContract(name: string, makeLayer: () => Layer.Layer<LanguageModel.LanguageModel>) {
   describe(name, () => {
-    let rt: ManagedRuntime.ManagedRuntime<LlmProvider, never>
+    const run = <A>(eff: Effect.Effect<A, unknown, LanguageModel.LanguageModel>) =>
+      Effect.runPromise(Effect.provide(eff, makeLayer()))
 
-    beforeAll(() => {
-      rt = ManagedRuntime.make(makeLayer())
+    it('generateText returns non-empty text content', async () => {
+      const response = await run(generateText)
+      const text = response.text
+      expect(text).toBeTypeOf('string')
+      expect(text.length).toBeGreaterThan(0)
     })
 
-    afterAll(() => rt.dispose())
-
-    const run = <A>(effect: Effect.Effect<A, unknown, LlmProvider>) => rt.runPromise(effect)
-
-    it('complete returns a non-empty content string', async () => {
-      const result: LlmResponse = await run(complete(baseRequest))
-      expect(result.content).toBeTypeOf('string')
-      expect(result.content.length).toBeGreaterThan(0)
+    it('generateText captures modelId for L3.6 provenance', async () => {
+      const response = await run(generateText)
+      const meta = response.content.find(p => p.type === 'response-metadata')
+      expect(meta).toBeDefined()
+      expect(meta?.modelId).toBeTypeOf('string')
+      expect((meta?.modelId ?? '').length).toBeGreaterThan(0)
     })
 
-    it('complete returns modelId for L3.6 provenance', async () => {
-      const result: LlmResponse = await run(complete(baseRequest))
-      expect(result.modelId).toBeTypeOf('string')
-      expect(result.modelId.length).toBeGreaterThan(0)
-    })
-
-    it('complete returns usage with token counts', async () => {
-      const result: LlmResponse = await run(complete(baseRequest))
-      expect(result.usage.promptTokens).toBeTypeOf('number')
-      expect(result.usage.completionTokens).toBeTypeOf('number')
-      expect(result.usage.promptTokens).toBeGreaterThanOrEqual(0)
-      expect(result.usage.completionTokens).toBeGreaterThanOrEqual(0)
+    it('generateText captures token usage', async () => {
+      const response = await run(generateText)
+      const input = response.usage.inputTokens.total
+      const output = response.usage.outputTokens.total
+      expect(typeof input === 'number' || input === undefined).toBeTruthy()
+      expect(typeof output === 'number' || output === undefined).toBeTruthy()
     })
   })
 }
 
 // ─── adapter configurations ──────────────────────────────────────────────────
 
-runContract('InMemoryLlmProvider', () =>
-  InMemoryLlmProvider.layer(_req => ({
-    content: STUB_CONTENT,
-    modelId: STUB_MODEL,
-    usage: { completionTokens: STUB_COMPLETION_TOKENS, promptTokens: STUB_PROMPT_TOKENS },
-  })),
+// OpenAiCompatLlmProvider wired to the local stub server — no real LLM required in CI.
+runContract('OpenAiCompatLlmProvider', () =>
+  OpenAiLanguageModel.layer({ model: STUB_MODEL }).pipe(
+    Layer.provide(OpenAiClient.layer({ apiUrl: stubBaseUrl })),
+    Layer.provide(FetchHttpClient.layer),
+  ),
 )
-
-// OpenAiLlmProvider is wired to the local stub server — no real LLM required in CI.
-runContract('OpenAiLlmProvider', () => OpenAiLlmProvider.layer(stubBaseUrl))

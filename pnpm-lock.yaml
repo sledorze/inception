@@ -116,6 +116,9 @@ importers:
 
   packages/host:
     dependencies:
+      '@effect/ai-openai-compat':
+        specifier: 4.0.0-beta.66
+        version: 4.0.0-beta.66(effect@4.0.0-beta.66)
       '@modelcontextprotocol/sdk':
         specifier: ^1.29.0
         version: 1.29.0(zod@4.4.3)
@@ -135,6 +138,15 @@ importers:
       '@types/better-sqlite3':
         specifier: ^7.6.13
         version: 7.6.13
+
+  packages/monitor:
+    dependencies:
+      '@app/host':
+        specifier: workspace:*
+        version: link:../host
+      effect:
+        specifier: 4.0.0-beta.66
+        version: 4.0.0-beta.66
 
 packages:
 
@@ -323,6 +335,11 @@ packages:
     engines: {bun: '>=1', deno: '>=2', node: '>=16'}
     peerDependencies:
       '@noble/ciphers': ^1.0.0
+
+  '@effect/ai-openai-compat@4.0.0-beta.66':
+    resolution: {integrity: sha512-1F7wFM3KjEgB6YdfSZJO/cVPgNLObkxvBHxA7Y+3pNQJ28YuC/5s1VlGGVuYAY1dClQBP04kGfDRB8lwjoNO8Q==}
+    peerDependencies:
+      effect: ^4.0.0-beta.66
 
   '@esbuild/aix-ppc64@0.27.3':
     resolution: {integrity: sha512-9fJMTNFTWZMh5qwrBItuziu834eOCUcEqymSH7pY+zoMVEZg3gcPuBNxH1EvfVYe9h0x/Ptw8KBzv7qxb7l8dg==}
@@ -3580,6 +3597,10 @@ snapshots:
   '@ecies/ciphers@0.2.5(@noble/ciphers@1.3.0)':
     dependencies:
       '@noble/ciphers': 1.3.0
+
+  '@effect/ai-openai-compat@4.0.0-beta.66(effect@4.0.0-beta.66)':
+    dependencies:
+      effect: 4.0.0-beta.66
 
   '@esbuild/aix-ppc64@0.27.3':
     optional: true
