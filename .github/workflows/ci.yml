@@ -113,7 +113,7 @@ jobs:
           GITLEAKS_VERSION=8.24.3
           wget -qO- "https://github.com/gitleaks/gitleaks/releases/download/v${GITLEAKS_VERSION}/gitleaks_${GITLEAKS_VERSION}_linux_x64.tar.gz" \
             | sudo tar xz -C /usr/local/bin gitleaks
-      - run: gitleaks detect --no-banner --log-level warn
+      - run: gitleaks detect --no-banner --log-level warn --config .gitleaks.toml
       - name: Install hadolint
         run: |
           HADOLINT_VERSION=2.12.0

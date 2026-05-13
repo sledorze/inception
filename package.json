@@ -12,9 +12,9 @@
     "format": "prettier --write .",
     "format:check": "prettier --check .",
     "format:check:ci": "prettier --check . --log-level warn",
-    "lint": "oxlint . && node --import tsx packages/host/src/checks/check-test-conventions.ts",
-    "lint:ci": "oxlint . --quiet && node --import tsx packages/host/src/checks/check-test-conventions.ts",
-    "lint:fix": "oxlint --fix .",
+    "lint": "oxlint packages/ e2e/ && node --import tsx packages/host/src/checks/check-test-conventions.ts",
+    "lint:ci": "oxlint packages/ e2e/ --quiet && node --import tsx packages/host/src/checks/check-test-conventions.ts",
+    "lint:fix": "oxlint --fix packages/ e2e/",
     "prepare": "test -d .git && lefthook install || echo Skipping lefthook in CI",
     "start": "node --import tsx packages/host/src/main.ts",
     "stryker": "stryker run",
@@ -28,7 +28,7 @@
     "test:coverage:ci": "vitest run --coverage --reporter dot --silent",
     "test:e2e": "playwright test",
     "test:watch": "vitest",
-    "typecheck": "tsc --noEmit -p packages/host/tsconfig.json && tsc --noEmit -p packages/frontend/tsconfig.json"
+    "typecheck": "tsgo --noEmit -p packages/host/tsconfig.json && tsgo --noEmit -p packages/frontend/tsconfig.json"
   },
   "devDependencies": {
     "@playwright/test": "^1.58.2",
@@ -41,6 +41,7 @@
     "@types/node": "^25.3.3",
     "@types/react": "^19.0.0",
     "@types/react-dom": "^19.0.0",
+    "@typescript/native-preview": "7.0.0-dev.20260513.1",
     "@vitejs/plugin-react": "^5.1.4",
     "@vitest/coverage-v8": "^4.0.18",
     "class-variance-authority": "^0.7.1",

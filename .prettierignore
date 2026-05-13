@@ -31,3 +31,6 @@ pnpm-lock.yaml
 
 # Managed directories
 .serena
+
+# Vendored source (read-only reference — do not format)
+vendor
