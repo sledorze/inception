@@ -106,14 +106,46 @@ docs/
   rules/                    Path-scoped operating constraints
 ```
 
+## Effect runtime (`packages/host/`)
+
+All Host code is written with **Effect v4** (`effect@4.0.0-beta.x` — exact-pinned; see `.syncpackrc`).  
+The v4 source is vendored at `vendor/effect-smol/` (read-only reference — do not import from it).
+
+### Canonical patterns (AGENTS.md in `vendor/effect-smol/` has the full list)
+
+| Goal                            | Pattern                                                                                        |
+| ------------------------------- | ---------------------------------------------------------------------------------------------- |
+| Define a port                   | `class Foo extends Context.Service<Foo, { method: ... }>()(id) {}`                             |
+| Define an adapter layer         | `static readonly layer = Layer.effect(this, Effect.gen(function*() { return Foo.of({...}) }))` |
+| Named function returning Effect | `Effect.fn("Module.name")(function*(args) { ... })`                                            |
+| Custom error                    | `class FooError extends Schema.TaggedErrorClass<FooError>()("id", { fields }) {}`              |
+| Access a service                | `yield* ServiceClass` inside `Effect.gen`                                                      |
+| Parse at boundary               | `yield* Schema.decodeUnknownEffect(schema)(rawInput)`                                          |
+
+### Hard rules (never violate)
+
+- **No `async`/`await` or `try`/`catch`** in `packages/host/` — use `Effect.tryPromise`, `Effect.gen`, `Effect.catchTag`.
+- **No `Date.now()` or `new Date()`** — use `Clock.currentTimeMillis` / `Clock.currentTimeNano` (enables `TestClock` in tests).
+- **`Effect.fn("Name.method")`** for all named Effect-returning functions — improves stack traces + attaches a span.
+- **`it.effect`** for all Effect-based tests; import `{ assert, describe, it }` from `@effect/vitest`.
+
+### When you need to understand an Effect API
+
+1. Read `vendor/effect-smol/ai-docs/` — AI-optimised examples by category.
+2. Read `vendor/effect-smol/packages/effect/src/<Module>.ts` — canonical source.
+3. Read `vendor/effect-smol/MIGRATION.md` — v3 → v4 API mapping table.
+4. Read `vendor/effect-smol/AGENTS.md` — coding-agent conventions for this repo.
+
+Do **not** rely on web search or your training-data knowledge of Effect v3 APIs — the v4 API changed.
+
 ## Toolchain (inherited from template)
 
 - **pnpm workspaces** + **Turborepo** (incremental, cached).
 - **oxlint (strict)** — all severities = error. Disabled rules + rationale documented in `.oxlintrc.json`.
 - **lefthook** — pre-commit (gitleaks, hadolint, oxlint, prettier, syncpack), pre-push (merge origin/main → typecheck + tests).
-- **Vitest** — `*.unit.test.ts`, `*.integration.test.ts` for backend; `*.test.tsx` for frontend.
+- **Vitest** + **`@effect/vitest`** — `*.unit.test.ts`, `*.integration.test.ts` for host; `*.test.tsx` for frontend.
 - **Stryker** — mutation testing. **Also runs on `packages/host/tests/laws/`** to ratchet law-test quality (§11).
-- **dependency-cruiser** — enforces L2.14 port/adapter boundary.
+- **dependency-cruiser** — deny-by-default; enforces L2.14 hex boundaries (see `.dependency-cruiser.cjs`).
 - **Claude Code hooks** — `block-no-verify.sh` (refuses `--no-verify`), `session-context.sh` (injects date/branch/status at every session start), `oxlint-autofix.sh` (auto-fixes safe cosmetic violations after every edit).
 
 ## Working Practices
@@ -171,6 +203,7 @@ Mutation report runs nightly (`mutation-report.yml`), not on PRs.
 - "What format should this artifact take?" → §14 (Per-domain artifact standards).
 - "What would an expert say?" → `docs/EXPERTS.md`.
 - "Should I build this or use a library?" → AL.7 + §2.8. Default to adopt/integrate.
+- "How does this Effect API work?" → `vendor/effect-smol/ai-docs/` → `vendor/effect-smol/packages/effect/src/`. Never guess from v3 memory.
 
 ## Feedback
 

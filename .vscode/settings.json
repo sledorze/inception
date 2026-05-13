@@ -3,7 +3,8 @@
     "**/.git": true,
     "**/.stryker-tmp": true,
     "**/dist": true,
-    "**/node_modules": true
+    "**/node_modules": true,
+    "vendor/**": true
   },
   "files.watcherExclude": {
     "**/.git/objects/**": true,
@@ -14,13 +15,15 @@
     "**/coverage/**": true,
     "**/dist/**": true,
     "**/node_modules/**": true,
-    "**/reports/**": true
+    "**/reports/**": true,
+    "vendor/**": true
   },
   "search.exclude": {
     "**/.stryker-tmp": true,
     "**/coverage": true,
     "**/dist": true,
     "**/node_modules": true,
-    "**/reports": true
+    "**/reports": true,
+    "vendor/**": true
   }
 }
