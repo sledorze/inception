@@ -8,12 +8,11 @@ export default defineConfig({
     baseURL: 'http://localhost:3100',
     trace: 'on-first-retry',
   },
+  webServer: {
+    command: 'pnpm build:frontend && PORT=3100 node --import tsx packages/host/src/main.ts',
+    reuseExistingServer: !process.env['CI'],
+    timeout: 30_000,
+    url: 'http://localhost:3100/health',
+  },
   workers: 1,
-  // Uncomment once you have a server to start:
-  // webServer: {
-  //   command: 'pnpm build:frontend && PORT=3100 node --import tsx packages/host/src/main.ts',
-  //   url: 'http://localhost:3100/health',
-  //   reuseExistingServer: false,
-  //   timeout: 15000,
-  // },
 })
