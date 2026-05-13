@@ -1,0 +1,55 @@
+import { randomUUID } from 'node:crypto'
+import { Effect, Layer, Ref } from 'effect'
+import { computeContentHash, EventStore } from '../../ports/driven/EventStore.ts'
+import type { NewEvent, StoredEvent } from '../../ports/driven/EventStore.ts'
+
+export const InMemoryEventStore = {
+  layer: Layer.effect(
+    EventStore,
+    Effect.gen(function* () {
+      const store = yield* Ref.make<readonly StoredEvent[]>([])
+
+      return EventStore.of({
+        append: (event: NewEvent) =>
+          Effect.gen(function* () {
+            const events = yield* Ref.get(store)
+            const contentHash = computeContentHash(event)
+            const sessionEvents = events.filter(e => e.sessionId === event.sessionId)
+            const prevHash = sessionEvents.length > 0 ? (sessionEvents.at(-1)?.contentHash ?? 'genesis') : 'genesis'
+            const id = randomUUID()
+            const stored: StoredEvent = { ...event, contentHash, id, prevHash }
+            yield* Ref.update(store, es => [...es, stored])
+            return stored
+          }),
+
+        query: filter =>
+          Effect.gen(function* () {
+            const events = yield* Ref.get(store)
+            let result = [...events]
+            if (filter.storyRef !== undefined) {
+              result = result.filter(e => e.storyRef === filter.storyRef)
+            }
+            if (filter.sessionId !== undefined) {
+              result = result.filter(e => e.sessionId === filter.sessionId)
+            }
+            if (filter.limit !== undefined) {
+              result = result.slice(0, filter.limit)
+            }
+            return result
+          }),
+
+        replay: (fromId, onEvent) =>
+          Effect.gen(function* () {
+            const events = yield* Ref.get(store)
+            const startIdx = events.findIndex(e => e.id === fromId)
+            if (startIdx === -1) {
+              return
+            }
+            for (const event of events.slice(startIdx)) {
+              yield* onEvent(event)
+            }
+          }),
+      })
+    }),
+  ),
+}
