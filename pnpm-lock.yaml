@@ -135,6 +135,9 @@ importers:
         specifier: ^4.4.3
         version: 4.4.3
     devDependencies:
+      '@effect/vitest':
+        specifier: 4.0.0-beta.66
+        version: 4.0.0-beta.66(effect@4.0.0-beta.66)(vitest@4.0.18(@types/node@25.5.0)(happy-dom@20.8.4)(jiti@2.6.1)(lightningcss@1.31.1)(msw@2.12.13(@types/node@25.5.0)(typescript@5.9.3))(tsx@4.21.0)(yaml@2.9.0))
       '@types/better-sqlite3':
         specifier: ^7.6.13
         version: 7.6.13
@@ -340,6 +343,12 @@ packages:
     resolution: {integrity: sha512-1F7wFM3KjEgB6YdfSZJO/cVPgNLObkxvBHxA7Y+3pNQJ28YuC/5s1VlGGVuYAY1dClQBP04kGfDRB8lwjoNO8Q==}
     peerDependencies:
       effect: ^4.0.0-beta.66
+
+  '@effect/vitest@4.0.0-beta.66':
+    resolution: {integrity: sha512-UHPNtU0xXkKtNgyRQEh2c8jh4nIIm8Mzp3xc4j2ZdFU4nq5ZSySnpovjPMdoWbVClg1ki8UbpNGEZUfxEJo+6Q==}
+    peerDependencies:
+      effect: ^4.0.0-beta.66
+      vitest: ^3.0.0 || ^4.0.0
 
   '@esbuild/aix-ppc64@0.27.3':
     resolution: {integrity: sha512-9fJMTNFTWZMh5qwrBItuziu834eOCUcEqymSH7pY+zoMVEZg3gcPuBNxH1EvfVYe9h0x/Ptw8KBzv7qxb7l8dg==}
@@ -3601,6 +3610,11 @@ snapshots:
   '@effect/ai-openai-compat@4.0.0-beta.66(effect@4.0.0-beta.66)':
     dependencies:
       effect: 4.0.0-beta.66
+
+  '@effect/vitest@4.0.0-beta.66(effect@4.0.0-beta.66)(vitest@4.0.18(@types/node@25.5.0)(happy-dom@20.8.4)(jiti@2.6.1)(lightningcss@1.31.1)(msw@2.12.13(@types/node@25.5.0)(typescript@5.9.3))(tsx@4.21.0)(yaml@2.9.0))':
+    dependencies:
+      effect: 4.0.0-beta.66
+      vitest: 4.0.18(@types/node@25.5.0)(happy-dom@20.8.4)(jiti@2.6.1)(lightningcss@1.31.1)(msw@2.12.13(@types/node@25.5.0)(typescript@5.9.3))(tsx@4.21.0)(yaml@2.9.0)
 
   '@esbuild/aix-ppc64@0.27.3':
     optional: true

@@ -20,7 +20,7 @@ import { execFile } from 'node:child_process'
 import { mkdtemp, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
-import { Effect, Layer } from 'effect'
+import { Clock, Effect, Layer } from 'effect'
 import { SandboxError, SandboxExecutor } from '../../ports/driven/SandboxExecutor.ts'
 import type { SandboxConstraints, SandboxResult } from '../../ports/driven/SandboxExecutor.ts'
 
@@ -30,7 +30,7 @@ interface ProcessOutput {
   readonly stderr: string
 }
 
-const runInProcess = (script: string, constraints: SandboxConstraints): Promise<ProcessOutput> =>
+const runInProcess = (script: string, constraints: SandboxConstraints, sandboxTime: number): Promise<ProcessOutput> =>
   new Promise((resolve, reject) => {
     mkdtemp(join(tmpdir(), 'sandbox-'))
       .then(dir => {
@@ -46,7 +46,7 @@ const runInProcess = (script: string, constraints: SandboxConstraints): Promise<
             env: {
               ...process.env,
               SANDBOX_SEED: '0',
-              SANDBOX_TIME: String(Date.now()),
+              SANDBOX_TIME: String(sandboxTime),
             },
             timeout: constraints.wallMs,
           },
@@ -72,14 +72,17 @@ const runInProcess = (script: string, constraints: SandboxConstraints): Promise<
 const hashString = (s: string) => createHash('sha256').update(s).digest('hex')
 
 const execute = (script: string, constraints: SandboxConstraints): Effect.Effect<SandboxResult, SandboxError> =>
-  Effect.tryPromise({
-    catch: cause => new SandboxError({ cause }),
-    try: () =>
-      runInProcess(script, constraints).then(({ exitCode, stdout, stderr }) => ({
-        exitCode,
-        stderrHash: hashString(stderr),
-        stdoutHash: hashString(stdout),
-      })),
+  Effect.gen(function* () {
+    const sandboxTime = yield* Clock.currentTimeMillis
+    return yield* Effect.tryPromise({
+      catch: cause => new SandboxError({ cause }),
+      try: () =>
+        runInProcess(script, constraints, sandboxTime).then(({ exitCode, stdout, stderr }) => ({
+          exitCode,
+          stderrHash: hashString(stderr),
+          stdoutHash: hashString(stdout),
+        })),
+    })
   })
 
 export const OsProcessSandboxExecutor = {

@@ -21,6 +21,34 @@
       "rules": {
         "import/no-nodejs-modules": "off"
       }
+    },
+    {
+      "files": ["**/packages/host/src/**/*.ts"],
+      "rules": {
+        "no-restricted-syntax": [
+          "error",
+          {
+            "message": "Use Clock.currentTimeMillis from 'effect' instead of Date.now() — enables TestClock in tests.",
+            "selector": "CallExpression[callee.type='MemberExpression'][callee.object.name='Date'][callee.property.name='now']"
+          },
+          {
+            "message": "Use Clock.currentTimeMillis from 'effect' instead of new Date() — enables TestClock in tests.",
+            "selector": "NewExpression[callee.name='Date'][arguments.length=0]"
+          }
+        ]
+      }
+    },
+    {
+      "files": ["**/packages/host/tests/**/*.ts"],
+      "rules": {
+        "no-restricted-syntax": [
+          "error",
+          {
+            "message": "Use it.effect from '@effect/vitest' instead of Effect.runPromise in tests. Import { it } from '@effect/vitest'.",
+            "selector": "CallExpression[callee.type='MemberExpression'][callee.object.name='Effect'][callee.property.name='runPromise']"
+          }
+        ]
+      }
     }
   ],
   "plugins": ["unicorn", "typescript", "oxc", "vitest", "import", "react", "react-perf"],

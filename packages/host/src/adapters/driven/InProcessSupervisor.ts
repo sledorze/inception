@@ -9,7 +9,7 @@
  * R2 — uncorroborated-event ratio per session > 5 % (bootstrap=true).
  * R5 — any SandboxEscapeAttempt event (threshold: > 0, continuous).
  */
-import { Effect, Layer } from 'effect'
+import { Clock, Effect, Layer } from 'effect'
 import { EventStore } from '../../ports/driven/EventStore.ts'
 import { Supervisor, SupervisorError } from '../../ports/driven/Supervisor.ts'
 import type { SignalResult } from '../../ports/driven/Supervisor.ts'
@@ -80,7 +80,7 @@ export const InProcessSupervisor = {
                   actor: 'supervisor',
                   correlationId: `supervisor-${result.riskId}-${sessionId}`,
                   kind: 'SupervisorTrip',
-                  occurredAt: new Date().toISOString(),
+                  occurredAt: new Date(yield* Clock.currentTimeMillis).toISOString(),
                   payload: {
                     currentValue: result.currentValue,
                     riskId: result.riskId,

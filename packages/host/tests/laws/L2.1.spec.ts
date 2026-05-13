@@ -5,13 +5,13 @@
  * If-absent failure mode: Georges cannot discover what he can do — he either hallucinates
  * tool names and gets runtime errors, or the host silently accepts calls to non-existent tools.
  *
- * This test verifies:
+ * Tests:
  *  1. list-tools handler returns descriptors filtered by role.
- *  2. Each descriptor has name, description, inputSchema.
+ *  2. Each descriptor has name, description, and inputSchema.
  *  3. A ToolResultObserved corroborator event is emitted (L1.8 wiring).
  */
-import { Effect, Option, Stream } from 'effect'
-import { describe, expect, it } from 'vitest'
+import { Effect, Layer, Option, Stream } from 'effect'
+import { expect, layer } from '@effect/vitest'
 import { InMemoryEventStore } from '../../src/adapters/driven/InMemoryEventStore.ts'
 import { InMemoryToolRegistry } from '../../src/adapters/driven/InMemoryToolRegistry.ts'
 import type { ToolEntry } from '../../src/adapters/driven/InMemoryToolRegistry.ts'
@@ -34,7 +34,15 @@ const TOOLS: readonly ToolEntry[] = [
   },
 ]
 
-const run = <A>(eff: Effect.Effect<A, unknown, never>) => Effect.runPromise(eff)
+// Single instances — memoized by Effect so GeorgesToolkitLive and tests share the same store.
+const storeLayer = InMemoryEventStore.layer
+const registryLayer = InMemoryToolRegistry.layer(TOOLS)
+
+// toolkitLayer satisfies GeorgesToolkitLive's requirements internally.
+const toolkitLayer = GeorgesToolkitLive.pipe(Layer.provide(storeLayer), Layer.provide(registryLayer))
+
+// Merge so tests can yield* GeorgesToolkit AND yield* EventStore (same store instance).
+const testLayer = Layer.mergeAll(toolkitLayer, storeLayer)
 
 const callListTools = (role: string) =>
   Effect.gen(function* () {
@@ -42,56 +50,54 @@ const callListTools = (role: string) =>
     const stream = yield* toolkit.handle('list-tools', { role })
     const last = yield* Stream.runLast(stream)
     return Option.getOrThrow(last)
-  }).pipe(
-    Effect.provide(GeorgesToolkitLive),
-    Effect.provide(InMemoryToolRegistry.layer(TOOLS)),
-    Effect.provide(InMemoryEventStore.layer),
+  })
+
+layer(testLayer)('L2.1 — Self-Description', it => {
+  it.effect('list-tools returns an array of ToolDescriptors', () =>
+    Effect.gen(function* () {
+      const handlerResult = yield* callListTools('Implementer')
+      expect(handlerResult.isFailure).toBeFalsy()
+      expect(Array.isArray(handlerResult.result)).toBeTruthy()
+    }),
   )
 
-describe('L2.1 — Self-Description', () => {
-  it('list-tools returns an array of ToolDescriptors', async () => {
-    const handlerResult = await run(callListTools('Implementer'))
-    expect(handlerResult.isFailure).toBeFalsy()
-    expect(Array.isArray(handlerResult.result)).toBeTruthy()
-  })
+  it.effect('each descriptor has name, description, and inputSchema', () =>
+    Effect.gen(function* () {
+      const handlerResult = yield* callListTools('Implementer')
+      const descriptors = handlerResult.result as { description: string; inputSchema: unknown; name: string }[]
+      expect(descriptors.length).toBeGreaterThan(0)
+      for (const d of descriptors) {
+        expect(d.name).toBeTypeOf('string')
+        expect(d.description).toBeTypeOf('string')
+        expect(d.inputSchema).toBeDefined()
+      }
+    }),
+  )
 
-  it('each descriptor has name, description, and inputSchema', async () => {
-    const handlerResult = await run(callListTools('Implementer'))
-    const descriptors = handlerResult.result as { name: string; description: string; inputSchema: unknown }[]
-    expect(descriptors.length).toBeGreaterThan(0)
-    for (const d of descriptors) {
-      expect(d.name).toBeTypeOf('string')
-      expect(d.description).toBeTypeOf('string')
-      expect(d.inputSchema).toBeDefined()
-    }
-  })
+  it.effect('list-tools result is role-scoped: Implementer sees run-script', () =>
+    Effect.gen(function* () {
+      const handlerResult = yield* callListTools('Implementer')
+      const names = (handlerResult.result as { name: string }[]).map(d => d.name)
+      expect(names).toContain('run-script')
+    }),
+  )
 
-  it('list-tools result is role-scoped: Implementer sees run-script', async () => {
-    const handlerResult = await run(callListTools('Implementer'))
-    const names = (handlerResult.result as { name: string }[]).map(d => d.name)
-    expect(names).toContain('run-script')
-  })
+  it.effect('list-tools result is role-scoped: Reviewer does not see run-script', () =>
+    Effect.gen(function* () {
+      const handlerResult = yield* callListTools('Reviewer')
+      const names = (handlerResult.result as { name: string }[]).map(d => d.name)
+      expect(names).not.toContain('run-script')
+    }),
+  )
 
-  it('list-tools result is role-scoped: Reviewer does not see run-script', async () => {
-    const handlerResult = await run(callListTools('Reviewer'))
-    const names = (handlerResult.result as { name: string }[]).map(d => d.name)
-    expect(names).not.toContain('run-script')
-  })
-
-  it('list-tools emits a ToolResultObserved corroborator event (L1.8 wiring)', async () => {
-    const events = await run(
-      Effect.gen(function* () {
-        const toolkit = yield* GeorgesToolkit
-        const stream = yield* toolkit.handle('list-tools', { role: 'Implementer' })
-        yield* Stream.runDrain(stream)
-        const store = yield* EventStore
-        return yield* store.query({ sessionId: 'bootstrap' })
-      }).pipe(
-        Effect.provide(GeorgesToolkitLive),
-        Effect.provide(InMemoryToolRegistry.layer(TOOLS)),
-        Effect.provide(InMemoryEventStore.layer),
-      ),
-    )
-    expect(events.some(e => e.kind === 'ToolResultObserved' && e.actor === 'host')).toBeTruthy()
-  })
+  it.effect('list-tools emits a ToolResultObserved corroborator event (L1.8 wiring)', () =>
+    Effect.gen(function* () {
+      const toolkit = yield* GeorgesToolkit
+      const stream = yield* toolkit.handle('list-tools', { role: 'Implementer' })
+      yield* Stream.runDrain(stream)
+      const store = yield* EventStore
+      const events = yield* store.query({ sessionId: 'bootstrap' })
+      expect(events.some(e => e.kind === 'ToolResultObserved' && e.actor === 'host')).toBeTruthy()
+    }),
+  )
 })

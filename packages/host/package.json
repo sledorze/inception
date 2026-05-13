@@ -17,6 +17,7 @@
     "zod": "^4.4.3"
   },
   "devDependencies": {
+    "@effect/vitest": "4.0.0-beta.66",
     "@types/better-sqlite3": "^7.6.13"
   }
 }

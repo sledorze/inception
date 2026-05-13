@@ -6,7 +6,7 @@
  * must pass a `correlationId` that will be paired with a Host corroborator event
  * by the inner-MCP (Phase 2) to satisfy L1.8.
  */
-import { Effect } from 'effect'
+import { Clock, Effect } from 'effect'
 import { EventStore } from '../ports/driven/EventStore.ts'
 import type { EventStoreError } from '../ports/driven/EventStore.ts'
 import { RoleRegistry } from '../ports/driven/RoleRegistry.ts'
@@ -32,7 +32,7 @@ export const switchRole = (
       actor: 'host',
       correlationId: ctx.correlationId,
       kind: 'RoleSwitched',
-      occurredAt: new Date().toISOString(),
+      occurredAt: new Date(yield* Clock.currentTimeMillis).toISOString(),
       payload: {
         from: fromRole,
         roleVersionHash: next.version,

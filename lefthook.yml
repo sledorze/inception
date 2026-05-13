@@ -34,6 +34,12 @@ pre-commit:
       glob: '**/package.json'
       run: pnpm syncpack:check
 
+    # Effect coding-pattern guardrails (oxlint lacks no-restricted-syntax)
+    # Catches: Date.now()/new Date() in src → use Clock; Effect.runPromise in tests → use it.effect
+    effect-patterns:
+      glob: 'packages/host/**/*.ts'
+      run: .claude/hooks/check-effect-patterns.sh
+
 # CI lint group — check-only versions of pre-commit hooks (no auto-fix)
 # Usage: lefthook run ci
 ci:
