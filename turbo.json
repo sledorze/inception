@@ -1,0 +1,54 @@
+{
+  "$schema": "https://turbo.build/schema.json",
+  "tasks": {
+    "//#build:frontend": {
+      "inputs": ["packages/frontend/**"],
+      "outputs": ["dist/**"]
+    },
+    "//#deps:check": {
+      "inputs": ["packages/backend/src/**/*.ts", "packages/frontend/src/**/*.{ts,tsx}", ".dependency-cruiser.cjs"],
+      "outputs": []
+    },
+    "//#format:check": {
+      "inputs": ["**/*.{ts,tsx,json,md,yml,yaml,css,html}", ".prettierrc*", ".prettierignore"],
+      "outputs": []
+    },
+    "//#format:check:ci": {
+      "inputs": ["**/*.{ts,tsx,json,md,yml,yaml,css,html}", ".prettierrc*", ".prettierignore"],
+      "outputs": []
+    },
+    "//#lint": {
+      "inputs": ["packages/backend/src/**/*.ts", "packages/frontend/src/**/*.{ts,tsx}", ".oxlintrc.json"],
+      "outputs": []
+    },
+    "//#lint:ci": {
+      "inputs": ["packages/backend/src/**/*.ts", "packages/frontend/src/**/*.{ts,tsx}", ".oxlintrc.json"],
+      "outputs": []
+    },
+    "//#syncpack:check": {
+      "inputs": ["package.json", "packages/*/package.json", ".syncpackrc"],
+      "outputs": []
+    },
+    "//#syncpack:check:ci": {
+      "inputs": ["package.json", "packages/*/package.json", ".syncpackrc"],
+      "outputs": []
+    },
+    "//#test:coverage": {
+      "inputs": ["packages/backend/src/**/*.ts", "packages/frontend/src/**/*.{ts,tsx}", "vitest.config.ts"],
+      "outputs": ["coverage/**"]
+    },
+    "//#test:coverage:ci": {
+      "inputs": ["packages/backend/src/**/*.ts", "packages/frontend/src/**/*.{ts,tsx}", "vitest.config.ts"],
+      "outputs": ["coverage/**"]
+    },
+    "//#typecheck": {
+      "inputs": [
+        "packages/backend/src/**/*.ts",
+        "packages/frontend/src/**/*.{ts,tsx}",
+        "packages/backend/tsconfig.json",
+        "packages/frontend/tsconfig.json"
+      ],
+      "outputs": []
+    }
+  }
+}

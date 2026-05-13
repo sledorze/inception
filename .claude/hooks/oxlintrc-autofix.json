@@ -1,0 +1,23 @@
+{
+  "$schema": "https://cdn.jsdelivr.net/npm/oxlint/configuration_schema.json",
+  "categories": {
+    "correctness": "off",
+    "nursery": "off",
+    "pedantic": "off",
+    "perf": "off",
+    "restriction": "off",
+    "style": "off",
+    "suspicious": "off"
+  },
+  "plugins": ["typescript"],
+  "rules": {
+    "curly": "error",
+    "eqeqeq": "error",
+    "no-unneeded-ternary": "error",
+    "no-useless-rename": "error",
+    "prefer-template": "error",
+    "typescript/consistent-type-exports": "error",
+    "typescript/consistent-type-imports": "error",
+    "typescript/no-useless-empty-export": "error"
+  }
+}

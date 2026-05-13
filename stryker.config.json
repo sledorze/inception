@@ -1,0 +1,28 @@
+{
+  "$schema": "./node_modules/@stryker-mutator/core/schema/stryker-schema.json",
+  "coverageAnalysis": "perTest",
+  "ignoreStatic": true,
+  "incremental": true,
+  "incrementalFile": "reports/stryker-incremental.json",
+  "mutate": [
+    "packages/backend/src/**/*.ts",
+    "!packages/backend/src/**/*.test.ts",
+    "!packages/backend/src/**/*.unit.test.ts",
+    "!packages/backend/src/**/*.integration.test.ts",
+    "!packages/backend/src/**/*.spec.ts",
+    "!packages/backend/src/**/*.d.ts",
+    "!packages/backend/src/main.ts"
+  ],
+  "packageManager": "pnpm",
+  "plugins": ["@stryker-mutator/vitest-runner"],
+  "reporters": ["html", "clear-text", "progress"],
+  "testRunner": "vitest",
+  "thresholds": {
+    "break": 60,
+    "high": 80,
+    "low": 70
+  },
+  "vitest": {
+    "configFile": "vitest.stryker-backend.config.ts"
+  }
+}

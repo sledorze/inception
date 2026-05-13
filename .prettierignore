@@ -1,0 +1,33 @@
+# Build artifacts
+build
+dist
+coverage
+.turbo
+
+# Binary & media files
+*.png
+*.jpg
+*.ico
+*.svg
+*.wasm
+*.zip
+*.gz
+
+# Config files that shouldn't be reformatted
+.prettierignore
+.gitignore
+.dockerignore
+Dockerfile
+
+# Shell scripts (use shellcheck instead)
+*.sh
+
+# Data files
+*.db
+*.sql
+
+# Lock files
+pnpm-lock.yaml
+
+# Managed directories
+.serena

@@ -1,0 +1,58 @@
+name: Mutation Report
+
+on:
+  schedule:
+    - cron: '0 6 * * *'
+  workflow_dispatch: {}
+
+concurrency:
+  group: mutation-report
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  mutation-backend:
+    name: stryker (backend)
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile --reporter append-only
+      - name: Run Stryker (backend)
+        continue-on-error: true
+        run: npx stryker run --logLevel warn --reporters progress,html,json --force
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: stryker-backend-report
+          path: reports/mutation/
+          retention-days: 30
+
+  mutation-frontend:
+    name: stryker (frontend)
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile --reporter append-only
+      - name: Run Stryker (frontend)
+        continue-on-error: true
+        run: npx stryker run stryker.frontend.config.json --logLevel warn --reporters progress,html,json --force
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: stryker-frontend-report
+          path: reports/mutation/
+          retention-days: 30

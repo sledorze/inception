@@ -1,0 +1,45 @@
+# OS
+.DS_Store
+Thumbs.db
+
+# IDE
+.idea/
+*.swp
+*.swo
+
+# Node
+node_modules/
+npm-debug.log*
+
+# Environment (API keys should come from env vars, not files)
+.env
+.env.local
+
+# Data (SQLite databases)
+data/
+*.db
+
+# Reference repositories (clone as needed)
+.repos/
+
+# Build output
+dist/
+
+# Generated reports
+reports/
+coverage/
+test-results/
+
+# Stryker sandbox (mutation testing temp files — keeps oxlint from scanning mutated code)
+.stryker-tmp/
+
+# Turborepo cache
+.turbo
+
+# Claude Code local settings
+.claude/settings.local.json
+.claude/logs/
+
+# Lalph (agent orchestrator — if used)
+.lalph/
+.specs/

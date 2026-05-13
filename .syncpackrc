@@ -1,0 +1,35 @@
+{
+  "$schema": "https://unpkg.com/syncpack@14/dist/schema.json",
+  "source": ["package.json", "packages/*/package.json"],
+  "sortFirst": [
+    "name",
+    "version",
+    "private",
+    "type",
+    "description",
+    "repository",
+    "author",
+    "license",
+    "packageManager",
+    "engines",
+    "scripts",
+    "dependencies",
+    "devDependencies",
+    "peerDependencies"
+  ],
+  "semverGroups": [
+    {
+      "label": "Use caret ranges for all dependencies",
+      "packages": ["**"],
+      "dependencies": ["**"],
+      "range": "^"
+    }
+  ],
+  "versionGroups": [
+    {
+      "label": "Ignore workspace protocol",
+      "dependencies": ["$LOCAL"],
+      "isIgnored": true
+    }
+  ]
+}

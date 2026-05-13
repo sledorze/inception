@@ -1,0 +1,87 @@
+# Lefthook - Git hooks manager
+# https://github.com/evilmartians/lefthook
+#
+# Install: lefthook install (runs automatically via pnpm prepare)
+# Skip once: git commit --no-verify (use sparingly!)
+
+pre-commit:
+  parallel: true
+  commands:
+    # Prevent secrets from being committed
+    gitleaks:
+      glob: '*.{js,cjs,mjs,ts,jsx,tsx,py,json,yaml,yml,env,sh}'
+      run: gitleaks protect --staged --no-banner
+
+    # Lint Dockerfiles
+    hadolint:
+      glob: '**/Dockerfile*'
+      run: hadolint {staged_files}
+
+    # Lint and auto-fix JavaScript/TypeScript with oxlint
+    oxlint:
+      glob: '*.{js,cjs,mjs,ts,jsx,tsx}'
+      run: pnpm oxlint --fix {staged_files} && git add {staged_files}
+      stage_fixed: true
+
+    # Format and auto-fix with Prettier
+    prettier:
+      glob: '*.{js,cjs,mjs,ts,jsx,tsx,json,md,yml,yaml,html,css}'
+      run: pnpm prettier --write {staged_files} && git add {staged_files}
+      stage_fixed: true
+
+    # Dependency version consistency
+    syncpack:
+      glob: '**/package.json'
+      run: pnpm syncpack:check
+
+# CI lint group — check-only versions of pre-commit hooks (no auto-fix)
+# Usage: lefthook run ci
+ci:
+  parallel: true
+  commands:
+    gitleaks:
+      run: gitleaks detect --no-banner
+
+    hadolint:
+      glob: '**/Dockerfile*'
+      run: hadolint {all_files}
+
+    oxlint:
+      run: pnpm lint
+
+    prettier:
+      run: pnpm format:check
+
+    syncpack:
+      run: pnpm syncpack:check
+
+pre-push:
+  piped: true
+  commands:
+    merge-main:
+      priority: 1
+      run: |
+        branch=$(git branch --show-current)
+        if [ "$branch" = "main" ]; then
+          echo "On main branch, skipping merge check"
+          exit 0
+        fi
+        git fetch origin main
+        git merge origin/main --no-edit
+    checks:
+      priority: 2
+      run: pnpm turbo run deps:check typecheck test:coverage:ci --output-logs errors-only
+    e2e:
+      priority: 3
+      run: pnpm test:e2e
+
+# commit-msg:
+#   commands:
+#     # Enforce conventional commits (feat:, fix:, docs:, etc.)
+#     conventional:
+#       run: |
+#         grep -qE "^(feat|fix|docs|style|refactor|test|chore|build|ci|perf|revert)(\(.+\))?: .+" "$1" || {
+#           echo "Commit message must follow Conventional Commits format"
+#           echo "   Examples: feat: add login, fix(auth): resolve token issue"
+#           exit 1
+#         }

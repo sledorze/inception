@@ -1,0 +1,24 @@
+{
+  "mcpServers": {
+    "serena": {
+      "args": ["start-mcp-server", "--context", "ide-assistant", "--enable-web-dashboard", "False"],
+      "command": "serena",
+      "type": "stdio"
+    },
+    "shadcn": {
+      "args": ["-y", "shadcn@latest", "mcp"],
+      "command": "npx",
+      "type": "stdio"
+    },
+    "ts-refactor": {
+      "args": ["-y", "mcp-refactor-typescript@latest"],
+      "command": "npx",
+      "type": "stdio"
+    },
+    "xray": {
+      "args": [],
+      "command": "xray-mcp",
+      "type": "stdio"
+    }
+  }
+}

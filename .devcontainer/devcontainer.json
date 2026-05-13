@@ -1,0 +1,129 @@
+{
+  // Custom Dockerfile with all tools pre-installed
+  "build": {
+    "dockerfile": "Dockerfile"
+  },
+
+  // VS Code customizations
+  "customizations": {
+    "vscode": {
+      "extensions": [
+        // ============================================
+        // AI & CODING ASSISTANCE
+        // ============================================
+        "anthropic.claude-code", // Claude Code integration
+
+        // ============================================
+        // GIT & GITHUB
+        // ============================================
+        "eamodio.gitlens", // Git supercharged
+        "waderyan.gitblame", // Inline git blame
+        "GitHub.vscode-pull-request-github", // GitHub PRs in VS Code
+        "github.vscode-github-actions", // GitHub Actions workflows
+
+        // ============================================
+        // CODE QUALITY
+        // ============================================
+        "esbenp.prettier-vscode", // Code formatting
+        "streetsidesoftware.code-spell-checker", // Spell checking
+        "exiasr.hadolint", // Dockerfile linting
+        "timonwong.shellcheck", // Shell script linting
+
+        // ============================================
+        // JAVASCRIPT/TYPESCRIPT
+        // ============================================
+        "christian-kohler.path-intellisense", // Path autocomplete
+        "steoates.autoimport", // Auto-import suggestions
+        "fill-labs.dependi", // Show dependency versions
+        "bradlc.vscode-tailwindcss", // Tailwind CSS IntelliSense
+
+        // ============================================
+        // TESTING
+        // ============================================
+        "ms-playwright.playwright", // Playwright test runner
+
+        // ============================================
+        // MARKDOWN & DOCS
+        // ============================================
+        "yzhang.markdown-all-in-one", // Markdown editing (TOC, preview, etc.)
+        "bierner.markdown-mermaid", // Mermaid diagrams in markdown
+
+        // ============================================
+        // PRODUCTIVITY
+        // ============================================
+        "natqe.reload", // Reload window command
+        "wayou.vscode-todo-highlight", // Highlight TODO/FIXME
+
+        // ============================================
+        // DOCKER
+        // ============================================
+        "ms-azuretools.vscode-docker" // Docker support
+
+        // ============================================
+        // OPTIONAL - Uncomment as needed
+        // ============================================
+        // "pomdtr.excalidraw-editor",         // Excalidraw diagrams
+        // "ast-grep.ast-grep-vscode",         // AST-based code search
+        // "devcycles.contextive",             // Domain glossary
+        // "linear.linear-open-issue"          // Linear issue tracker
+      ],
+      "settings": {
+        "terminal.integrated.defaultProfile.linux": "zsh"
+      }
+    }
+  },
+
+  // ============================================
+  // OPTIONAL FEATURES - Uncomment as needed
+  // ============================================
+
+  // Desktop GUI (VNC): For E2E testing with visible browser
+  // "features": {
+  //   "ghcr.io/devcontainers/features/desktop-lite:1": {
+  //     "password": "vscode",
+  //     "vncPort": "5901",
+  //     "webPort": "6080"
+  //   }
+  // },
+  // "forwardPorts": [6080],
+  // "portsAttributes": {
+  //   "6080": {
+  //     "label": "Desktop GUI (noVNC)",
+  //     "onAutoForward": "openBrowser"
+  //   }
+  // },
+  // "remoteEnv": {
+  //   "DISPLAY": ":1"
+  // }
+
+  // Multi-instance: Clone to different dirs and edit PORT_OFFSET + runArgs ports
+  // "runArgs": ["-p=6180:6080", "-p=6001:5901", "-p=3100:3000"]
+
+  // Features to add to the dev container
+  "features": {
+    "ghcr.io/devcontainers/features/docker-in-docker:2": {}
+  },
+
+  "name": "Claude Code Dev Environment",
+
+  // Check GitHub auth on attach. `gh auth login` cannot run here (no TTY), so
+  // if you're not authenticated, run `gh auth login` manually in a terminal,
+  // or forward GH_TOKEN/GITHUB_TOKEN via remoteEnv below.
+  "postAttachCommand": "gh auth status 2>/dev/null || echo 'GitHub CLI not authenticated. Run: gh auth login (in a terminal) — or set GH_TOKEN in remoteEnv.'",
+
+  // Setup after container creation
+  "postCreateCommand": "bash .devcontainer/postCreate.sh",
+
+  // Ensure uv is in PATH and fix permissions
+  "postStartCommand": "export PATH=\"$HOME/.local/bin:$PATH\" && chmod -R a+rwX /workspaces 2>/dev/null || true",
+
+  // Inject API key from local environment
+  "remoteEnv": {
+    "ANTHROPIC_API_KEY": "${localEnv:ANTHROPIC_API_KEY}"
+    // Uncomment to forward a GitHub token from the host for non-interactive `gh` auth:
+    // "GH_TOKEN": "${localEnv:GH_TOKEN}"
+  },
+
+  // Run as node user for better security and compatibility
+  "remoteUser": "node"
+}

@@ -1,0 +1,5 @@
+ignored:
+  # Devcontainer: pinning npm global installs is not critical
+  - DL3016
+  # Devcontainer: readability over image size optimization
+  - DL3059
