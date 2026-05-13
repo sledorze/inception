@@ -51,5 +51,5 @@ export const checkSupervisorDivergence = (
       })
     }
 
-    return divergences
-  })
+    return divergences as readonly string[]
+  }).pipe(Effect.orDie)

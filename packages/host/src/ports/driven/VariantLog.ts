@@ -11,7 +11,9 @@ import { BudgetVectorSchema } from './BudgetLedger.ts'
 
 export const FitnessVectorSchema = Schema.Struct({
   // L1.8: corroboration ratio for self-narration detection.
-  acceptance: Schema.optional(Schema.Literal('accepted', 'pending', 'rejected')),
+  acceptance: Schema.optional(
+    Schema.Union([Schema.Literal('accepted'), Schema.Literal('pending'), Schema.Literal('rejected')]),
+  ),
   correctness: Schema.optional(Schema.Number),
   costUsd: Schema.optional(Schema.Number),
   efficiency: Schema.optional(
@@ -40,7 +42,7 @@ export const VariantEntrySchema = Schema.Struct({
   roleVersionHash: Schema.String,
   seed: Schema.optional(Schema.String),
   sessionId: Schema.String,
-  status: Schema.Literal('completed', 'failed', 'pending'),
+  status: Schema.Union([Schema.Literal('completed'), Schema.Literal('failed'), Schema.Literal('pending')]),
   storyRef: Schema.String,
   variantId: Schema.String,
   workflowHash: Schema.String,

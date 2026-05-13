@@ -9,6 +9,7 @@ import { join } from 'node:path'
 import { randomUUID } from 'node:crypto'
 import { Effect, ManagedRuntime, Ref } from 'effect'
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
+import { DpFileBackedHandle } from '../../src/adapters/driven/DpFileBackedHandle.ts'
 import { FileBackedHandle } from '../../src/adapters/driven/FileBackedHandle.ts'
 import { InMemoryDataHandleRegistry } from '../../src/adapters/driven/InMemoryDataHandleRegistry.ts'
 import { DataHandleRegistry, HandleExhausted, HandleRevoked } from '../../src/ports/driven/DataHandle.ts'
@@ -188,6 +189,28 @@ runContract('FileBackedHandle', async () => {
         schema: { columns: ['id', 'name'] },
       }),
     // Script reads the CSV and writes a JSON summary to stdout.
+    sampleScript: [
+      "const { readFileSync } = require('node:fs')",
+      String.raw`const rows = readFileSync(process.env['DATA_FILE'], 'utf8').trim().split('\n')`,
+      'process.stdout.write(JSON.stringify({ row_count: rows.length - 1 }))',
+    ].join('; '),
+  }
+})
+
+// ─── DpFileBackedHandle (DP noise, real subprocess) ──────────────────────────
+
+runContract('DpFileBackedHandle', async () => {
+  const filePath = join(tmpdir(), `dp-handle-test-${randomUUID()}.csv`)
+  await writeFile(filePath, 'id,name\n1,Alice\n2,Bob\n3,Charlie\n', 'utf8')
+
+  return {
+    makeHandle: () =>
+      DpFileBackedHandle.create({
+        filePath,
+        id: randomUUID(),
+        redactedSample: { name: '***' },
+        schema: { columns: ['id', 'name'] },
+      }),
     sampleScript: [
       "const { readFileSync } = require('node:fs')",
       String.raw`const rows = readFileSync(process.env['DATA_FILE'], 'utf8').trim().split('\n')`,

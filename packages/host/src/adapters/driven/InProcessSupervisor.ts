@@ -11,7 +11,7 @@
  */
 import { Effect, Layer } from 'effect'
 import { EventStore } from '../../ports/driven/EventStore.ts'
-import { Supervisor } from '../../ports/driven/Supervisor.ts'
+import { Supervisor, SupervisorError } from '../../ports/driven/Supervisor.ts'
 import type { SignalResult } from '../../ports/driven/Supervisor.ts'
 
 // Bootstrap thresholds (L3.8, bootstrap=true). Values evolve from operation.
@@ -93,8 +93,8 @@ export const InProcessSupervisor = {
               }
             }
 
-            return results
-          }),
+            return results as readonly SignalResult[]
+          }).pipe(Effect.mapError(e => new SupervisorError({ message: String(e) }))),
       })
     }),
   ),

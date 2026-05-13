@@ -21,7 +21,14 @@ export type BudgetVector = typeof BudgetVectorSchema.Type
 
 // ─── scope ────────────────────────────────────────────────────────────────────
 
-export const ScopeTypeSchema = Schema.Literal('call', 'variant', 'cycle', 'handle', 'session', 'role-version')
+export const ScopeTypeSchema = Schema.Union([
+  Schema.Literal('call'),
+  Schema.Literal('variant'),
+  Schema.Literal('cycle'),
+  Schema.Literal('handle'),
+  Schema.Literal('session'),
+  Schema.Literal('role-version'),
+])
 
 export const BudgetScopeSchema = Schema.Struct({
   id: Schema.String,
