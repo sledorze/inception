@@ -56,7 +56,7 @@ Implement. Pair every Law you touch with a test in `packages/host/tests/laws/<la
 
 - **Don't pre-abstract.** Three similar lines is better than premature abstraction. Factorise once a pattern has stabilised (≥3 usage sites OR one usage that clarifies the domain).
 - **Consolidate infrastructure at 2.** The 3-site threshold applies to application logic. For infrastructure — test layer compositions, error `_tag` string constants, shared helpers, binding glue — consolidate as soon as the second copy appears. Divergence in infrastructure is silent and expensive to fix later. Specific patterns: (a) repeated `Layer.mergeAll(...)` in test files → extract to `packages/host/tests/helpers/`; (b) `_tag` strings duplicated between a `TaggedErrorClass` definition and `Effect.catchTags` call sites → export a const from the port file.
-- **Log friction, then fix it.** When a duplication or awkward pattern causes a visible slowdown, add it to `docs/PAIN.md` with severity + candidate fix. At the start of every review session, scan `docs/PAIN.md` for P1/P2 items (blocks work) and address the highest-severity open item before new features. When a fix lands: cut the item from `docs/PAIN.md` and paste it (full text + `FIXED <date> in <commit>`) into `docs/PAIN-archive.md` in the same commit. PAIN.md holds OPEN items only.
+- **Log friction, then fix it.** When a duplication or awkward pattern causes a visible slowdown, add it to `docs/PAIN.md` with severity + candidate fix. **Also open an acceptance test that fails on the current code** (plain vitest or `@effect/vitest` depending on whether Effect context is needed) — this is the red step that proves the fix matters. At the start of every review session, scan `docs/PAIN.md` for P1/P2 items (blocks work) and address the highest-severity open item before new features. When a fix lands: make the acceptance test pass (green step), cut the item from `docs/PAIN.md`, paste it (full text + `FIXED <date> in <commit> — test: <test path>`) into `docs/PAIN-archive.md` in the same commit. PAIN.md holds OPEN items only.
 - **Hunt proactively.** When 3+ PAIN items are open or context feels expensive, do a deliberate waste-scan — see `.claude/patterns/cycle-hunt.md`. The hunt feeds findings back into the PAIN→pattern→hook machinery.
 - **Promote to libraries.** When a module stabilises, give it its own `packages/<name>/` workspace with semver, owner, and changelog. Triggers: 3+ usage sites, load-bearing tech decision, or ships in `kernel/`.
 - **Prefer (embedded) DSLs** for domain grammars — workflows, role manifests, policy expressions, fitness vectors, capability declarations. Imperative code is the last resort.
@@ -208,6 +208,7 @@ Mutation report runs nightly (`mutation-report.yml`), not on PRs.
 - Law in §3 lacks paired test in `packages/host/tests/laws/` → L0.4 fails.
 - Port lacks parametrised protocol test in `packages/host/tests/protocol/` → L2.14 + §2.13 violation.
 - New code that duplicates a library or internal module → AL.7 violation.
+- PAIN item closed in `PAIN-archive.md` without a passing acceptance test cited in the entry → revert.
 
 ## Path-scoped rules (auto-loaded when paths match)
 

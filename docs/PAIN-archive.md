@@ -5,6 +5,26 @@ Convention: fix → move (cut from PAIN.md, paste here in the same commit as the
 
 ---
 
+## P11 — Effect pattern guards live in a bash hook, not oxlint (severity: slows)
+
+**FIXED 2026-05-14 in main — oxlint JS plugin + PostToolUse hook replacement.**
+test: `packages/host/tests/unit/oxlint-rules.unit.test.ts`
+
+**Symptom.** `check-effect-patterns.sh` detected `Date.now()`, `Effect.runPromise`, and
+`correlationId: randomUUID()` via `grep`. Hook was untestable, fragile (stdin/tty blocking bug),
+and duplicated work oxlint already did on the same files.
+
+**Fix.** Authored oxlint JS plugin `.claude/oxlint-plugins/effect-patterns.js` (ESLint v9-compatible)
+with 4 AST-based rules: `no-date-clock`, `no-runpromise-in-tests`, `no-effect-gen-without-vitest`,
+`no-inline-correlation-id`. Rules are TDD-tested, wired in `.oxlintrc.json` via `jsPlugins` +
+path-scoped `overrides`. Also added `no-restricted-imports` for node:\* built-ins (mapped to Effect
+alternatives). Replaced `check-effect-patterns.sh` PostToolUse entry with `oxlint-check.sh` that
+runs the full config on each edited file. Removed the `effect-patterns` lefthook command (now
+handled by the `oxlint` command). Migrated 5 test files that were using `Effect.runPromise` to
+`it.effect` / `Effect.runSync` patterns to bring existing code into compliance.
+
+---
+
 ## P7 — Reasoning model final answer goes to `reasoning_content`, not `content` (severity: blocks demo)
 
 **FIXED 2026-05-14 in main — fetch intercept in `OpenAiCompatLlmProvider.ts` + integration test.**
@@ -134,6 +154,23 @@ feature work.
 **Fix.** Created `packages/host/tests/protocol/GeorgesToolkit.spec.ts` — 14 tests covering
 all 6 tools × success + failure paths. Extended `makeToolkitComponents` with optional
 `initialFiles` parameter for workspace seeding.
+
+---
+
+## P8 — `ToolResultObserved` correlationId drift (severity: slows)
+
+**FIXED 2026-05-14 in main — `CurrentCorrelationId` Context.Reference threaded from `submitGoal` → `emitCorroborator`. Test: `packages/host/tests/integration/correlationIdPropagation.integration.test.ts`.**
+
+**Symptom.** `ToolResultObserved` events carried a fresh UUID instead of the goal's correlationId,
+breaking the goal-level correlation chain. Makes it impossible to join tool events to their parent
+goal without a secondary key.
+
+**Encountered in.** S1 trace inspection — `ToolResultObserved.correlationId` ≠ `GoalSubmitted.correlationId`.
+
+**Fix.** Created `src/domain/tracing.ts` with `CurrentCorrelationId = Context.Reference<string>` (default `'bootstrap'`).
+In `submitGoal.ts`, wraps `LanguageModel.generateText` with `Effect.provideService(CurrentCorrelationId, correlationId)`.
+In `GeorgesToolkit.ts`, `emitCorroborator` now `yield* CurrentCorrelationId` instead of `randomUUID()`.
+The acceptance test fails on pre-fix code and passes post-fix.
 
 ---
 

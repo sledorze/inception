@@ -11,10 +11,9 @@
  */
 import { readdirSync, readFileSync } from 'node:fs'
 import { join } from 'node:path'
-import { fileURLToPath } from 'node:url'
 import { describe, expect, it } from 'vitest'
 
-const HOST_ROOT = join(fileURLToPath(import.meta.url), '..', '..', '..')
+const HOST_ROOT = join(import.meta.filename, '..', '..', '..')
 const SRC_DIRS = ['src/domain', 'src/application']
 const TESTS_DIR = join(HOST_ROOT, 'tests')
 
@@ -42,9 +41,9 @@ describe('utility coverage map', () => {
         if (!entry.isFile() || !entry.name.endsWith('.ts')) {
           continue
         }
-        const basename = entry.name.replace(/\.ts$/, '')
+        const basename = entry.name.replace(/\.ts$/u, '')
         // Match: from '../../src/domain/<basename>' or from '.../<basename>.ts'
-        const pattern = new RegExp(`from\\s+['"][^'"]*[/\\\\]${basename}(\\.ts)?['"]`)
+        const pattern = new RegExp(`from\\s+['"][^'"]*[/\\\\]${basename}(\\.ts)?['"]`, 'u')
         if (!pattern.test(allTestContent)) {
           uncovered.push(`${dir}/${entry.name}`)
         }

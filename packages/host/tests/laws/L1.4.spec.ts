@@ -8,7 +8,8 @@
  */
 import { randomUUID } from 'node:crypto'
 import { Effect } from 'effect'
-import { describe, expect, it } from 'vitest'
+import { describe, expect } from 'vitest'
+import { it } from '@effect/vitest'
 import { InMemoryEventStore } from '../../src/adapters/driven/InMemoryEventStore.ts'
 import { computeContentHash, EventStore } from '../../src/ports/driven/EventStore.ts'
 import type { NewEvent, StoredEvent } from '../../src/ports/driven/EventStore.ts'
@@ -60,32 +61,43 @@ const append = (event: NewEvent) =>
     return yield* s.append(event)
   })
 
-const run = <A>(eff: Effect.Effect<A, unknown, EventStore>) =>
-  Effect.runPromise(Effect.provide(eff, InMemoryEventStore.layer))
+const withStore = <A>(eff: Effect.Effect<A, unknown, EventStore>) => Effect.provide(eff, InMemoryEventStore.layer)
 
 describe('L1.4 — tamper-evident hash chain', () => {
-  it('an untampered chain verifies successfully', async () => {
-    const session = randomUUID()
-    const events = await run(
-      Effect.all([append(baseEvent(session)), append(baseEvent(session)), append(baseEvent(session))]),
-    )
-    expect(verifyChain(events)).toBeTruthy()
-  })
+  it.effect('an untampered chain verifies successfully', () =>
+    withStore(
+      Effect.gen(function* () {
+        const session = randomUUID()
+        const events = yield* Effect.all([
+          append(baseEvent(session)),
+          append(baseEvent(session)),
+          append(baseEvent(session)),
+        ])
+        expect(verifyChain(events)).toBeTruthy()
+      }),
+    ),
+  )
 
-  it('mutating payload breaks the hash chain (tamper detection)', async () => {
-    const session = randomUUID()
-    const [a, b] = await run(Effect.all([append(baseEvent(session)), append(baseEvent(session))]))
+  it.effect('mutating payload breaks the hash chain (tamper detection)', () =>
+    withStore(
+      Effect.gen(function* () {
+        const session = randomUUID()
+        const [a, b] = yield* Effect.all([append(baseEvent(session)), append(baseEvent(session))])
+        // Simulate tampering: mutate the payload of the first event.
+        const tampered = [{ ...a, payload: { goal: 'TAMPERED' } }, b] as const
+        expect(verifyChain(tampered)).toBeFalsy()
+      }),
+    ),
+  )
 
-    // Simulate tampering: mutate the payload of the first event.
-    const tampered = [{ ...a, payload: { goal: 'TAMPERED' } }, b] as const
-    expect(verifyChain(tampered)).toBeFalsy()
-  })
-
-  it('mutating prevHash breaks the chain', async () => {
-    const session = randomUUID()
-    const [a, b] = await run(Effect.all([append(baseEvent(session)), append(baseEvent(session))]))
-
-    const tampered = [a, { ...b, prevHash: 'deadbeef' }] as const
-    expect(verifyChain(tampered)).toBeFalsy()
-  })
+  it.effect('mutating prevHash breaks the chain', () =>
+    withStore(
+      Effect.gen(function* () {
+        const session = randomUUID()
+        const [a, b] = yield* Effect.all([append(baseEvent(session)), append(baseEvent(session))])
+        const tampered = [a, { ...b, prevHash: 'deadbeef' }] as const
+        expect(verifyChain(tampered)).toBeFalsy()
+      }),
+    ),
+  )
 })

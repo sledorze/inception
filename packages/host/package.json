@@ -4,10 +4,12 @@
   "private": true,
   "type": "module",
   "bin": {
+    "observe-cli": "./bin/observe.ts",
     "user-cli": "./bin/user.ts"
   },
   "scripts": {
     "dev": "tsx watch src/main.ts",
+    "observe-cli": "tsx bin/observe.ts",
     "start": "node --import tsx src/main.ts",
     "test": "cd ../.. && pnpm exec vitest run",
     "typecheck": "tsc --noEmit",

@@ -102,7 +102,7 @@ export const SqliteEventStore = {
                     params.push(filter.sessionId)
                   }
                   const where = conds.length > 0 ? `WHERE ${conds.join(' AND ')}` : ''
-                  const limit = filter.limit !== undefined ? `LIMIT ${Number(filter.limit)}` : ''
+                  const limit = filter.limit === undefined ? '' : `LIMIT ${Number(filter.limit)}`
                   const rows = db
                     .prepare(`SELECT * FROM events ${where} ORDER BY rowid ${limit}`)
                     .all(...params) as Record<string, unknown>[]

@@ -66,7 +66,7 @@ describe('Ceremony — sign and verify', () => {
     const kp = generateKeypair('claude')
     const hash = hashAmendment(CONTENT)
     const sig = signAmendment(hash, kp.privateKeyPem)
-    expect(sig).toMatch(/^[0-9a-f]+$/)
+    expect(sig).toMatch(/^[0-9a-f]+$/u)
     expect(sig.length).toBeGreaterThan(0)
   })
 

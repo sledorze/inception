@@ -5,7 +5,6 @@
  * Laws: L1.1 (mediation), L1.3 (code-over-data), L1.5 (policy gate — deny by default),
  *       L2.1 (self-description), L2.2 (role-scoped mutability), L2.6 (single promoter per scope).
  */
-import { randomUUID } from 'node:crypto'
 import { Clock, Effect, Schema } from 'effect'
 import { Tool, Toolkit } from 'effect/unstable/ai'
 import { DataHandleRegistry } from '../../ports/driven/DataHandle.ts'
@@ -13,6 +12,7 @@ import { EventStore } from '../../ports/driven/EventStore.ts'
 import { PolicyGate } from '../../ports/driven/PolicyGate.ts'
 import { ToolRegistry } from '../../ports/driven/ToolRegistry.ts'
 import { WorkspaceMount } from '../../ports/driven/WorkspaceMount.ts'
+import { CurrentCorrelationId } from '../../domain/tracing.ts'
 
 const ToolDescriptorSchema = Schema.Struct({
   description: Schema.String,
@@ -113,11 +113,12 @@ export const GeorgesToolkitLive = GeorgesToolkit.toLayer(
 
     const emitCorroborator = (toolName: string, payload: Record<string, unknown>) =>
       Effect.gen(function* () {
+        const correlationId = yield* CurrentCorrelationId
         const ms = yield* Clock.currentTimeMillis
         yield* store
           .append({
             actor: 'host',
-            correlationId: randomUUID(),
+            correlationId,
             kind: 'ToolResultObserved',
             occurredAt: new Date(ms).toISOString(),
             payload: { ...payload, toolName },
@@ -185,11 +186,12 @@ export const GeorgesToolkitLive = GeorgesToolkit.toLayer(
           manifestJson,
         ).pipe(Effect.mapError(e => ({ message: `manifest validation failed: ${String(e)}` })))
         // L2.6: record proposal — Georges proposes, Host witnesses, Claude promotes
+        const correlationId = yield* CurrentCorrelationId
         const ms = yield* Clock.currentTimeMillis
         const stored = yield* store
           .append({
             actor: 'georges',
-            correlationId: randomUUID(),
+            correlationId,
             kind: 'CapabilityProposed',
             occurredAt: new Date(ms).toISOString(),
             payload: { code, name: manifest.name, scope: manifest.scope, tests, version: manifest.version },

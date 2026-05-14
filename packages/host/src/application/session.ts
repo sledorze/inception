@@ -1,9 +1,8 @@
 import { readFile } from 'node:fs/promises'
-import { dirname, join } from 'node:path'
-import { fileURLToPath } from 'node:url'
+import { join } from 'node:path'
 import { Effect, Schema } from 'effect'
 
-const __dir = dirname(fileURLToPath(import.meta.url))
+const __dir = import.meta.dirname
 export const AGENT_MD_PATH = join(__dir, '../bootstrap/agent.md')
 
 export class SessionError extends Schema.TaggedErrorClass<SessionError>()('@app/host/SessionError', {

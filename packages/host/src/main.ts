@@ -10,15 +10,14 @@
  */
 import { readFile } from 'node:fs'
 import { createServer } from 'node:http'
-import { dirname, extname, join } from 'node:path'
-import { fileURLToPath } from 'node:url'
+import { extname, join } from 'node:path'
 import { Effect, ManagedRuntime, Option, Stream } from 'effect'
 import { makeSubmitGoal } from './application/submitGoal.ts'
 import { EventStore } from './ports/driven/EventStore.ts'
 import { GeorgesToolkit, fullLayer } from './runtime/bind.ts'
 import { UserGateway } from './ports/driving/UserGateway.ts'
 
-const __dir = dirname(fileURLToPath(import.meta.url))
+const __dir = import.meta.dirname
 const PORT = parseInt(process.env['PORT'] ?? '3000', 10)
 const DIST = join(__dir, '../../frontend/dist')
 
@@ -41,7 +40,7 @@ rt.runFork(
   }),
 )
 
-const TOOL_ROUTE = /^\/api\/tools\/([^/?]+)/
+const TOOL_ROUTE = /^\/api\/tools\/([^/?]+)/u
 
 const server = createServer((req, res) => {
   const url = req.url ?? '/'

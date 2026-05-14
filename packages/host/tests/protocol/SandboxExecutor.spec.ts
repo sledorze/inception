@@ -28,7 +28,7 @@ const FIXED_RESULT: SandboxResult = {
 }
 
 // SHA-256 hex string: 64 lowercase hex characters.
-const SHA256_RE = /^[0-9a-f]{64}$/
+const SHA256_RE = /^[0-9a-f]{64}$/u
 
 // ─── shared contract ─────────────────────────────────────────────────────────
 

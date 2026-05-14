@@ -1,0 +1,17 @@
+{
+  "choices": [
+    {
+      "finish_reason": "stop",
+      "index": 0,
+      "message": {
+        "content": [1, 2, 3],
+        "role": "assistant"
+      }
+    }
+  ],
+  "created": 0,
+  "id": "stub-unknown-shape",
+  "model": "stub",
+  "object": "chat.completion",
+  "usage": { "completion_tokens": 3, "prompt_tokens": 10, "total_tokens": 13 }
+}

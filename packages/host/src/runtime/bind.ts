@@ -1,21 +1,23 @@
+import { mkdirSync } from 'node:fs'
 import { readFile } from 'node:fs/promises'
 import { dirname, join } from 'node:path'
-import { fileURLToPath } from 'node:url'
 import { Effect, Layer } from 'effect'
 import { SessionError } from '../application/session.ts'
 import { FileBackedHandle } from '../adapters/driven/FileBackedHandle.ts'
 import { InMemoryDataHandleRegistry } from '../adapters/driven/InMemoryDataHandleRegistry.ts'
-import { InMemoryEventStore } from '../adapters/driven/InMemoryEventStore.ts'
 import { InMemoryPolicyGate } from '../adapters/driven/InMemoryPolicyGate.ts'
 import { InMemoryToolRegistry } from '../adapters/driven/InMemoryToolRegistry.ts'
 import { InMemoryWorkspaceMount } from '../adapters/driven/InMemoryWorkspaceMount.ts'
 import { OpenAiCompatLlmProvider } from '../adapters/driven/OpenAiCompatLlmProvider.ts'
+import { SqliteEventStore } from '../adapters/driven/SqliteEventStore.ts'
 import { CliUserGateway } from '../adapters/driving/CliUserGateway.ts'
 import { GeorgesToolkit, GeorgesToolkitLive } from '../adapters/driving/GeorgesToolkit.ts'
 
 export { GeorgesToolkit }
 
-const __dir = dirname(fileURLToPath(import.meta.url))
+const __dir = import.meta.dirname
+const DB_PATH = process.env['EVENT_STORE_PATH'] ?? join(__dir, '..', '..', 'data', 'events.db')
+mkdirSync(dirname(DB_PATH), { recursive: true })
 const TOOLS_YAML = join(__dir, '../bootstrap', 'tools.yaml')
 const AGENT_MD_PATH = join(__dir, '../bootstrap', 'agent.md')
 const FIXTURE_PATH = join(__dir, '../bootstrap/fixtures', 'synthetic-001.csv')
@@ -54,7 +56,7 @@ const BOOTSTRAP_TOOLS = [
   'write-workspace',
 ]
 
-const eventStoreLayer = InMemoryEventStore.layer
+const eventStoreLayer = SqliteEventStore.layer(DB_PATH)
 
 const toolkitLayer = GeorgesToolkitLive.pipe(
   Layer.provide(eventStoreLayer),

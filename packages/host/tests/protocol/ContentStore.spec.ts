@@ -22,7 +22,7 @@ const enc = (s: string) => new TextEncoder().encode(s)
 const dec = (b: Uint8Array) => new TextDecoder().decode(b)
 
 // SHA-256 hex: 64 lowercase hex characters.
-const SHA256_RE = /^[0-9a-f]{64}$/
+const SHA256_RE = /^[0-9a-f]{64}$/u
 
 const makeTempGitRepo = async (): Promise<string> => {
   const dir = await mkdtemp(join(tmpdir(), 'cas-test-'))
