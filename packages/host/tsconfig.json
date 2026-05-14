@@ -13,6 +13,15 @@
     "noUncheckedIndexedAccess": true,
     "noUncheckedSideEffectImports": true,
 
+    "plugins": [
+      {
+        "completions": true,
+        "diagnostics": true,
+        "name": "@effect/language-service",
+        "quickinfo": true,
+        "refactors": true
+      }
+    ],
     "rewriteRelativeImportExtensions": true,
     "skipLibCheck": true,
     "sourceMap": true,
