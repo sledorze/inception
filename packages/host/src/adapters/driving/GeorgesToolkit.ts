@@ -2,14 +2,15 @@
  * Inner MCP driving adapter — Georges' tool surface (Phase 2, §10.1 Q1).
  * Exposes list-tools, read-workspace, write-workspace, run-script, fetch-handle-shape,
  * propose-capability backed by ports. Emits ToolResultObserved for every call (L1.8 wiring).
- * Laws: L1.1 (mediation), L1.3 (code-over-data), L2.1 (self-description),
- *       L2.2 (role-scoped mutability), L2.6 (single promoter per scope).
+ * Laws: L1.1 (mediation), L1.3 (code-over-data), L1.5 (policy gate — deny by default),
+ *       L2.1 (self-description), L2.2 (role-scoped mutability), L2.6 (single promoter per scope).
  */
 import { randomUUID } from 'node:crypto'
 import { Clock, Effect, Schema } from 'effect'
 import { Tool, Toolkit } from 'effect/unstable/ai'
 import { DataHandleRegistry } from '../../ports/driven/DataHandle.ts'
 import { EventStore } from '../../ports/driven/EventStore.ts'
+import { PolicyGate } from '../../ports/driven/PolicyGate.ts'
 import { ToolRegistry } from '../../ports/driven/ToolRegistry.ts'
 import { WorkspaceMount } from '../../ports/driven/WorkspaceMount.ts'
 
@@ -31,6 +32,8 @@ const CapabilityManifestSchema = Schema.Struct({
 
 export const ListToolsTool = Tool.make('list-tools', {
   description: 'Returns the list of tools available for a given role. Call this first to discover your capabilities.',
+  failure: WorkspaceFailureSchema,
+  failureMode: 'return',
   parameters: Schema.Struct({ role: Schema.String }),
   success: Schema.Array(ToolDescriptorSchema),
 })
@@ -102,6 +105,11 @@ export const GeorgesToolkitLive = GeorgesToolkit.toLayer(
     const store = yield* EventStore
     const workspace = yield* WorkspaceMount
     const handleRegistry = yield* DataHandleRegistry
+    const policyGate = yield* PolicyGate
+
+    // L1.5: first gate on every tool call — deny by default if no active policy.
+    const checkPolicy = (toolName: string) =>
+      policyGate.check(toolName).pipe(Effect.mapError(e => ({ message: e.reason })))
 
     const emitCorroborator = (toolName: string, payload: Record<string, unknown>) =>
       Effect.gen(function* () {
@@ -128,6 +136,7 @@ export const GeorgesToolkitLive = GeorgesToolkit.toLayer(
         handleId: string
         role: string
       }) {
+        yield* checkPolicy('fetch-handle-shape')
         // L2.2: role must have fetch-handle-shape in its surface
         const availableTools = yield* registry.listTools(role)
         if (!availableTools.some(t => t.name === 'fetch-handle-shape')) {
@@ -147,6 +156,7 @@ export const GeorgesToolkitLive = GeorgesToolkit.toLayer(
       }),
 
       'list-tools': Effect.fn('GeorgesToolkit.listTools')(function* ({ role }: { role: string }) {
+        yield* checkPolicy('list-tools')
         const tools = yield* registry.listTools(role)
         yield* emitCorroborator('list-tools', { role })
         return tools.map(t => ({ description: t.description, inputSchema: t.inputSchema, name: t.name }))
@@ -163,6 +173,7 @@ export const GeorgesToolkitLive = GeorgesToolkit.toLayer(
         role: string
         tests: string
       }) {
+        yield* checkPolicy('propose-capability')
         // L2.2: only Implementer may propose capabilities
         const availableTools = yield* registry.listTools(role)
         if (!availableTools.some(t => t.name === 'propose-capability')) {
@@ -197,6 +208,7 @@ export const GeorgesToolkitLive = GeorgesToolkit.toLayer(
       }),
 
       'read-workspace': Effect.fn('GeorgesToolkit.readWorkspace')(function* ({ path }: { path: string }) {
+        yield* checkPolicy('read-workspace')
         const content = yield* workspace
           .read(path)
           .pipe(Effect.mapError(e => ({ message: `read failed: ${e.path} — ${String(e.cause)}` })))
@@ -213,6 +225,7 @@ export const GeorgesToolkitLive = GeorgesToolkit.toLayer(
         role: string
         script: string
       }) {
+        yield* checkPolicy('run-script')
         // L2.2: only Implementer may run scripts
         const availableTools = yield* registry.listTools(role)
         if (!availableTools.some(t => t.name === 'run-script')) {
@@ -252,6 +265,7 @@ export const GeorgesToolkitLive = GeorgesToolkit.toLayer(
         path: string
         role: string
       }) {
+        yield* checkPolicy('write-workspace')
         // L2.2: enforce role-scoped mutability before touching the filesystem
         const availableTools = yield* registry.listTools(role)
         if (!availableTools.some(t => t.name === 'write-workspace')) {
