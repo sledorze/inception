@@ -5,12 +5,12 @@
  * Replaces the hand-rolled OpenAiLlmProvider (AL.7 adoption).
  * Target: LMStudio (or any OpenAI-compatible endpoint) via LLM_BASE_URL env.
  */
-import { Layer, Option, Schema } from 'effect'
+import { Config, Effect, Layer, Option, Schema } from 'effect'
 import { OpenAiClient, OpenAiLanguageModel } from '@effect/ai-openai-compat'
 import { FetchHttpClient } from 'effect/unstable/http'
 
-const DEFAULT_BASE_URL = process.env['LLM_BASE_URL'] ?? 'http://localhost:1234/v1'
-const DEFAULT_MODEL = process.env['LLM_MODEL'] ?? 'local-model'
+const LLM_BASE_URL = Config.string('LLM_BASE_URL').pipe(Config.withDefault('http://192.168.0.15:1235/v1'))
+const LLM_MODEL = Config.string('LLM_MODEL').pipe(Config.withDefault('local-model'))
 
 // Schema for the subset of the LMStudio/OpenAI-compat message shape we care about (P7).
 // When the message doesn't parse (unknown vendor extension), we pass it through unchanged
@@ -66,9 +66,15 @@ const reasoningAwareFetch: typeof globalThis.fetch = (input, init) =>
 
 export const OpenAiCompatLlmProvider = {
   layer: (opts?: { baseUrl?: string; model?: string }) =>
-    OpenAiLanguageModel.layer({ model: opts?.model ?? DEFAULT_MODEL }).pipe(
-      Layer.provide(OpenAiClient.layer({ apiUrl: opts?.baseUrl ?? DEFAULT_BASE_URL })),
-      Layer.provide(FetchHttpClient.layer),
-      Layer.provide(Layer.succeed(FetchHttpClient.Fetch, reasoningAwareFetch)),
+    Layer.unwrap(
+      Effect.gen(function* () {
+        const baseUrl = opts?.baseUrl ?? (yield* LLM_BASE_URL)
+        const model = opts?.model ?? (yield* LLM_MODEL)
+        return OpenAiLanguageModel.layer({ model }).pipe(
+          Layer.provide(OpenAiClient.layer({ apiUrl: baseUrl })),
+          Layer.provide(FetchHttpClient.layer),
+          Layer.provide(Layer.succeed(FetchHttpClient.Fetch, reasoningAwareFetch)),
+        )
+      }),
     ),
 }

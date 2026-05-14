@@ -274,3 +274,16 @@ describe('P23 — no-restricted-imports "off" override is a closed allow-list (a
     expect([...(offOverrides[0]?.files ?? [])].toSorted()).toEqual([...ALLOWED_OFF_PATHS].toSorted())
   })
 })
+
+// ── P20 — process.env access banned in packages/host/src/ ────────────────────
+
+describe('P20 — process.env access banned in packages/host/src/ (acceptance)', () => {
+  it('no process.env[ access anywhere in src/', () => {
+    const result = spawnSync(
+      'grep',
+      ['-rln', '--include=*.ts', String.raw`process.env\[`, join(REPO_ROOT, 'packages', 'host', 'src')],
+      { encoding: 'utf8' },
+    )
+    expect(result.stdout.trim()).toBe('')
+  })
+})

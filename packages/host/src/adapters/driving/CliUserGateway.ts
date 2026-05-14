@@ -1,5 +1,5 @@
 import { createServer } from 'node:http'
-import { Effect, Layer, Queue, Schema } from 'effect'
+import { Config, Effect, Layer, Queue, Schema } from 'effect'
 import { UserGateway, UserGatewayError } from '../../ports/driving/UserGateway.ts'
 import type { GoalSubmission } from '../../ports/driving/UserGateway.ts'
 
@@ -7,8 +7,6 @@ const GoalSubmissionSchema = Schema.Struct({
   goal: Schema.String,
   handleId: Schema.String,
 })
-
-const DEFAULT_PORT = parseInt(process.env['USER_GATEWAY_PORT'] ?? '3001', 10)
 
 const makeListenEffect = <R>(
   port: number,
@@ -71,13 +69,18 @@ const makeListenEffect = <R>(
   }) as Effect.Effect<void, UserGatewayError, R>
 
 export const CliUserGateway = {
-  layer: (port = DEFAULT_PORT) =>
-    Layer.effect(
-      UserGateway,
-      Effect.succeed(
-        UserGateway.of({
-          listen: onGoal => makeListenEffect(port, onGoal),
-        }),
-      ),
+  layer: (port?: number) =>
+    Layer.unwrap(
+      Effect.gen(function* () {
+        const resolvedPort = port ?? (yield* Config.int('USER_GATEWAY_PORT').pipe(Config.withDefault(3001)))
+        return Layer.effect(
+          UserGateway,
+          Effect.succeed(
+            UserGateway.of({
+              listen: onGoal => makeListenEffect(resolvedPort, onGoal),
+            }),
+          ),
+        )
+      }),
     ),
 }

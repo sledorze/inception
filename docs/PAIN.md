@@ -23,18 +23,6 @@ in the same commit as the fix. This file holds OPEN items only, severity-sorted.
 
 ---
 
-## P20 — `process.env` used directly instead of Effect `Config` (severity: annoys)
-
-**Symptom.** `OpenAiCompatLlmProvider.ts`, `bind.ts`, `main.ts`, and other files read `process.env['KEY']` directly (module-level, not in Effect context). This bypasses Effect's `Config` system: no structured error on missing config, no test-controllable config injection, no type-safe defaults with description.
-
-**Encountered in.** `OpenAiCompatLlmProvider.ts` (`LLM_BASE_URL`, `LLM_MODEL`), `bind.ts` (`EVENT_STORE_PATH`), `main.ts` (`PORT`).
-
-**Acceptance test.** None yet — add a grep check that fails if `process.env[` appears in `packages/host/src/` outside of `main.ts` and `runtime/`.
-
-**Candidate fix.** Replace `process.env['KEY'] ?? default` with `Config.withDefault(Config.string("KEY"), default)` yielded inside Effect. Provide at the composition root (`fullLayer`) via `Layer.setConfigProvider(ConfigProvider.fromEnv())`. Config errors surface as typed `ConfigError` rather than silent `undefined`.
-
----
-
 ## P21 — Frontend state management: no Atom pattern, logic in UI components (severity: annoys)
 
 **Symptom.** Frontend components (e.g., `GoalPanel`, `ProposalsPanel`) hold fetched data and async logic directly in local `useState` + `useEffect`. This violates the single-responsibility principle: UI components should be pure render functions; async orchestration and derived state should live in atoms or stores.

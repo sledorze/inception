@@ -1,7 +1,7 @@
 import { mkdirSync } from 'node:fs'
 import { readFile } from 'node:fs/promises'
 import { dirname, join } from 'node:path'
-import { Effect, Layer } from 'effect'
+import { Config, ConfigProvider, Effect, Layer } from 'effect'
 import { NodeFileSystem } from '@effect/platform-node'
 import { SessionError } from '../application/session.ts'
 import { CapabilityAwareToolRegistry } from '../adapters/driven/CapabilityAwareToolRegistry.ts'
@@ -19,8 +19,6 @@ import { GeorgesToolkit, GeorgesToolkitLive } from '../adapters/driving/GeorgesT
 export { GeorgesToolkit }
 
 const __dir = import.meta.dirname
-const DB_PATH = process.env['EVENT_STORE_PATH'] ?? join(__dir, '..', '..', 'data', 'events.db')
-mkdirSync(dirname(DB_PATH), { recursive: true })
 const TOOLS_YAML = join(__dir, '../bootstrap', 'tools.yaml')
 const AGENT_MD_PATH = join(__dir, '../bootstrap', 'agent.md')
 const FIXTURE_PATH = join(__dir, '../bootstrap/fixtures', 'synthetic-001.csv')
@@ -63,7 +61,15 @@ const BOOTSTRAP_TOOLS = [
   'write-workspace',
 ]
 
-const eventStoreLayer = SqliteEventStore.layer(DB_PATH)
+const eventStoreLayer = Layer.unwrap(
+  Effect.gen(function* () {
+    const dbPath = yield* Config.string('EVENT_STORE_PATH').pipe(
+      Config.withDefault(join(__dir, '..', '..', 'data', 'events.db')),
+    )
+    mkdirSync(dirname(dbPath), { recursive: true })
+    return SqliteEventStore.layer(dbPath)
+  }),
+)
 
 // FileBackedCapabilityRegistry persists promoted capabilities across restarts.
 // CapabilityAwareToolRegistry merges YAML seed tools + promoted capabilities.
@@ -87,6 +93,9 @@ export const InMemoryCapabilityRegistryLayer = InMemoryCapabilityRegistry.layer
 export const appLayer = Layer.mergeAll(toolkitLayer, eventStoreLayer, capabilityRegistryLayer, NodeFileSystem.layer)
 
 // Full runtime layer: toolkit + LLM + User gateway (used by main.ts)
-export const fullLayer = Layer.mergeAll(appLayer, OpenAiCompatLlmProvider.layer(), CliUserGateway.layer())
+// ConfigProvider.layer is provided last so all sub-layers can read env config.
+export const fullLayer = Layer.mergeAll(appLayer, OpenAiCompatLlmProvider.layer(), CliUserGateway.layer()).pipe(
+  Layer.provide(ConfigProvider.layer(ConfigProvider.fromEnv())),
+)
 
 export type AppServices = Layer.Success<typeof appLayer>

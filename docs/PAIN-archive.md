@@ -5,6 +5,27 @@ Convention: fix → move (cut from PAIN.md, paste here in the same commit as the
 
 ---
 
+## P20 — `process.env` used directly instead of Effect `Config` (severity: annoys)
+
+**FIXED 2026-05-14 — all 6 reads migrated to `Config.int`/`Config.string`/`Config.option` with `ConfigProvider.fromEnv()` at composition root.**
+test: `packages/host/tests/unit/oxlint-rules.unit.test.ts` — "P20" describe block (grep check).
+
+**Symptom.** `OpenAiCompatLlmProvider.ts`, `bind.ts`, `main.ts`, `CliUserGateway.ts`, and `GitWorkspaceMount.ts` read
+`process.env['KEY']` at module level. Bypassed Effect's `Config` system: no structured error on missing config,
+no test-controllable injection, no typed defaults.
+
+**Fix.** Replaced all 6 reads:
+
+- `LLM_BASE_URL`, `LLM_MODEL` → `Config.string(...)` inside `Layer.unwrap(Effect.gen(...))` in `OpenAiCompatLlmProvider.layer()`
+- `USER_GATEWAY_PORT` → `Config.int(...)` inside `Layer.unwrap(Effect.gen(...))` in `CliUserGateway.layer()`
+- `WORKSPACE_PATH` → `Config.option(Config.string(...))` inside `Layer.unwrap(Effect.gen(...))` in `GitWorkspaceMount.layer()`
+- `EVENT_STORE_PATH` → `Config.string(...)` inside `Layer.unwrap(Effect.gen(...))` in `eventStoreLayer`
+- `PORT` → `await rt.runPromise(Config.int('PORT').pipe(Config.withDefault(3000)))` in `main.ts`
+
+Added `ConfigProvider.layer(ConfigProvider.fromEnv())` provided to `fullLayer` via `.pipe(Layer.provide(...))`.
+
+---
+
 ## P23 — `.oxlintrc.json` `no-restricted-imports: "off"` override list was not enforced by a test (severity: annoys)
 
 **FIXED 2026-05-14 in 149f2623 (Phase 1 commit) — acceptance test added.**

@@ -12,7 +12,7 @@ import { readFile } from 'node:fs'
 import { createServer } from 'node:http'
 import type { IncomingMessage } from 'node:http'
 import { extname, join } from 'node:path'
-import { Effect, ManagedRuntime, Option, Stream } from 'effect'
+import { Config, Effect, ManagedRuntime, Option, Stream } from 'effect'
 import { makeSubmitGoal } from './application/submitGoal.ts'
 import { registerCapability } from './application/registerCapability.ts'
 import { listPendingProposals, promoteProposal } from './application/reviewProposals.ts'
@@ -21,7 +21,6 @@ import { GeorgesToolkit, fullLayer } from './runtime/bind.ts'
 import { UserGateway } from './ports/driving/UserGateway.ts'
 
 const __dir = import.meta.dirname
-const PORT = parseInt(process.env['PORT'] ?? '3000', 10)
 const DIST = join(__dir, '../../frontend/dist')
 
 const MIME: Record<string, string> = {
@@ -33,6 +32,7 @@ const MIME: Record<string, string> = {
 }
 
 const rt = ManagedRuntime.make(fullLayer)
+const PORT = await rt.runPromise(Config.int('PORT').pipe(Config.withDefault(3000)))
 
 // Start the UserGateway listener as a background fiber — processes goals on :3001
 rt.runFork(
