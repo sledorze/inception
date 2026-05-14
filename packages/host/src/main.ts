@@ -10,9 +10,12 @@
  */
 import { readFile } from 'node:fs'
 import { createServer } from 'node:http'
+import type { IncomingMessage } from 'node:http'
 import { extname, join } from 'node:path'
 import { Effect, ManagedRuntime, Option, Stream } from 'effect'
 import { makeSubmitGoal } from './application/submitGoal.ts'
+import { registerCapability } from './application/registerCapability.ts'
+import { listPendingProposals, promoteProposal } from './application/reviewProposals.ts'
 import { EventStore } from './ports/driven/EventStore.ts'
 import { GeorgesToolkit, fullLayer } from './runtime/bind.ts'
 import { UserGateway } from './ports/driving/UserGateway.ts'
@@ -41,12 +44,84 @@ rt.runFork(
 )
 
 const TOOL_ROUTE = /^\/api\/tools\/([^/?]+)/u
+const PROMOTE_ROUTE = /^\/api\/proposals\/([^/?]+)\/promote$/u
+
+const readBody = (req: IncomingMessage): Promise<string> =>
+  new Promise(resolve => {
+    let body = ''
+    req.on('data', (chunk: Buffer) => {
+      body += chunk.toString()
+    })
+    req.on('end', () => resolve(body))
+  })
 
 const server = createServer((req, res) => {
   const url = req.url ?? '/'
 
   if (url === '/health') {
     res.writeHead(200).end('ok')
+    return
+  }
+
+  if (url === '/api/goals' && req.method === 'POST') {
+    void readBody(req).then(body => {
+      let parsed: unknown
+      try {
+        parsed = JSON.parse(body) as unknown
+      } catch {
+        res.writeHead(400).end('invalid json')
+        return
+      }
+      if (typeof parsed !== 'object' || parsed === null || !('goal' in parsed) || !('handleId' in parsed)) {
+        res.writeHead(422).end('missing goal or handleId')
+        return
+      }
+      const { goal, handleId } = parsed as { goal: string; handleId: string }
+      rt.runPromise(
+        Effect.gen(function* () {
+          const toolkit = yield* GeorgesToolkit
+          yield* makeSubmitGoal(toolkit)({ goal, handleId })
+          const store = yield* EventStore
+          const events = yield* store.query({})
+          return events.findLast(e => e.kind === 'GoalCompleted')?.payload ?? {}
+        }),
+      )
+        .then(payload => {
+          res.writeHead(200, { 'Content-Type': 'application/json' }).end(JSON.stringify(payload))
+        })
+        .catch((error: unknown) => {
+          res.writeHead(500).end(String(error))
+        })
+    })
+    return
+  }
+
+  if (url === '/api/proposals' && req.method === 'GET') {
+    rt.runPromise(listPendingProposals)
+      .then(proposals => {
+        res.writeHead(200, { 'Content-Type': 'application/json' }).end(JSON.stringify(proposals))
+      })
+      .catch((error: unknown) => {
+        res.writeHead(500).end(String(error))
+      })
+    return
+  }
+
+  const promoteMatch = PROMOTE_ROUTE.exec(url)
+  if (promoteMatch && req.method === 'POST') {
+    const proposalId = decodeURIComponent(promoteMatch[1] ?? '')
+    rt.runPromise(
+      Effect.gen(function* () {
+        yield* promoteProposal(proposalId, undefined)
+        return yield* registerCapability(proposalId)
+      }),
+    )
+      .then(version => {
+        res.writeHead(200, { 'Content-Type': 'application/json' }).end(JSON.stringify({ version }))
+      })
+      .catch((error: unknown) => {
+        res.writeHead(500).end(String(error))
+      })
     return
   }
 
