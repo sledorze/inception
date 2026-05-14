@@ -281,6 +281,62 @@ describe('P23 — oxlint overrides are a closed list (acceptance)', () => {
     expect(offOverrides.length).toBe(1)
     expect([...(offOverrides[0]?.files ?? [])].toSorted()).toEqual([...ALLOWED_OFF_PATHS].toSorted())
   })
+
+  it('every override block has exactly the expected rule names and severities — no silent "off" can be added', () => {
+    const raw = readFileSync(join(REPO_ROOT, '.oxlintrc.json'), 'utf8')
+    const config = JSON.parse(raw) as {
+      overrides: { files: string[]; rules: Record<string, unknown> }[]
+    }
+    const { overrides } = config
+    const sev = (v: unknown): string => (Array.isArray(v) ? String(v[0]) : String(v))
+
+    // Block 0: test/spec/config/host files — only node import relaxation
+    const b0 = overrides[0]?.rules ?? {}
+    expect(Object.keys(b0).toSorted()).toEqual(['import/no-nodejs-modules'])
+    expect(sev(b0['import/no-nodejs-modules'])).toBe('off')
+
+    // Block 1: src/**/*.ts — effect-patterns + no-restricted-imports enforced
+    const b1 = overrides[1]?.rules ?? {}
+    expect(Object.keys(b1).toSorted()).toEqual([
+      'effect-patterns/no-date-clock',
+      'effect-patterns/no-inline-correlation-id',
+      'no-restricted-imports',
+    ])
+    expect(sev(b1['effect-patterns/no-date-clock'])).toBe('error')
+    expect(sev(b1['effect-patterns/no-inline-correlation-id'])).toBe('error')
+    expect(sev(b1['no-restricted-imports'])).toBe('error')
+
+    // Block 2: adapters/checks/runtime/main — no-restricted-imports off (sanctioned escape hatch, files locked above)
+    const b2 = overrides[2]?.rules ?? {}
+    expect(Object.keys(b2).toSorted()).toEqual(['no-restricted-imports'])
+    expect(sev(b2['no-restricted-imports'])).toBe('off')
+
+    // Block 3: tests/**/*.ts — Effect test-discipline rules enforced
+    const b3 = overrides[3]?.rules ?? {}
+    expect(Object.keys(b3).toSorted()).toEqual([
+      'effect-patterns/no-effect-gen-without-vitest',
+      'effect-patterns/no-runpromise-in-tests',
+    ])
+    expect(sev(b3['effect-patterns/no-effect-gen-without-vitest'])).toBe('error')
+    expect(sev(b3['effect-patterns/no-runpromise-in-tests'])).toBe('error')
+
+    // Block 4: tests/helpers/**/*.ts — one rule relaxed for helper authors writing Effect-native helpers
+    const b4 = overrides[4]?.rules ?? {}
+    expect(Object.keys(b4).toSorted()).toEqual(['effect-patterns/no-effect-gen-without-vitest'])
+    expect(sev(b4['effect-patterns/no-effect-gen-without-vitest'])).toBe('off')
+  })
+
+  it('the effect-gen "off" override applies only to tests/helpers/**', () => {
+    const raw = readFileSync(join(REPO_ROOT, '.oxlintrc.json'), 'utf8')
+    const config = JSON.parse(raw) as {
+      overrides: { files: string[]; rules: Record<string, unknown> }[]
+    }
+    const helperOverrides = config.overrides.filter(
+      o => o.rules['effect-patterns/no-effect-gen-without-vitest'] === 'off',
+    )
+    expect(helperOverrides.length).toBe(1)
+    expect([...(helperOverrides[0]?.files ?? [])].toSorted()).toEqual(['**/packages/host/tests/helpers/**/*.ts'])
+  })
 })
 
 // ── P20 — process.env access banned in packages/host/src/ ────────────────────
