@@ -174,6 +174,29 @@ The acceptance test fails on pre-fix code and passes post-fix.
 
 ---
 
+## P3 — `sort-keys` lint rule on handler objects (severity: annoys)
+
+**FIXED 2026-05-14 in feat/phase-3-s1-demo — nondestructive-fix PostToolUse hook + pre-commit oxlint --fix.**
+test: N/A (predates the acceptance-test convention; covered by oxlint integration run).
+
+**Symptom.** `Toolkit.of({...})` and any multi-key object literal requires alphabetically sorted
+keys. Easy to add a new tool handler in the "logical" order (read → write → run) rather than
+lexicographic order; discovered only on `pnpm lint`.
+
+**Encountered in.** `GeorgesToolkit.ts` after adding `run-script` after `write-workspace`.
+
+**Fix.** Two-layer auto-fix pipeline:
+
+1. PostToolUse hook (`.claude/hooks/oxlint-check.sh`) runs `oxlint --fix --config
+.oxlintrc-nondestructive-fix.json` on every edited file — fixes `sort-keys` silently before
+   the full lint check. The nondestructive config enables only `sort-keys` to avoid removing
+   in-flight content.
+2. Pre-commit hook already runs `pnpm oxlint --fix {staged_files}`, which also fixes sort-keys
+   using the main config. Stage-fixed files are re-added automatically via `stage_fixed: true`.
+   `sort-keys` violations no longer block commits.
+
+---
+
 ## P8 — `Clock → new Date()` for ISO formatting is ambiguous
 
 **FIXED 2026-05-14 in afa22fa (docs: consolidation guidance).**

@@ -32,20 +32,6 @@ HTTP callbacks.
 
 ---
 
-## P3 — `sort-keys` lint rule on handler objects (severity: annoys)
-
-**Symptom.** `Toolkit.of({...})` and any multi-key object literal requires alphabetically sorted
-keys. Easy to add a new tool handler in the "logical" order (read → write → run) rather than
-lexicographic order; discovered only on `pnpm lint`.
-
-**Encountered in.** `GeorgesToolkit.ts` after adding `run-script` after `write-workspace`.
-
-**Candidate fix.** Enable `sort-keys` in `oxlint-autofix.sh` so the lefthook pre-commit pass
-corrects it automatically instead of blocking. Check oxlint docs for `--fix` support on
-`sort-keys`.
-
----
-
 ## P6 — `replace_all: true` blast radius on Edit tool (severity: blocks work)
 
 **Symptom.** A broad `replace_all: true` substitution (e.g., `err` → `error`) silently corrupts
@@ -97,3 +83,44 @@ RED: grep finds integration test files importing from `node:os`, `node:path`, or
 **Candidate fix.** Replace with `@effect/platform`'s `FileSystem` / `Path` services and
 Effect's `Random` module where tests already have an Effect runtime in scope. Refactor
 `fakeLmstudioServer.ts` to accept a pre-resolved path string (keeping node:path out of helpers).
+
+---
+
+## P14 — RED acceptance tests block pre-commit without `it.fails` marker (severity: annoys)
+
+**Symptom.** The lefthook `test-changed` pre-commit hook runs all tests related to staged files,
+including intentional RED acceptance tests (tests that document current gaps and are expected to
+fail). Without the `it.fails` / `it.effect.fails` marker, every commit made while a RED test
+exists fails the pre-commit hook.
+
+**Encountered in.** Adding P10/P12/P13 RED tests in this session — commit blocked until each was
+marked with the correct vitest fails modifier.
+
+**Acceptance test.** N/A — this is a workflow pattern, not a code bug.
+
+**Candidate fix (already applied).** Use `it.fails('RED: ...', () => ...)` for plain vitest RED
+tests; use `it.effect.fails('RED: ...', () => Effect.gen(...))` inside `layer()` callbacks.
+vitest treats `.fails` tests as: "expected to fail — if unexpectedly passes, report as a failure."
+The `@effect/vitest` `Vitest.Tester` interface exposes both `it.effect.fails` and `it.fails`.
+Document the pattern in `.claude/patterns/effect-test-pattern.md` to prevent recurrence.
+
+---
+
+## P15 — tsgo TS377074 fires when `Effect.runPromise` is used inside an Effect generator (severity: annoys)
+
+**Symptom.** The tsgo Effect plugin raises `effect(runEffectInsideEffect)` (TS377074) when
+`Effect.runPromise(...)` is called inside a function typed as `Effect.Effect<..., ..., R>`, even
+when the inner effect has `never` requirements. A second rule, `effect(missingReturnYieldStar)`
+(TS377006), flags `yield* Effect.forever(...)` without a leading `return`.
+
+**Encountered in.** `CliUserGateway.ts` — the HTTP callback bridge used `Effect.runPromise` to
+offer to a Queue; `Effect.forever` drained without `return yield*`.
+
+**Acceptance test.** `pnpm exec tsgo --noEmit -p packages/host/tsconfig.json` exits non-zero when
+either rule fires.
+
+**Candidate fix (already applied).**
+
+- TS377074: capture `const ctx = yield* Effect.context<R>()` at the top of the `Effect.gen`, then
+  use `Effect.runPromiseWith(ctx)(...)` instead of `Effect.runPromise(...)` in callbacks.
+- TS377006: write `return yield* Effect.forever(...)` so the generator exits cleanly.
