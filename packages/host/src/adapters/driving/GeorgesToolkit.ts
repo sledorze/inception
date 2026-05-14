@@ -1,10 +1,9 @@
 /**
  * Inner MCP driving adapter — Georges' tool surface (Phase 2, §10.1 Q1).
- * Exposes list-tools, read-workspace, write-workspace, run-script backed by ports.
- * Emits ToolResultObserved for every call (L1.8 wiring).
- * Laws: L1.1 (every Georges effect passes through inner MCP), L1.3 (run-script returns
- *       aggregate only — never raw bytes), L2.1 (self-description),
- *       L2.2 (write-workspace + run-script enforce role-scoped mutability).
+ * Exposes list-tools, read-workspace, write-workspace, run-script, fetch-handle-shape,
+ * propose-capability backed by ports. Emits ToolResultObserved for every call (L1.8 wiring).
+ * Laws: L1.1 (mediation), L1.3 (code-over-data), L2.1 (self-description),
+ *       L2.2 (role-scoped mutability), L2.6 (single promoter per scope).
  */
 import { randomUUID } from 'node:crypto'
 import { Clock, Effect, Schema } from 'effect'
@@ -21,6 +20,14 @@ const ToolDescriptorSchema = Schema.Struct({
 })
 
 const WorkspaceFailureSchema = Schema.Struct({ message: Schema.String })
+
+// L2.6: manifest fields required for a capability proposal.
+const CapabilityManifestSchema = Schema.Struct({
+  description: Schema.String,
+  name: Schema.String,
+  scope: Schema.Union([Schema.Literal('capability'), Schema.Literal('role'), Schema.Literal('workflow')]),
+  version: Schema.String,
+})
 
 export const ListToolsTool = Tool.make('list-tools', {
   description: 'Returns the list of tools available for a given role. Call this first to discover your capabilities.',
@@ -42,6 +49,20 @@ export const WriteWorkspaceTool = Tool.make('write-workspace', {
   failureMode: 'return',
   parameters: Schema.Struct({ content: Schema.String, path: Schema.String, role: Schema.String }),
   success: Schema.Struct({ path: Schema.String }),
+})
+
+export const ProposeCapabilityTool = Tool.make('propose-capability', {
+  description:
+    'Submits a capability manifest + code + tests for promotion review (L2.6). Returns proposalId on success.',
+  failure: WorkspaceFailureSchema,
+  failureMode: 'return',
+  parameters: Schema.Struct({
+    code: Schema.String,
+    manifest: Schema.String,
+    role: Schema.String,
+    tests: Schema.String,
+  }),
+  success: Schema.Struct({ proposalId: Schema.String }),
 })
 
 export const FetchHandleShapeTool = Tool.make('fetch-handle-shape', {
@@ -70,6 +91,7 @@ export const GeorgesToolkit = Toolkit.make(
   ListToolsTool,
   ReadWorkspaceTool,
   FetchHandleShapeTool,
+  ProposeCapabilityTool,
   RunScriptTool,
   WriteWorkspaceTool,
 )
@@ -128,6 +150,50 @@ export const GeorgesToolkitLive = GeorgesToolkit.toLayer(
         const tools = yield* registry.listTools(role)
         yield* emitCorroborator('list-tools', { role })
         return tools.map(t => ({ description: t.description, inputSchema: t.inputSchema, name: t.name }))
+      }),
+
+      'propose-capability': Effect.fn('GeorgesToolkit.proposeCapability')(function* ({
+        code,
+        manifest: manifestJson,
+        role,
+        tests,
+      }: {
+        code: string
+        manifest: string
+        role: string
+        tests: string
+      }) {
+        // L2.2: only Implementer may propose capabilities
+        const availableTools = yield* registry.listTools(role)
+        if (!availableTools.some(t => t.name === 'propose-capability')) {
+          return yield* Effect.fail({
+            message: `Permission denied: propose-capability is not in the tool surface for role '${role}'`,
+          })
+        }
+        // Parse and validate manifest — no try/catch, use Effect.try
+        const raw = yield* Effect.try({
+          catch: () => ({ message: 'manifest is not valid JSON' }),
+          try: () => JSON.parse(manifestJson) as unknown,
+        })
+        const manifest = yield* Schema.decodeUnknownEffect(CapabilityManifestSchema)(raw).pipe(
+          Effect.mapError(e => ({ message: `manifest validation failed: ${String(e)}` })),
+        )
+        // L2.6: record proposal — Georges proposes, Host witnesses, Claude promotes
+        const ms = yield* Clock.currentTimeMillis
+        const stored = yield* store
+          .append({
+            actor: 'georges',
+            correlationId: randomUUID(),
+            kind: 'CapabilityProposed',
+            occurredAt: new Date(ms).toISOString(),
+            payload: { code, name: manifest.name, scope: manifest.scope, tests, version: manifest.version },
+            schemaV: 1,
+            sessionId: 'bootstrap',
+            storyRef: 'S2',
+          })
+          .pipe(Effect.orDie)
+        yield* emitCorroborator('propose-capability', { role, scope: manifest.scope })
+        return { proposalId: stored.contentHash }
       }),
 
       'read-workspace': Effect.fn('GeorgesToolkit.readWorkspace')(function* ({ path }: { path: string }) {

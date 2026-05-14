@@ -26,6 +26,29 @@ tools:
         - handleId
       additionalProperties: false
 
+  - name: propose-capability
+    description: >
+      Submits a capability manifest, code, and tests for promotion review.
+      Records a CapabilityProposed event; requires Claude or a delegated policy
+      to emit Promoted before the capability is active (L2.6).
+    roles:
+      - Implementer
+    inputSchema:
+      type: object
+      properties:
+        manifest:
+          type: string
+          description: JSON-encoded CapabilityManifest (name, description, version, scope).
+        code:
+          type: string
+        tests:
+          type: string
+      required:
+        - manifest
+        - code
+        - tests
+      additionalProperties: false
+
   - name: run-script
     description: >
       Submits a Node.js script to the sandbox. The script receives DATA_FILE via
