@@ -99,13 +99,18 @@ pre-push:
         fi
         git fetch origin main
         git merge origin/main --no-edit
-    # Syncpack runs unconditionally at push (not just when package.json is staged) so
-    # pre-existing semver drift is caught before it reaches the remote (detection-stage fix).
+    # Syncpack + knip run unconditionally at push — catch drift/dead-code before it reaches remote.
     syncpack:
       priority: 2
       run: pnpm syncpack:check:ci
       fail_text: |
         Semver drift detected. Run `pnpm syncpack:fix` then re-commit package.json.
+        Recurring? → docs/PAIN.md (P2 + candidate fix)
+    knip:
+      priority: 2
+      run: pnpm knip:ci
+      fail_text: |
+        Unused files, exports, or dependencies detected. Run `pnpm knip` for details.
         Recurring? → docs/PAIN.md (P2 + candidate fix)
     checks:
       priority: 3
