@@ -9,6 +9,24 @@
           }
         ],
         "matcher": "Edit|Write"
+      },
+      {
+        "hooks": [
+          {
+            "command": ".claude/hooks/check-effect-patterns.sh",
+            "type": "command"
+          }
+        ],
+        "matcher": "Edit|Write"
+      },
+      {
+        "hooks": [
+          {
+            "command": ".claude/hooks/check-pain-closure.sh",
+            "type": "command"
+          }
+        ],
+        "matcher": "Edit|Write"
       }
     ],
     "PreToolUse": [

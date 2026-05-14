@@ -60,6 +60,8 @@ pre-commit:
     # Full suite stays at pre-push; this catches obvious breakage before context shifts.
     test-changed:
       glob: 'packages/host/**/*.ts'
+      env:
+        CI: 'true'
       run: pnpm vitest run --changed HEAD --passWithNoTests
 
 # CI lint group — check-only versions of pre-commit hooks (no auto-fix)

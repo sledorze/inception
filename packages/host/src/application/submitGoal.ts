@@ -2,9 +2,10 @@ import { randomUUID } from 'node:crypto'
 import { Clock, Effect } from 'effect'
 import { LanguageModel } from 'effect/unstable/ai'
 import type { LanguageModel as LanguageModelNS, Tool } from 'effect/unstable/ai'
+import { CurrentCorrelationId } from '../domain/tracing.ts'
 import { EventStore } from '../ports/driven/EventStore.ts'
 import type { GoalSubmission } from '../ports/driving/UserGateway.ts'
-import { readAgentMd } from './session.ts'
+import { AGENT_MD_PATH, readAgentMd } from './session.ts'
 
 // The toolkit is injected by the caller (main.ts or tests) to keep this service
 // free of adapter imports (L2.14 application-layer-purity rule).
@@ -24,14 +25,18 @@ export const makeSubmitGoal = <Tools extends Record<string, Tool.Any>>(toolkit: 
       storyRef: 'S1',
     })
 
-    const agentMd = yield* readAgentMd()
-    const response = yield* LanguageModel.generateText({
-      prompt: [
-        { content: agentMd, role: 'system' },
-        { content: [{ text: s.goal, type: 'text' }], role: 'user' },
-      ],
-      toolkit,
-    })
+    const agentMd = yield* readAgentMd({ path: AGENT_MD_PATH })
+    const response = yield* Effect.provideService(
+      LanguageModel.generateText({
+        prompt: [
+          { content: agentMd, role: 'system' },
+          { content: [{ text: s.goal, type: 'text' }], role: 'user' },
+        ],
+        toolkit,
+      }),
+      CurrentCorrelationId,
+      correlationId,
+    )
 
     const ms2 = yield* Clock.currentTimeMillis
     yield* store.append({
