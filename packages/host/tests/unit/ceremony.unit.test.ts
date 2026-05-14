@@ -1,16 +1,21 @@
 /**
  * Unit tests for External Witness ceremony domain (L0.2, L0.5, §6).
  *
- * Tests cover key generation, sign/verify, and quorum checking.
- * No I/O — all key operations use in-memory PEM strings.
+ * Tests cover key generation, sign/verify, quorum checking, and key-store I/O.
  */
-import { describe, expect, it } from 'vitest'
+import { mkdtemp, rm } from 'node:fs/promises'
+import { tmpdir } from 'node:os'
+import { join } from 'node:path'
+import { afterEach, beforeEach, describe, expect, it } from 'vitest'
 import {
   checkQuorum,
   generateKeypair,
   hashAmendment,
+  readPrivateKey,
+  readPublicKey,
   signAmendment,
   verifySignature,
+  writeKeypair,
 } from '../../src/domain/ceremony.ts'
 import type { AmendmentSignatures, Keypair, SignerRole } from '../../src/domain/ceremony.ts'
 
@@ -189,5 +194,31 @@ describe('Ceremony — quorum checking (L0.2, §6)', () => {
     const result = checkQuorum(sigs, pubKeys, hash)
     expect(result.met).toBeFalsy()
     expect(result.witnessCount).toBe(1)
+  })
+})
+
+describe('Ceremony — key-store I/O', () => {
+  let keyStoreDir: string
+
+  beforeEach(async () => {
+    keyStoreDir = await mkdtemp(join(tmpdir(), 'ceremony-test-'))
+  })
+
+  afterEach(async () => {
+    await rm(keyStoreDir, { recursive: true })
+  })
+
+  it('writeKeypair + readPublicKey round-trips the public key', async () => {
+    const kp = generateKeypair('claude')
+    await writeKeypair(keyStoreDir, kp)
+    const recovered = await readPublicKey(keyStoreDir, 'claude')
+    expect(recovered).toBe(kp.publicKeyPem)
+  })
+
+  it('writeKeypair + readPrivateKey round-trips the private key', async () => {
+    const kp = generateKeypair('witness1')
+    await writeKeypair(keyStoreDir, kp)
+    const recovered = await readPrivateKey(keyStoreDir, 'witness1')
+    expect(recovered).toBe(kp.privateKeyPem)
   })
 })
