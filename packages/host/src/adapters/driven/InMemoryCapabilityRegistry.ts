@@ -40,9 +40,7 @@ export const InMemoryCapabilityRegistry = {
           Effect.gen(function* () {
             const { snapshots } = yield* Ref.get(state)
             if (version < 0 || version >= snapshots.length) {
-              return yield* Effect.fail(
-                new CapabilityRegistryError({ cause: new Error(`version ${version} does not exist`) }),
-              )
+              return yield* new CapabilityRegistryError({ cause: new Error(`version ${version} does not exist`) })
             }
             yield* Ref.update(state, s => ({ ...s, current: version }))
           }),

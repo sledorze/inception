@@ -15,9 +15,7 @@ interface DecisionPayload {
 }
 
 /** Returns CapabilityProposed events that have not yet been Promoted or CapabilityRejected. */
-export const listPendingProposals: Effect.Effect<readonly StoredEvent[], never, EventStore> = Effect.fn(
-  'ReviewProposals.list',
-)(function* () {
+export const listPendingProposals: Effect.Effect<readonly StoredEvent[], never, EventStore> = Effect.gen(function* () {
   const store = yield* EventStore
   const all = yield* store.query({}).pipe(Effect.orDie)
   const decided = new Set(
@@ -26,12 +24,12 @@ export const listPendingProposals: Effect.Effect<readonly StoredEvent[], never, 
       .map(e => (e.payload as DecisionPayload).proposalId),
   )
   return all.filter(e => e.kind === 'CapabilityProposed' && !decided.has(e.contentHash))
-})()
+}).pipe(Effect.withSpan('ReviewProposals.list'))
 
 const emitDecision =
   (kind: 'CapabilityRejected' | 'Promoted') =>
   (proposalId: string, notes?: string): Effect.Effect<void, never, EventStore> =>
-    Effect.fn(`ReviewProposals.${kind}`)(function* () {
+    Effect.gen(function* () {
       const store = yield* EventStore
       const all = yield* store.query({}).pipe(Effect.orDie)
       const proposal = all.find(e => e.kind === 'CapabilityProposed' && e.contentHash === proposalId)
@@ -51,7 +49,7 @@ const emitDecision =
           storyRef: 'S2',
         })
         .pipe(Effect.orDie)
-    })()
+    }).pipe(Effect.withSpan(`ReviewProposals.${kind}`))
 
 /** Emit a Promoted event for the given proposalId. Dies if the proposal does not exist. */
 export const promoteProposal = emitDecision('Promoted')

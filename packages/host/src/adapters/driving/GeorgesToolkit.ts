@@ -5,14 +5,36 @@
  * Laws: L1.1 (mediation), L1.3 (code-over-data), L1.5 (policy gate — deny by default),
  *       L2.1 (self-description), L2.2 (role-scoped mutability), L2.6 (single promoter per scope).
  */
-import { Clock, Effect, Schema } from 'effect'
+import { execFile } from 'node:child_process'
+import { mkdtemp, writeFile } from 'node:fs/promises'
+import { tmpdir } from 'node:os'
+import { join } from 'node:path'
+import { promisify } from 'node:util'
+import { Clock, Data, Effect, Schema } from 'effect'
 import { Tool, Toolkit } from 'effect/unstable/ai'
+import { CapabilityRegistry } from '../../ports/driven/CapabilityRegistry.ts'
 import { DataHandleRegistry } from '../../ports/driven/DataHandle.ts'
 import { EventStore } from '../../ports/driven/EventStore.ts'
 import { PolicyGate } from '../../ports/driven/PolicyGate.ts'
 import { ToolRegistry } from '../../ports/driven/ToolRegistry.ts'
 import { WorkspaceMount } from '../../ports/driven/WorkspaceMount.ts'
 import { CurrentCorrelationId } from '../../domain/tracing.ts'
+
+const execFileAsync = promisify(execFile)
+
+class CapabilityRunError extends Data.TaggedError('@app/host/CapabilityRunError')<{ cause: unknown }> {}
+
+const runCapabilityCode = (code: string): Effect.Effect<string, CapabilityRunError> =>
+  Effect.tryPromise({
+    catch: e => new CapabilityRunError({ cause: e }),
+    try: async () => {
+      const dir = await mkdtemp(join(tmpdir(), 'capability-'))
+      const scriptPath = join(dir, 'capability.js')
+      await writeFile(scriptPath, code)
+      const { stdout } = await execFileAsync(process.execPath, [scriptPath], { timeout: 10_000 })
+      return stdout
+    },
+  })
 
 const ToolDescriptorSchema = Schema.Struct({
   description: Schema.String,
@@ -68,6 +90,15 @@ export const ProposeCapabilityTool = Tool.make('propose-capability', {
   success: Schema.Struct({ proposalId: Schema.String }),
 })
 
+export const CallCapabilityTool = Tool.make('call-capability', {
+  description:
+    'Calls a previously promoted capability by name. The capability code runs in a sandboxed Node.js process and returns its stdout (up to 512 chars). Only promoted capabilities appear in list-tools.',
+  failure: WorkspaceFailureSchema,
+  failureMode: 'return',
+  parameters: Schema.Struct({ name: Schema.String, role: Schema.String }),
+  success: Schema.Struct({ exitCode: Schema.Number, output: Schema.String }),
+})
+
 export const FetchHandleShapeTool = Tool.make('fetch-handle-shape', {
   description: 'Returns the schema and a redacted sample for a data handle. Never returns raw bytes (L1.3).',
   failure: WorkspaceFailureSchema,
@@ -91,10 +122,11 @@ export const RunScriptTool = Tool.make('run-script', {
 })
 
 export const GeorgesToolkit = Toolkit.make(
-  ListToolsTool,
-  ReadWorkspaceTool,
+  CallCapabilityTool,
   FetchHandleShapeTool,
+  ListToolsTool,
   ProposeCapabilityTool,
+  ReadWorkspaceTool,
   RunScriptTool,
   WriteWorkspaceTool,
 )
@@ -106,6 +138,7 @@ export const GeorgesToolkitLive = GeorgesToolkit.toLayer(
     const workspace = yield* WorkspaceMount
     const handleRegistry = yield* DataHandleRegistry
     const policyGate = yield* PolicyGate
+    const capabilityRegistry = yield* CapabilityRegistry
 
     // L1.5: first gate on every tool call — deny by default if no active policy.
     const checkPolicy = (toolName: string) =>
@@ -130,6 +163,30 @@ export const GeorgesToolkitLive = GeorgesToolkit.toLayer(
       })
 
     return GeorgesToolkit.of({
+      'call-capability': Effect.fn('GeorgesToolkit.callCapability')(function* ({
+        name,
+        role,
+      }: {
+        name: string
+        role: string
+      }) {
+        yield* checkPolicy('call-capability')
+        const caps = yield* capabilityRegistry
+          .list()
+          .pipe(Effect.mapError(e => ({ message: `capability registry error: ${String(e.cause)}` })))
+        const cap = caps.find(c => c.name === name)
+        if (cap === undefined) {
+          return yield* Effect.fail({ message: `capability '${name}' not found in registry` })
+        }
+        const stdout = yield* runCapabilityCode(cap.code).pipe(
+          Effect.mapError(e => ({ message: `capability execution failed: ${String(e)}` })),
+        )
+        const exitCode = 0
+        const output = stdout.slice(0, 512)
+        yield* emitCorroborator('call-capability', { capabilityName: name, exitCode, role })
+        return { exitCode, output }
+      }),
+
       'fetch-handle-shape': Effect.fn('GeorgesToolkit.fetchHandleShape')(function* ({
         handleId,
         role,
@@ -194,7 +251,14 @@ export const GeorgesToolkitLive = GeorgesToolkit.toLayer(
             correlationId,
             kind: 'CapabilityProposed',
             occurredAt: new Date(ms).toISOString(),
-            payload: { code, name: manifest.name, scope: manifest.scope, tests, version: manifest.version },
+            payload: {
+              code,
+              description: manifest.description,
+              name: manifest.name,
+              scope: manifest.scope,
+              tests,
+              version: manifest.version,
+            },
             schemaV: 1,
             sessionId: 'bootstrap',
             storyRef: 'S2',
@@ -204,12 +268,12 @@ export const GeorgesToolkitLive = GeorgesToolkit.toLayer(
         return { proposalId: stored.contentHash }
       }),
 
-      'read-workspace': Effect.fn('GeorgesToolkit.readWorkspace')(function* ({ path }: { path: string }) {
+      'read-workspace': Effect.fn('GeorgesToolkit.readWorkspace')(function* ({ path: wsPath }: { path: string }) {
         yield* checkPolicy('read-workspace')
         const content = yield* workspace
-          .read(path)
+          .read(wsPath)
           .pipe(Effect.mapError(e => ({ message: `read failed: ${e.path} — ${String(e.cause)}` })))
-        yield* emitCorroborator('read-workspace', { path })
+        yield* emitCorroborator('read-workspace', { path: wsPath })
         return { content }
       }),
 
@@ -255,7 +319,7 @@ export const GeorgesToolkitLive = GeorgesToolkit.toLayer(
 
       'write-workspace': Effect.fn('GeorgesToolkit.writeWorkspace')(function* ({
         content,
-        path,
+        path: wsPath,
         role,
       }: {
         content: string
@@ -271,10 +335,10 @@ export const GeorgesToolkitLive = GeorgesToolkit.toLayer(
           })
         }
         yield* workspace
-          .write(path, content)
+          .write(wsPath, content)
           .pipe(Effect.mapError(e => ({ message: `write failed: ${e.path} — ${String(e.cause)}` })))
-        yield* emitCorroborator('write-workspace', { path, role })
-        return { path }
+        yield* emitCorroborator('write-workspace', { path: wsPath, role })
+        return { path: wsPath }
       }),
     })
   }),

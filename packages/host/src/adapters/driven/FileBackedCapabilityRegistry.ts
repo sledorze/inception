@@ -1,12 +1,24 @@
-import { Effect, FileSystem, Layer } from 'effect'
+import { Effect, FileSystem, Layer, Schema } from 'effect'
 import { NodeFileSystem } from '@effect/platform-node'
 import type { CapabilityEntry } from '../../ports/driven/CapabilityRegistry.ts'
 import { CapabilityRegistryError, CapabilityRegistry } from '../../ports/driven/CapabilityRegistry.ts'
 
-interface PersistedState {
-  current: number
-  snapshots: readonly (readonly CapabilityEntry[])[]
-}
+const CapabilityEntrySchema = Schema.Struct({
+  code: Schema.String,
+  description: Schema.String,
+  name: Schema.String,
+  promotedAt: Schema.String,
+  proposalId: Schema.String,
+  scope: Schema.Array(Schema.String),
+  tests: Schema.String,
+})
+
+const PersistedStateSchema = Schema.Struct({
+  current: Schema.Number,
+  snapshots: Schema.Array(Schema.Array(CapabilityEntrySchema)),
+})
+
+type PersistedState = typeof PersistedStateSchema.Type
 
 const emptyState: PersistedState = { current: 0, snapshots: [[]] }
 
@@ -18,14 +30,15 @@ export const FileBackedCapabilityRegistry = {
         const fs = yield* FileSystem.FileSystem
 
         const load: Effect.Effect<PersistedState> = fs.readFileString(filePath).pipe(
-          Effect.map(content => JSON.parse(content) as PersistedState),
+          Effect.flatMap(Schema.decodeUnknownEffect(Schema.fromJsonString(PersistedStateSchema))),
           Effect.catch(() => Effect.succeed(emptyState)),
         )
 
         const save = (state: PersistedState): Effect.Effect<void, CapabilityRegistryError> =>
-          fs
-            .writeFileString(filePath, JSON.stringify(state, null, 2))
-            .pipe(Effect.mapError(e => new CapabilityRegistryError({ cause: e })))
+          Schema.encodeEffect(Schema.fromJsonString(PersistedStateSchema))(state).pipe(
+            Effect.flatMap(json => fs.writeFileString(filePath, json)),
+            Effect.mapError(e => new CapabilityRegistryError({ cause: e })),
+          )
 
         return CapabilityRegistry.of({
           currentVersion: () => load.pipe(Effect.map(s => s.current)),
@@ -46,9 +59,7 @@ export const FileBackedCapabilityRegistry = {
             Effect.gen(function* () {
               const state = yield* load
               if (version < 0 || version >= state.snapshots.length) {
-                return yield* Effect.fail(
-                  new CapabilityRegistryError({ cause: new Error(`version ${version} does not exist`) }),
-                )
+                return yield* new CapabilityRegistryError({ cause: new Error(`version ${version} does not exist`) })
               }
               yield* save({ ...state, current: version })
             }),

@@ -10,6 +10,7 @@ import { EventStore } from '../ports/driven/EventStore.ts'
 
 interface ProposalPayload {
   code: string
+  description: string
   name: string
   scope: readonly string[]
   tests: string
@@ -17,7 +18,7 @@ interface ProposalPayload {
 
 /** Looks up the CapabilityProposed event by proposalId and writes it to the registry. Returns the new version. */
 export const registerCapability = (proposalId: string): Effect.Effect<number, never, EventStore | CapabilityRegistry> =>
-  Effect.fn('Registry.registerCapability')(function* () {
+  Effect.gen(function* () {
     const store = yield* EventStore
     const all = yield* store.query({}).pipe(Effect.orDie)
     const proposal = all.find(e => e.kind === 'CapabilityProposed' && e.contentHash === proposalId)
@@ -32,6 +33,7 @@ export const registerCapability = (proposalId: string): Effect.Effect<number, ne
     return yield* registry
       .register({
         code: payload.code,
+        description: payload.description,
         name: payload.name,
         promotedAt: new Date(ms).toISOString(),
         proposalId,
@@ -39,4 +41,4 @@ export const registerCapability = (proposalId: string): Effect.Effect<number, ne
         tests: payload.tests,
       })
       .pipe(Effect.orDie)
-  })()
+  }).pipe(Effect.withSpan('Registry.registerCapability'))
