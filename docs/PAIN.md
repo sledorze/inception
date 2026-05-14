@@ -106,6 +106,27 @@ Document the pattern in `.claude/patterns/effect-test-pattern.md` to prevent rec
 
 ---
 
+## P16 — `content_hash UNIQUE` constraint fails on repeated tool calls in bootstrap context (severity: blocks work)
+
+**Symptom.** `SqliteEventStore.append` throws `EventStoreError` when the same tool is called
+twice in the default (bootstrap) correlation context. After P8 fix changed `correlationId` from
+`randomUUID()` to `yield* CurrentCorrelationId` (defaulting to `'bootstrap'`), repeated
+`ToolResultObserved` events for the same tool produce identical content hashes, violating the
+`UNIQUE` constraint on `content_hash`. The second call causes the HTTP route to return 500.
+
+**Encountered in.** e2e tests failing after a manual server start-and-kill left 3 events in
+`events.db`; next server start failed on `list-tools` because the content hash already existed.
+
+**Acceptance test.** `packages/host/tests/protocol/EventStore.spec.ts` — "duplicate append is
+idempotent" test (now GREEN after fix).
+
+**Candidate fix (already applied).** Changed `INSERT INTO` → `INSERT OR IGNORE INTO` in
+`SqliteEventStore.ts`. If no row is inserted (duplicate), query and return the already-stored
+event. Applied the same idempotency check to `InMemoryEventStore`. The `content_hash UNIQUE`
+constraint correctly prevents duplicate entries; `append` is now a true idempotent upsert.
+
+---
+
 ## P15 — tsgo TS377074 fires when `Effect.runPromise` is used inside an Effect generator (severity: annoys)
 
 **Symptom.** The tsgo Effect plugin raises `effect(runEffectInsideEffect)` (TS377074) when

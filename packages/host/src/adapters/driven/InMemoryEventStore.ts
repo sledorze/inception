@@ -14,6 +14,10 @@ export const InMemoryEventStore = {
           Effect.gen(function* () {
             const events = yield* Ref.get(store)
             const contentHash = computeContentHash(event)
+            const existing = events.find(e => e.contentHash === contentHash)
+            if (existing !== undefined) {
+              return existing
+            }
             const sessionEvents = events.filter(e => e.sessionId === event.sessionId)
             const prevHash = sessionEvents.length > 0 ? (sessionEvents.at(-1)?.contentHash ?? 'genesis') : 'genesis'
             const id = randomUUID()

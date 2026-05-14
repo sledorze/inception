@@ -24,7 +24,7 @@ const DDL = `
 `
 
 const INSERT = `
-  INSERT INTO events
+  INSERT OR IGNORE INTO events
     (id, kind, actor, story_ref, session_id, correlation_id, content_hash, prev_hash, schema_v, occurred_at, payload)
   VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
 `
@@ -68,7 +68,7 @@ export const SqliteEventStore = {
                   const prevHash = lastRow?.content_hash ?? 'genesis'
                   const id = randomUUID()
 
-                  db.prepare(INSERT).run(
+                  const info = db.prepare(INSERT).run(
                     id,
                     event.kind,
                     event.actor,
@@ -82,6 +82,14 @@ export const SqliteEventStore = {
                     // @effect-diagnostics-next-line preferSchemaOverJson:off
                     JSON.stringify(event.payload),
                   )
+
+                  if (info.changes === 0) {
+                    // Duplicate content hash — return the already-stored event (idempotent)
+                    const existing = db
+                      .prepare('SELECT * FROM events WHERE content_hash = ?')
+                      .get(contentHash) as Record<string, unknown>
+                    return rowToStoredEvent(existing)
+                  }
 
                   return { ...event, contentHash, id, prevHash } satisfies StoredEvent
                 },
