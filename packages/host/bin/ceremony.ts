@@ -21,16 +21,10 @@
  */
 import { readFile, writeFile } from 'node:fs/promises'
 import { Effect } from 'effect'
+import { writeKeypair, readPublicKey } from '../src/adapters/driven/CeremonyKeyStore.ts'
 import { SqliteEventStore } from '../src/adapters/driven/SqliteEventStore.ts'
 import { EventStore } from '../src/ports/driven/EventStore.ts'
-import {
-  ALL_SIGNER_ROLES,
-  checkQuorum,
-  generateKeypair,
-  readPublicKey,
-  signAmendment,
-  writeKeypair,
-} from '../src/domain/ceremony.ts'
+import { ALL_SIGNER_ROLES, checkQuorum, generateKeypair, signAmendment } from '../src/domain/ceremony.ts'
 import type { Amendment, AmendmentSignatures, SignerRole } from '../src/domain/ceremony.ts'
 
 const argv = process.argv.slice(2)
@@ -40,7 +34,7 @@ const args = argv.slice(1)
 async function cmdSetup(keyStoreDir: string): Promise<void> {
   for (const role of ALL_SIGNER_ROLES) {
     const kp = generateKeypair(role)
-    await writeKeypair(keyStoreDir, kp)
+    await Effect.runPromise(writeKeypair(keyStoreDir, kp))
     console.log(`  generated ${role}.{public,private}.pem`)
   }
   console.log(`Setup complete — 5 keypairs written to ${keyStoreDir}`)
@@ -73,7 +67,7 @@ async function cmdSign(amendmentFile: string, role: SignerRole, privateKeyPem: s
 
 async function loadPublicKeys(keyStoreDir: string): Promise<Record<SignerRole, string>> {
   const entries = await Promise.all(
-    ALL_SIGNER_ROLES.map(async role => [role, await readPublicKey(keyStoreDir, role)] as const),
+    ALL_SIGNER_ROLES.map(role => Effect.runPromise(readPublicKey(keyStoreDir, role)).then(key => [role, key] as const)),
   )
   return Object.fromEntries(entries) as Record<SignerRole, string>
 }

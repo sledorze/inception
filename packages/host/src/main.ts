@@ -10,7 +10,6 @@
  */
 import { readFile } from 'node:fs'
 import { createServer } from 'node:http'
-import type { IncomingMessage } from 'node:http'
 import { extname, join } from 'node:path'
 import { Config, Effect, ManagedRuntime, Option, Stream } from 'effect'
 import { makeSubmitGoal } from './application/submitGoal.ts'
@@ -46,15 +45,6 @@ rt.runFork(
 const TOOL_ROUTE = /^\/api\/tools\/([^/?]+)/u
 const PROMOTE_ROUTE = /^\/api\/proposals\/([^/?]+)\/promote$/u
 
-const readBody = (req: IncomingMessage): Promise<string> =>
-  new Promise(resolve => {
-    let body = ''
-    req.on('data', (chunk: Buffer) => {
-      body += chunk.toString()
-    })
-    req.on('end', () => resolve(body))
-  })
-
 const server = createServer((req, res) => {
   const url = req.url ?? '/'
 
@@ -64,7 +54,11 @@ const server = createServer((req, res) => {
   }
 
   if (url === '/api/goals' && req.method === 'POST') {
-    void readBody(req).then(body => {
+    let body = ''
+    req.on('data', (chunk: Buffer) => {
+      body += chunk.toString()
+    })
+    req.on('end', () => {
       let parsed: unknown
       try {
         parsed = JSON.parse(body) as unknown

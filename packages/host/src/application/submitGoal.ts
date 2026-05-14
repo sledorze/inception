@@ -1,5 +1,4 @@
-import { randomUUID } from 'node:crypto'
-import { DateTime, Effect } from 'effect'
+import { DateTime, Effect, Random } from 'effect'
 import { LanguageModel } from 'effect/unstable/ai'
 import type { LanguageModel as LanguageModelNS, Tool } from 'effect/unstable/ai'
 import { CurrentCorrelationId } from '../domain/tracing.ts'
@@ -13,7 +12,7 @@ export const makeSubmitGoal = <Tools extends Record<string, Tool.Any>>(
   toolkit: LanguageModelNS.ToolkitOption<Tools, never, never>,
 ) =>
   Effect.fn('application.submitGoal')(function* (s: GoalSubmission) {
-    const correlationId = randomUUID()
+    const correlationId = yield* Random.nextUUIDv4
     const store = yield* EventStore
     yield* store.append({
       actor: 'user',

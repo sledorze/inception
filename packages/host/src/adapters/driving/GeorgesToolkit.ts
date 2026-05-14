@@ -5,11 +5,6 @@
  * Laws: L1.1 (mediation), L1.3 (code-over-data), L1.5 (policy gate — deny by default),
  *       L2.1 (self-description), L2.2 (role-scoped mutability), L2.6 (single promoter per scope).
  */
-import { execFile } from 'node:child_process'
-import { mkdtemp, writeFile } from 'node:fs/promises'
-import { tmpdir } from 'node:os'
-import { join } from 'node:path'
-import { promisify } from 'node:util'
 import { Data, DateTime, Effect, Schema } from 'effect'
 import { Tool, Toolkit } from 'effect/unstable/ai'
 import { CapabilityRegistry } from '../../ports/driven/CapabilityRegistry.ts'
@@ -19,21 +14,14 @@ import { PolicyGate } from '../../ports/driven/PolicyGate.ts'
 import { ToolRegistry } from '../../ports/driven/ToolRegistry.ts'
 import { WorkspaceMount } from '../../ports/driven/WorkspaceMount.ts'
 import { CurrentCorrelationId } from '../../domain/tracing.ts'
-
-const execFileAsync = promisify(execFile)
+import { runScriptInTempDir } from '../runScriptInTempDir.ts'
 
 class CapabilityRunError extends Data.TaggedError('@app/host/CapabilityRunError')<{ cause: unknown }> {}
 
 const runCapabilityCode = (code: string): Effect.Effect<string, CapabilityRunError> =>
   Effect.tryPromise({
     catch: e => new CapabilityRunError({ cause: e }),
-    try: async () => {
-      const dir = await mkdtemp(join(tmpdir(), 'capability-'))
-      const scriptPath = join(dir, 'capability.js')
-      await writeFile(scriptPath, code)
-      const { stdout } = await execFileAsync(process.execPath, [scriptPath], { timeout: 10_000 })
-      return stdout
-    },
+    try: () => runScriptInTempDir({ code, filename: 'capability.js', prefix: 'capability-', timeout: 10_000 }),
   })
 
 const ToolDescriptorSchema = Schema.Struct({

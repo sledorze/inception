@@ -6,18 +6,17 @@
 import { mkdtemp, rm } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
+import { Effect } from 'effect'
 import { afterEach, beforeEach, describe, expect, it } from '@effect/vitest'
 import {
   checkQuorum,
   generateKeypair,
   hashAmendment,
-  readPrivateKey,
-  readPublicKey,
   signAmendment,
   verifySignature,
-  writeKeypair,
 } from '../../src/domain/ceremony.ts'
 import type { AmendmentSignatures, Keypair, SignerRole } from '../../src/domain/ceremony.ts'
+import { readPrivateKey, readPublicKey, writeKeypair } from '../../src/adapters/driven/CeremonyKeyStore.ts'
 
 // Returns a fully-typed record so indexing never needs !.
 const makeKeypairs = (): Record<SignerRole, Keypair> => ({
@@ -208,17 +207,21 @@ describe('Ceremony — key-store I/O', () => {
     await rm(keyStoreDir, { recursive: true })
   })
 
-  it('writeKeypair + readPublicKey round-trips the public key', async () => {
-    const kp = generateKeypair('claude')
-    await writeKeypair(keyStoreDir, kp)
-    const recovered = await readPublicKey(keyStoreDir, 'claude')
-    expect(recovered).toBe(kp.publicKeyPem)
-  })
+  it.effect('writeKeypair + readPublicKey round-trips the public key', () =>
+    Effect.gen(function* () {
+      const kp = generateKeypair('claude')
+      yield* writeKeypair(keyStoreDir, kp)
+      const recovered = yield* readPublicKey(keyStoreDir, 'claude')
+      expect(recovered).toBe(kp.publicKeyPem)
+    }),
+  )
 
-  it('writeKeypair + readPrivateKey round-trips the private key', async () => {
-    const kp = generateKeypair('witness1')
-    await writeKeypair(keyStoreDir, kp)
-    const recovered = await readPrivateKey(keyStoreDir, 'witness1')
-    expect(recovered).toBe(kp.privateKeyPem)
-  })
+  it.effect('writeKeypair + readPrivateKey round-trips the private key', () =>
+    Effect.gen(function* () {
+      const kp = generateKeypair('witness1')
+      yield* writeKeypair(keyStoreDir, kp)
+      const recovered = yield* readPrivateKey(keyStoreDir, 'witness1')
+      expect(recovered).toBe(kp.privateKeyPem)
+    }),
+  )
 })

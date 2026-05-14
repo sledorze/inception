@@ -9,6 +9,36 @@ in the same commit as the fix. This file holds OPEN items only, severity-sorted.
 
 ---
 
+## P24 — Five tsgo diagnostics remain `"off"` pending adapter-to-platform migration (severity: annoys)
+
+**Symptom.** The following `@effect/language-service` diagnostics are disabled in
+`packages/host/tsconfig.json` because the violations are structural (adapter bridge code
+using node built-ins and console/fetch globals):
+
+| Diagnostic              | Files                                                                                             | Blocker                                                          |
+| ----------------------- | ------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------- |
+| `nodeBuiltinImport`     | All adapters (`node:fs`, `node:child_process`, etc.) + `EventStore.ts` (`createHash`) + `main.ts` | @effect/platform-node migration (P13)                            |
+| `globalConsole`         | `main.ts` (startup log + SIGTERM handler) + `checks/check-test-conventions.ts` (CLI output)       | main.ts is the Node bridge; CLI scripts legitimately use console |
+| `globalConsoleInEffect` | `OpenAiCompatLlmProvider.ts` (P10 shape-alert `console.warn`)                                     | Promote to EventStore event per P10                              |
+| `globalFetch`           | `OpenAiCompatLlmProvider.ts` (`reasoningAwareFetch` intercept)                                    | Replace with `@effect/platform` HttpClient (P10)                 |
+| `globalFetchInEffect`   | Same                                                                                              | Same as `globalFetch`                                            |
+
+**Acceptance test.** This PAIN entry IS the tracking mechanism. When each diagnostic is
+re-enabled as `"error"` and tsgo passes, that diagnostic's entry above is struck and the
+commit is cited. P24 is closed when all five are "error".
+
+**Candidate fix (priority order):**
+
+1. `globalConsoleInEffect` + `globalFetch`/`globalFetchInEffect` → close via P10 (promote
+   shape-alert to EventStore event; replace fetch intercept with HttpClient middleware).
+2. `globalConsole` in `main.ts` → accept console in the Node entry-point bridge (the
+   override list already grants this escape); OR wrap server startup in `Effect.runFork`
+   and use `Effect.logInfo`.
+3. `nodeBuiltinImport` → close via P13 (migrate adapters to `@effect/platform-node`
+   `FileSystem`, `Path`, `CommandExecutor`). `EventStore.ts`'s `createHash` needs a
+   synchronous SHA-256 that doesn't import `node:crypto` — consider vendoring a 50-line
+   pure-JS SHA-256 or accepting this specific import as a domain invariant.
+
 ---
 
 ## P19 — `.oxlintrc.json` overrides as a `no-restricted-imports` escape hatch (severity: annoys)
@@ -107,23 +137,3 @@ RED: grep finds integration test files importing from `node:os`, `node:path`, or
 **Candidate fix.** Replace with `@effect/platform`'s `FileSystem` / `Path` services and
 Effect's `Random` module where tests already have an Effect runtime in scope. Refactor
 `fakeLmstudioServer.ts` to accept a pre-resolved path string (keeping node:path out of helpers).
-
----
-
-## P17 — `ceremony.ts` key-I/O functions are standalone `async` in `domain/` (severity: annoys)
-
-**Symptom.** `writeKeypair`, `readPublicKey`, `readPrivateKey` in `src/domain/ceremony.ts` are
-standalone `async` functions (not wrapped in Effect). They import `node:fs/promises` and
-`node:path` directly inside `domain/`, which should be a pure layer with no I/O dependencies.
-The imports are suppressed with `// oxlint-disable-line` comments that pre-date the
-`block-oxlint-disable.sh` hook (so they remain, but no new ones can be added).
-
-**Encountered in.** Async-violation cleanup session (2026-05-14) — fixing all standalone async
-functions in `packages/host/src/`.
-
-**Acceptance test.** None yet — add one that greps `src/domain/` for `async` keyword and fails
-if found, OR after the fix verify `ceremony.ts` has no `async` keyword.
-
-**Candidate fix.** Extract `writeKeypair`, `readPublicKey`, `readPrivateKey` out of `domain/`
-into a new adapter `adapters/driven/CeremonyKeyStore.ts` that uses `FileSystem.FileSystem` +
-`Path.Path`. Keep `domain/ceremony.ts` pure (key generation, signing, verification only).

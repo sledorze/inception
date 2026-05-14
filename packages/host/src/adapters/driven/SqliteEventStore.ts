@@ -1,6 +1,5 @@
-import { randomUUID } from 'node:crypto'
 import Database from 'better-sqlite3'
-import { Effect, Layer } from 'effect'
+import { Effect, Layer, Random } from 'effect'
 import { computeContentHash, EventStore, EventStoreError } from '../../ports/driven/EventStore.ts'
 import type { NewEvent, StoredEvent } from '../../ports/driven/EventStore.ts'
 
@@ -58,41 +57,43 @@ export const SqliteEventStore = {
 
           return EventStore.of({
             append: (event: NewEvent) =>
-              Effect.try({
-                catch: cause => new EventStoreError({ cause }),
-                try: () => {
-                  const contentHash = computeContentHash(event)
-                  const lastRow = db
-                    .prepare('SELECT content_hash FROM events WHERE session_id = ? ORDER BY rowid DESC LIMIT 1')
-                    .get(event.sessionId) as { content_hash: string } | undefined
-                  const prevHash = lastRow?.content_hash ?? 'genesis'
-                  const id = randomUUID()
+              Effect.gen(function* () {
+                const id = yield* Random.nextUUIDv4
+                return yield* Effect.try({
+                  catch: cause => new EventStoreError({ cause }),
+                  try: () => {
+                    const contentHash = computeContentHash(event)
+                    const lastRow = db
+                      .prepare('SELECT content_hash FROM events WHERE session_id = ? ORDER BY rowid DESC LIMIT 1')
+                      .get(event.sessionId) as { content_hash: string } | undefined
+                    const prevHash = lastRow?.content_hash ?? 'genesis'
 
-                  const info = db.prepare(INSERT).run(
-                    id,
-                    event.kind,
-                    event.actor,
-                    event.storyRef,
-                    event.sessionId,
-                    event.correlationId,
-                    contentHash,
-                    prevHash,
-                    event.schemaV,
-                    event.occurredAt,
-                    // @effect-diagnostics-next-line preferSchemaOverJson:off
-                    JSON.stringify(event.payload),
-                  )
+                    const info = db.prepare(INSERT).run(
+                      id,
+                      event.kind,
+                      event.actor,
+                      event.storyRef,
+                      event.sessionId,
+                      event.correlationId,
+                      contentHash,
+                      prevHash,
+                      event.schemaV,
+                      event.occurredAt,
+                      // @effect-diagnostics-next-line preferSchemaOverJson:off
+                      JSON.stringify(event.payload),
+                    )
 
-                  if (info.changes === 0) {
-                    // Duplicate content hash — return the already-stored event (idempotent)
-                    const existing = db
-                      .prepare('SELECT * FROM events WHERE content_hash = ?')
-                      .get(contentHash) as Record<string, unknown>
-                    return rowToStoredEvent(existing)
-                  }
+                    if (info.changes === 0) {
+                      // Duplicate content hash — return the already-stored event (idempotent)
+                      const existing = db
+                        .prepare('SELECT * FROM events WHERE content_hash = ?')
+                        .get(contentHash) as Record<string, unknown>
+                      return rowToStoredEvent(existing)
+                    }
 
-                  return { ...event, contentHash, id, prevHash } satisfies StoredEvent
-                },
+                    return { ...event, contentHash, id, prevHash } satisfies StoredEvent
+                  },
+                })
               }),
 
             query: filter =>

@@ -11,8 +11,6 @@
  * Amendment content is SHA-256 hashed before signing.
  */
 import { createHash, generateKeyPairSync, sign, verify } from 'node:crypto'
-import { readFile, writeFile } from 'node:fs/promises' // oxlint-disable-line no-restricted-imports -- TODO: migrate to Effect FileSystem
-import { join } from 'node:path' // oxlint-disable-line no-restricted-imports -- TODO: migrate to Path service
 
 // ─── roles ────────────────────────────────────────────────────────────────────
 
@@ -108,16 +106,3 @@ export const checkQuorum = (
 
   return { met, missingRequired, witnessCount }
 }
-
-// ─── key store I/O ────────────────────────────────────────────────────────────
-
-export const writeKeypair = async (keyStoreDir: string, kp: Keypair): Promise<void> => {
-  await writeFile(join(keyStoreDir, `${kp.role}.private.pem`), kp.privateKeyPem, 'utf8')
-  await writeFile(join(keyStoreDir, `${kp.role}.public.pem`), kp.publicKeyPem, 'utf8')
-}
-
-export const readPublicKey = async (keyStoreDir: string, role: SignerRole): Promise<string> =>
-  readFile(join(keyStoreDir, `${role}.public.pem`), 'utf8')
-
-export const readPrivateKey = async (keyStoreDir: string, role: SignerRole): Promise<string> =>
-  readFile(join(keyStoreDir, `${role}.private.pem`), 'utf8')

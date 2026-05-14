@@ -1,13 +1,7 @@
 import { createHash } from 'node:crypto'
-import { execFile } from 'node:child_process'
-import { mkdtemp, writeFile } from 'node:fs/promises'
-import { tmpdir } from 'node:os'
-import { join } from 'node:path'
-import { promisify } from 'node:util'
 import { Effect, Ref } from 'effect'
 import { DataHandleError, HandleExhausted, HandleRevoked } from '../../ports/driven/DataHandle.ts'
-
-const execFileAsync = promisify(execFile)
+import { runScriptInTempDir } from '../runScriptInTempDir.ts'
 
 export interface FileBackedHandleOptions {
   readonly id: string
@@ -60,16 +54,12 @@ export const FileBackedHandle = {
             }
             const stdout = yield* Effect.tryPromise({
               catch: cause => new DataHandleError({ cause }),
-              try: async () => {
-                const dir = await mkdtemp(join(tmpdir(), 'handle-script-'))
-                const scriptPath = join(dir, 'script.js')
-                await writeFile(scriptPath, script, 'utf8')
-                const { stdout: out } = await execFileAsync(process.execPath, [scriptPath], {
+              try: () =>
+                runScriptInTempDir({
+                  code: script,
                   env: { ...process.env, DATA_FILE: opts.filePath },
-                  timeout: 30_000,
-                })
-                return out
-              },
+                  prefix: 'handle-script-',
+                }),
             })
             const bitsConsumed = estimateBits(stdout)
             const newTotal = accumulated + bitsConsumed

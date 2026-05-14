@@ -5,6 +5,22 @@ Convention: fix → move (cut from PAIN.md, paste here in the same commit as the
 
 ---
 
+## P17 — `ceremony.ts` key-I/O functions are standalone `async` in `domain/` (severity: annoys)
+
+**FIXED 2026-05-14 — I/O functions extracted to `CeremonyKeyStore.ts` adapter; `domain/ceremony.ts` is now pure.**
+test: `packages/host/tests/unit/ceremony.unit.test.ts` — "Ceremony — key-store I/O" describe block (uses `it.effect`).
+
+**Symptom.** `writeKeypair`, `readPublicKey`, `readPrivateKey` in `src/domain/ceremony.ts` were
+standalone `async` functions importing `node:fs/promises` and `node:path` directly inside `domain/`,
+which should be a pure layer with no I/O dependencies.
+
+**Fix.** Moved all three to `src/adapters/driven/CeremonyKeyStore.ts` as `Effect.fn` functions.
+`domain/ceremony.ts` now contains only pure logic (key generation, signing, verification, quorum).
+Test updated to import from the adapter and use `it.effect`. `bin/ceremony.ts` updated to call
+`Effect.runPromise(writeKeypair(...))`.
+
+---
+
 ## P20 — `process.env` used directly instead of Effect `Config` (severity: annoys)
 
 **FIXED 2026-05-14 — all 6 reads migrated to `Config.int`/`Config.string`/`Config.option` with `ConfigProvider.fromEnv()` at composition root.**

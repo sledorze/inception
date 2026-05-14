@@ -8,12 +8,7 @@
  * Bootstrap calibration (bootstrap=true §12):
  *   ε_per_query = 0.1, ε_max = 1.0, δ = 1e-5, max_sensitivity = 1.0
  */
-import { execFile } from 'node:child_process'
 import { createHash } from 'node:crypto'
-import { mkdtemp, writeFile } from 'node:fs/promises'
-import { tmpdir } from 'node:os'
-import { join } from 'node:path'
-import { promisify } from 'node:util'
 import { Effect, Ref } from 'effect'
 import {
   DEFAULT_DELTA,
@@ -25,6 +20,7 @@ import {
 } from '../../domain/dp.ts'
 import { DataHandleError, HandleExhausted, HandleRevoked, SensitivityViolation } from '../../ports/driven/DataHandle.ts'
 import type { DataHandle, QuerySensitivity } from '../../ports/driven/DataHandle.ts'
+import { runScriptInTempDir } from '../runScriptInTempDir.ts'
 
 export interface DpHandleOptions {
   readonly id: string
@@ -39,8 +35,6 @@ export interface DpHandleOptions {
 }
 
 type HandleState = 'alive' | 'revoked' | 'exhausted'
-
-const execFileAsync = promisify(execFile)
 
 const DEFAULT_SENSITIVITY: QuerySensitivity = { norm: 'l1', value: 1 }
 
@@ -90,16 +84,12 @@ export const DpFileBackedHandle = {
 
             const stdout = yield* Effect.tryPromise({
               catch: cause => new DataHandleError({ cause }),
-              try: async () => {
-                const dir = await mkdtemp(join(tmpdir(), 'dp-handle-script-'))
-                const scriptPath = join(dir, 'script.js')
-                await writeFile(scriptPath, script, 'utf8')
-                const { stdout: out } = await execFileAsync(process.execPath, [scriptPath], {
+              try: () =>
+                runScriptInTempDir({
+                  code: script,
                   env: { ...process.env, DATA_FILE: opts.filePath },
-                  timeout: 30_000,
-                })
-                return out
-              },
+                  prefix: 'dp-handle-script-',
+                }),
             })
 
             const trueBits = stdout.length * 8

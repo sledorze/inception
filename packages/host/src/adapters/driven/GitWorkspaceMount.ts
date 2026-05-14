@@ -10,10 +10,7 @@ const execFileAsync = promisify(execFile)
 const gitRoot = (cwd: string) =>
   Effect.tryPromise({
     catch: () => null as null,
-    try: async () => {
-      const { stdout } = await execFileAsync('git', ['-C', cwd, 'rev-parse', '--show-toplevel'])
-      return stdout.trim()
-    },
+    try: () => execFileAsync('git', ['-C', cwd, 'rev-parse', '--show-toplevel']).then(({ stdout }) => stdout.trim()),
   })
 
 export const GitWorkspaceMount = {
@@ -60,10 +57,11 @@ export const GitWorkspaceMount = {
                 write: (relativePath, content) =>
                   Effect.tryPromise({
                     catch: cause => new WorkspaceMountError({ cause, path: relativePath }),
-                    try: async () => {
+                    try: () => {
                       const fullPath = join(absPath, relativePath)
-                      await mkdir(dirname(fullPath), { recursive: true })
-                      await writeFile(fullPath, content, 'utf8')
+                      return mkdir(dirname(fullPath), { recursive: true }).then(() =>
+                        writeFile(fullPath, content, 'utf8'),
+                      )
                     },
                   }),
               })
