@@ -5,11 +5,13 @@
   "type": "module",
   "bin": {
     "observe-cli": "./bin/observe.ts",
+    "review-cli": "./bin/review.ts",
     "user-cli": "./bin/user.ts"
   },
   "scripts": {
     "dev": "tsx watch src/main.ts",
     "observe-cli": "tsx bin/observe.ts",
+    "review-cli": "tsx bin/review.ts",
     "start": "node --import tsx src/main.ts",
     "test": "cd ../.. && pnpm exec vitest run",
     "typecheck": "tsc --noEmit",
