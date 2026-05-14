@@ -1,233 +1,184 @@
-# Meta-loops — Intentional Design and Efficiency Metrics
+# Meta-loops — Design and Measurement
 
-This project improves itself through six explicit feedback loops. Each loop has a purpose,
-a measurable efficiency metric, and a degradation signal that `/hunt` scans for.
+This project improves itself through six explicit feedback loops.
 
-Degradation signals are the primary input for heuristic #9 in `.claude/patterns/cycle-hunt.md`.
+**Source of objectivity: `pnpm loop:health`** — a script that computes metrics from repo
+artifacts (git log, file counts, CI results). It exits non-zero on red signals and prints what
+it cannot yet measure as `⏸ pending`. Run it; read the numbers; apply judgement to anomalies.
+The script is the measure. This document is the spec for what to measure and why.
+
+Judgement is not a substitute for measurement — it interprets the edges the machine cannot
+distinguish: "coverage went up 2% — is that real assertion growth or trivial lines?" The machine
+produces the number; a human or constitutional actor decides what it means.
 
 ---
 
-## L1 — Friction → Fix (reactive quality loop)
+## L1 — Friction → Fix
 
-**Purpose.** Surface and eliminate recurring friction before it compounds into wasted cycles.
+**Purpose.** Surface and eliminate recurring friction before it compounds.
 
 **Flow.**
 
 ```
 Friction encountered
-  → docs/PAIN.md          log it, severity-tag it
-  → .claude/patterns/     document the pattern so the next agent avoids it
-  → lefthook / CC hook    mechanize the check so it fires automatically
-  → docs/PAIN-archive.md  cut + archive when fixed (same commit as the fix)
+  → docs/PAIN.md          log it (severity-tagged)
+  → .claude/patterns/     document it (so the next agent avoids re-derivation)
+  → lefthook / CC hook    mechanize it (so it fires automatically)
+  → docs/PAIN-archive.md  archive it (same commit as the fix)
 ```
 
-**Metrics.**
+**Measured by.** `pnpm loop:health` — L1 block: PAIN open count, archive rate.
 
-| Metric                 | Formula                                                                                    | Target                        | Current baseline                                         |
-| ---------------------- | ------------------------------------------------------------------------------------------ | ----------------------------- | -------------------------------------------------------- |
-| Detection stage at fix | Stage when violation is caught after fix lands (0=edit, 1=commit, 2=push, 3=CI, 4=runtime) | ≤1                            | ~1.5 avg (some checks still push-only)                   |
-| PAIN item age          | Calendar days from item creation to PAIN-archive entry                                     | P1 < 14 days; P2/P3 < 60 days | P1: >60 days (wiring fan-out, blocked on Effect v4 beta) |
-| Mechanization rate     | Items that produced a hook or CC hook / total archived items                               | >50%                          | ~30% (most land in pattern files only)                   |
+**Judgement questions** (after seeing the numbers):
 
-**Degradation signals.**
+- Is P1 age exceeding target because the item is genuinely blocked, or because no one looked at it?
+- Did an archived item produce a hook, or just a pattern file? (Hooks close loops; patterns only document them.)
+- Is a pattern file being consulted, or does the same violation recur? (Recurrence means the pattern is not auto-activated.)
 
-- P1/P2 age exceeds target without a `blocked` annotation explaining why.
-- New items added faster than old ones are archived (backlog growing monotonically).
-- A pattern file exists but the same violation recurs — the pattern is not being consulted.
-
-**Quick check.** `grep -c "^## P[0-9]" docs/PAIN.md` — value >4 signals loop not closing.
+**Invariant.** Every loop must have at least one mechanized check. A pattern file alone is
+documentation, not enforcement.
 
 ---
 
-## L2 — Cycle-Hunt (proactive waste scan)
+## L2 — Cycle-Hunt
 
 **Purpose.** Find waste before it bites, feeding findings into L1 and the other loops.
 
 **Flow.**
 
 ```
-Trigger fires (slice boundary / PAIN count / explicit /hunt)
-  → scan 8 heuristics + meta-loop health (heuristic #9)
-  → land each candidate in its output channel
-  → commit outputs separately
+Trigger fires (slice boundary / PAIN ≥3 / explicit /hunt)
+  → scan heuristics 1–9 (cycle-hunt.md)
+  → land each candidate in its declared output channel
+  → commit outputs separately from feature work
 ```
 
-**Metrics.**
+**Measured by.** `pnpm loop:health` — L2 block: days since last hunt commit.
 
-| Metric                 | Formula                                              | Target  | Current baseline                    |
-| ---------------------- | ---------------------------------------------------- | ------- | ----------------------------------- |
-| Candidates per hunt    | Findings surfaced / hunt session                     | 2–4     | 2 (first dogfood hunt)              |
-| Hunt frequency         | Hunt sessions per vertical slice                     | ≥1      | 1/1 slices so far                   |
-| Output channel quality | (Hook + pattern) outputs / total outputs             | >50%    | 50% (1 PAIN item, 1 CLAUDE.md edit) |
-| Heuristic hit rate     | Heuristics that fired ≥1 finding across last 3 hunts | ≥4 of 9 | Not yet trackable                   |
+**Judgement questions** (after seeing the numbers):
 
-**Degradation signals.**
+- Were the candidates real waste or manufactured to hit a count? (The test: did anything mechanically improve as a result?)
+- Did the hunt output land in a hook/pattern (strong) or only a PAIN item (weak)?
+- Was heuristic #9 (meta-loop health) run as part of the hunt?
 
-- 0 candidates in a hunt → heuristics are stale; revise them.
-- All outputs land in PAIN items only (nothing mechanized) → L1 not closing; hunt is logging, not fixing.
-- > 1 slice since last hunt.
-
-**Quick check.** `git log --oneline --grep="hunt" | head -3` — last hunt commit date.
+**Invariant.** A hunt that produces only PAIN items and no mechanization is logging, not fixing.
+L1 closes the loop; L2 feeds it.
 
 ---
 
-## L3 — Assessment Frame → Test → Coverage (per-cycle quality gate)
+## L3 — Assessment Frame → Test → Coverage
 
-**Purpose.** Ensure every work cycle produces verifiable, durable outputs that cannot silently degrade.
+**Purpose.** Ensure every work cycle produces verifiable, durable outputs.
 
 **Flow.**
 
 ```
 Assessment frame filed (L3.9)
-  → law test written (packages/host/tests/laws/<id>.spec.ts)
-  → protocol test parametrised over all bound adapters
-  → coverage ratchet (never lower)
-  → Stryker mutation score on law tests
+  → law test written     packages/host/tests/laws/<id>.spec.ts
+  → protocol test        parametrised over all bound adapters
+  → coverage ratchet     CI rejects threshold drops
+  → mutation score       Stryker on law tests (nightly)
 ```
 
-**Metrics.**
+**Measured by.** `pnpm loop:health` — L3 block: law test coverage %, dep boundary violations.
+Full coverage number: `pnpm test:coverage:ci`. Dep violations: `pnpm deps:check`.
 
-| Metric                      | Formula                                                            | Target | Current baseline                                               |
-| --------------------------- | ------------------------------------------------------------------ | ------ | -------------------------------------------------------------- |
-| Law coverage                | Laws in §3 with a paired `tests/laws/` test / total laws           | 100%   | ~60% (Phase 1.5 tests complete; earlier laws partially tested) |
-| Protocol parametrization    | Adapters passing protocol test / total bound adapters per port     | 100%   | ~80%                                                           |
-| Mutation score              | Stryker score on `tests/laws/`                                     | >80%   | Not yet in CI (nightly only)                                   |
-| Assessment frame compliance | Commits with a SPEC-section ref in message / total feature commits | 100%   | Enforced by commit-msg hook                                    |
+**Judgement questions** (after seeing the numbers):
 
-**Degradation signals.**
+- Law coverage 26%: is the gap explained by laws with structural enforcement (dep-cruiser, kernel-signatures CI) rather than test files? Or are laws simply untested?
+- A new adapter was added — is it in its port's protocol test parametrization?
+- Did coverage increase because of real assertions, or because test files grew with trivial lines?
 
-- A law added to §3 without a paired `tests/laws/` file.
-- A new adapter not added to its port's protocol test parametrization.
-- Coverage threshold manually lowered.
-
-**Quick check.** `pnpm deps:check && pnpm typecheck` green; then grep `tests/laws/` count against §3 law count.
+**Invariant.** CI enforces coverage ratchet and dep boundaries unconditionally. These are the
+hardest metrics to game because machines run them, not agents.
 
 ---
 
-## L4 — Supervisor → Monitor → Divergence (behavioral integrity loop)
+## L4 — Supervisor → Monitor → Divergence
 
-**Purpose.** Detect misbehavior or risk-signal drift before it propagates to Users or compounds
-across cycles.
+**Purpose.** Detect behavioral misbehavior or risk-signal drift before it reaches Users.
 
 **Flow.**
 
 ```
 Georges runs a cycle
-  → Supervisor (in-process) computes risk signals (R1, R2, R5 in Phase 1)
-  → Monitor (out-of-process) independently recomputes a random subset
-  → SupervisorDivergence event emitted on mismatch
-  → escalation path (PAIN item, constitutional amendment, or quarantine)
+  → Supervisor (in-process)     computes risk signals (R1, R2, R5 in Phase 1)
+  → Monitor (out-of-process)    independently recomputes a random subset
+  → SupervisorDivergence?       emitted to event store on mismatch
+  → escalation                  PAIN item / constitutional amendment / quarantine
 ```
 
-**Metrics.**
+**Measured by.** Event store queries once production traffic flows. Currently `⏸ pending`.
 
-| Metric           | Formula                                                | Target                                 | Current baseline                    |
-| ---------------- | ------------------------------------------------------ | -------------------------------------- | ----------------------------------- |
-| Signal coverage  | Risk signals actively computed / total signals in §3.5 | 100% long-term; ≥R1,R2,R5 for Phase 1  | 3 of N (bootstrap)                  |
-| Divergence rate  | SupervisorDivergence events / total cycles             | Baseline needed; alert on rising trend | Unknown — no production traffic yet |
-| Signal staleness | Signals not recomputed in last 10 cycles               | 0                                      | Not yet measurable                  |
-| Resolution time  | SupervisorDivergence to resolution event               | <1 cycle                               | Unknown                             |
+**Judgement questions** (once measurable):
 
-**Degradation signals.**
+- Is the Monitor actually running? An absent Monitor is a silent loop break, not a green signal.
+- Is divergence rate rising with no corresponding PAIN items? That's a coverage gap in the fix loop.
+- Are risk signals being added to §3.5 without being added to the Supervisor's compute set?
 
-- Monitor process not running (L3.7 violation).
-- Signal coverage stagnant while new risks are added to §3.5.
-- Divergence rate climbing without corresponding PAIN items or fixes.
-
-**Quick check.** Is the Monitor process alive? Any `SupervisorDivergence` events in the store
-since the last cycle?
+**Invariant.** Two independent watchers (Supervisor + Monitor) break the single-point-of-failure
+of self-reporting. If only one runs, the loop is open.
 
 ---
 
-## L5 — Capability Proposal → Promotion (evolution loop)
+## L5 — Capability Proposal → Promotion
 
-**Purpose.** Allow Georges to grow its own tool surface in a gated, auditable way — closing
-the self-improvement loop for the AI inhabitant.
+**Purpose.** Allow Georges to grow its own tool surface in a gated, auditable way.
 
 **Flow.**
 
 ```
 Georges calls propose-capability (manifest + code + tests)
   → Supervisor evaluates DelegatedPromotionPolicy
-  → Claude reviews + optionally countersigns
+  → Claude reviews
   → Promoted / Rejected event
   → capability active (or not) in next session
 ```
 
-**Metrics.**
+**Measured by.** Event store queries once Phase 4 starts. Currently `ℹ N/A`.
 
-| Metric               | Formula                                                   | Target                                     | Current baseline              |
-| -------------------- | --------------------------------------------------------- | ------------------------------------------ | ----------------------------- |
-| Acceptance rate      | Promoted / (Promoted + Rejected)                          | >50% initial; rising as Georges calibrates | N/A — Phase 4 not yet started |
-| Time to promotion    | propose-capability timestamp to Promoted event            | <2 cycles                                  | N/A                           |
-| Capability longevity | Capabilities still active after 5 cycles / total promoted | >80%                                       | N/A                           |
-| Rollback rate        | Promotions reverted / total promotions                    | <10%                                       | N/A                           |
+**Judgement questions** (once active):
 
-**Degradation signals (once active).**
-
-- Acceptance rate <20% → Georges proposing outside its competence or scope; calibrate
-  the capability manifest schema.
-- Time to promotion >1 week → review bottleneck; check Claude review queue.
-- High rollback rate → promoted capabilities failing in practice; tighten the test requirement
-  in `propose-capability`.
-
-**Quick check.** N/A until Phase 4. Track from first `CapabilityProposed` event.
+- Is acceptance rate low because Georges proposes poorly, or because the review criteria are unclear?
+- Is time-to-promotion bounded? A long queue means the human review step is the bottleneck.
+- Are promoted capabilities staying active, or are they being rolled back? Rollbacks are the strongest signal that the test requirement is too weak.
 
 ---
 
-## L6 — Session Context → Orientation (startup efficiency loop)
+## L6 — Session Context → Orientation
 
-**Purpose.** Minimize the tokens and time a fresh Claude session needs to orient before
-producing useful output.
+**Purpose.** Minimize tokens and time needed to orient a fresh Claude session.
 
 **Flow.**
 
 ```
 session-context.sh fires at SessionStart
-  → injects: date + branch + status + top PAIN + next TODO + hunt nudge (if 3+ PAIN items)
-  → Claude reads SPEC-nav.md (not full SPEC §A + §3 — already tightened)
-  → Claude jumps to the one relevant SPEC section if needed
-  → first useful action within 2-3 tool calls
+  → injects top PAIN + next TODO + hunt nudge (if PAIN ≥3)
+  → Claude reads SPEC-nav.md only (not full §A + §3)
+  → first useful action within 2–3 tool calls
 ```
 
-**Metrics.**
+**Measured by.** `pnpm loop:health` — L6 block: PAIN surfaceability, TODO freshness.
+Token cost is `⏸ pending` (needs session instrumentation).
 
-| Metric               | Formula                                                         | Target               | Current baseline               |
-| -------------------- | --------------------------------------------------------------- | -------------------- | ------------------------------ |
-| Priming token cost   | Tokens consumed by session-start reads before first code action | <500                 | Unknown — not yet instrumented |
-| PAIN relevance       | Does top PAIN item match current branch concern? (manual check) | Yes                  | Not tracked                    |
-| Orientation accuracy | Claude identifies correct next TODO on first read               | Yes/No per session   | Not tracked                    |
-| Ritual depth         | SPEC sections read in full at session start                     | 0 (SPEC-nav.md only) | 0 since L6 tightening          |
+**Judgement questions** (after seeing the numbers):
 
-**Degradation signals.**
-
-- Session hook advertising a solved PAIN item (stale `PAIN.md`).
-- Agent re-reading full SPEC §A + §3 despite SPEC-nav.md existing.
-- "Next TODO" field pointing at a done or blocked item — `TODO.md` stale.
-
-**Quick check.** Read the last three session-context outputs from git log. Do they match
-the actual state of PAIN.md and TODO.md?
+- Does the top PAIN item match what is actually blocking progress on the current branch?
+- Is the next TODO the right one — or is there a higher-priority unlabelled item?
+- Is the session hook advertising a solved problem? (Stale injection is silent; only comparison reveals it.)
 
 ---
 
-## Measuring loop health — summary table
+## Running the health check
 
-| Loop | Quick check command / observation                                   | Red signal                       |
-| ---- | ------------------------------------------------------------------- | -------------------------------- |
-| L1   | `grep -c "^## P[0-9]" docs/PAIN.md`                                 | >4 open items                    |
-| L2   | `git log --oneline --grep="hunt" \| head -3`                        | Last hunt >1 slice ago           |
-| L3   | `pnpm test --coverage`; count `tests/laws/` vs §3 laws              | Coverage drop or uncovered law   |
-| L4   | Is Monitor running? `SupervisorDivergence` events since last cycle? | Monitor down; rising divergence  |
-| L5   | N/A (Phase 4)                                                       | Acceptance rate <20% once active |
-| L6   | Does session hook output match `PAIN.md` + `TODO.md` reality?       | Stale injection                  |
+```bash
+pnpm loop:health
+```
 
----
+Exit 0 = green or warnings only (apply judgement).
+Exit 1 = red signals (action required; start with judgement: "is this a real problem?").
 
-## Invariants
-
-- Every loop must have at least one **mechanized** check (a hook, a CI job, or a `session-context.sh`
-  field) — a loop with only manual checks is not a loop, it's a wishlist.
-- Every metric must be **computable from artifacts already in the repo** (event store, git log,
-  file counts). Metrics requiring external instrumentation are targets, not baselines.
-- A loop with no recent activity (no archive entry, no hunt commit, no divergence event) is not
-  healthy by default — it may simply not be running.
+**Pending metrics** (`⏸` in the output) require instrumentation that doesn't exist yet:
+structured PAIN item metadata (created-at, detected-at stage), a structured hunt log, session
+token counters, and production event store traffic. These are the next instrumentation targets —
+they move from `⏸` to a measured number when the instrumentation is built.

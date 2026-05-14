@@ -134,19 +134,9 @@ Ask: what do I re-read most often? Can a nav file, session hook, or memory entry
 
 ### 9. Meta-loop health
 
-The six self-improving loops documented in `docs/META-LOOPS.md` each have a degradation signal.
-A hunt should include a quick pass over all six.
+Run `pnpm loop:health` — it computes every measurable loop signal from repo artifacts and exits non-zero on red. Read the numbers; apply judgement to anomalies the machine cannot distinguish.
 
-| Loop                  | Quick check                                                      | Red signal                       |
-| --------------------- | ---------------------------------------------------------------- | -------------------------------- |
-| L1 Friction→Fix       | `grep -c "^## P[0-9]" docs/PAIN.md`                              | >4 open items                    |
-| L2 Cycle-Hunt         | `git log --oneline --grep="hunt" \| head -3`                     | Last hunt >1 slice ago           |
-| L3 Frame→Test         | count `tests/laws/` vs §3 law count; `pnpm test`                 | Uncovered law or coverage drop   |
-| L4 Supervisor→Monitor | Is Monitor running? Any `SupervisorDivergence` since last cycle? | Monitor down; rising divergence  |
-| L5 Capability         | N/A until Phase 4                                                | Acceptance rate <20% once active |
-| L6 Session Context    | Does session hook output match `PAIN.md` + `TODO.md` reality?    | Stale injection                  |
-
-Ask: which loop is showing a red signal right now?
+Ask: which loop is showing a red signal right now? Is the signal a real problem or a metric artifact?
 
 ---
 

@@ -16,6 +16,7 @@
     "lint": "oxlint packages/ e2e/ && node --import tsx packages/host/src/checks/check-test-conventions.ts",
     "lint:ci": "oxlint packages/ e2e/ --quiet && node --import tsx packages/host/src/checks/check-test-conventions.ts",
     "lint:fix": "oxlint --fix packages/ e2e/",
+    "loop:health": "bash scripts/loop-health.sh",
     "prepare": "test -d .git && lefthook install || echo Skipping lefthook in CI",
     "start": "node --import tsx packages/host/src/main.ts",
     "stryker": "stryker run",
