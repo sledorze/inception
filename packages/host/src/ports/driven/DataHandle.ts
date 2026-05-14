@@ -13,19 +13,16 @@ export interface AggregateResult {
   readonly bitsConsumed: number
 }
 
-export const DataHandleErrorTag = '@app/host/DataHandleError' as const
-export class DataHandleError extends Schema.TaggedErrorClass<DataHandleError>()(DataHandleErrorTag, {
+export class DataHandleError extends Schema.TaggedErrorClass<DataHandleError>()('@app/host/DataHandleError', {
   cause: Schema.Defect,
 }) {}
 
-export const HandleRevokedTag = '@app/host/HandleRevoked' as const
-export class HandleRevoked extends Schema.TaggedErrorClass<HandleRevoked>()(HandleRevokedTag, {
+export class HandleRevoked extends Schema.TaggedErrorClass<HandleRevoked>()('@app/host/HandleRevoked', {
   handleId: Schema.String,
 }) {}
 
 // Emitted when the per-handle info-budget (L1.7) is exhausted.
-export const HandleExhaustedTag = '@app/host/HandleExhausted' as const
-export class HandleExhausted extends Schema.TaggedErrorClass<HandleExhausted>()(HandleExhaustedTag, {
+export class HandleExhausted extends Schema.TaggedErrorClass<HandleExhausted>()('@app/host/HandleExhausted', {
   bitsConsumed: Schema.Number,
   handleId: Schema.String,
 }) {}
@@ -36,12 +33,14 @@ export const QuerySensitivitySchema = Schema.Struct({
 })
 export type QuerySensitivity = typeof QuerySensitivitySchema.Type
 
-export const SensitivityViolationTag = '@app/host/SensitivityViolation' as const
-export class SensitivityViolation extends Schema.TaggedErrorClass<SensitivityViolation>()(SensitivityViolationTag, {
-  declared: Schema.Number,
-  max: Schema.Number,
-  norm: Schema.Union([Schema.Literal('l1'), Schema.Literal('l2')]),
-}) {}
+export class SensitivityViolation extends Schema.TaggedErrorClass<SensitivityViolation>()(
+  '@app/host/SensitivityViolation',
+  {
+    declared: Schema.Number,
+    max: Schema.Number,
+    norm: Schema.Union([Schema.Literal('l1'), Schema.Literal('l2')]),
+  },
+) {}
 
 export interface DataHandle {
   readonly id: string

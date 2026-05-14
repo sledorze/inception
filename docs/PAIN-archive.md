@@ -22,23 +22,16 @@ to change when `GeorgesToolkitLive` gains a new dependency.
 
 ---
 
-## P2 — `Effect.catchTags` key mismatch is a silent runtime failure
+## P2 — `Effect.catchTags` key mismatch
 
-**FIXED 2026-05-14 in feat/1.3-user-gateway (this commit).**
+**CLOSED (not-a-bug) 2026-05-14.**
 
-**Severity:** blocks work.
+**Symptom.** Concern that `catchTags` silently ignores keys not matching the exact `_tag`.
 
-**Symptom.** `Schema.TaggedErrorClass` sets `_tag` to the full namespaced ID (e.g.,
-`'@app/host/HandleRevoked'`). A `catchTags` key mismatch (short name vs. full tag) can cause
-errors to propagate uncaught. Note: TypeScript _does_ catch wrong keys (the handler type resolves
-to `never`) — but only if the error channel retains the literal `_tag` type. The real risk is a
-tag rename: changing the string inside the class definition silently diverges from all
-`catchTags` call sites until the next typecheck run.
-
-**Fix.** Exported `_tag` values as named constants from `DataHandle.ts` (`DataHandleErrorTag`,
-`HandleRevokedTag`, `HandleExhaustedTag`, `SensitivityViolationTag`). `GeorgesToolkit.ts` now
-uses `[HandleRevokedTag]: ...` computed keys in `catchTags`. A rename of any tag string now
-produces a single-site change that the compiler propagates everywhere.
+**Resolution.** TypeScript already enforces this: a wrong key resolves the handler type to `never`,
+causing a compile error. No extra machinery needed. String literals in `catchTags` call sites are
+sufficient; the type system catches mismatches at typecheck time. Exporting tag constants was
+attempted and then reverted — unnecessary complexity.
 
 ---
 

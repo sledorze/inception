@@ -8,13 +8,7 @@
 import { randomUUID } from 'node:crypto'
 import { Clock, Effect, Schema } from 'effect'
 import { Tool, Toolkit } from 'effect/unstable/ai'
-import {
-  DataHandleErrorTag,
-  DataHandleRegistry,
-  HandleExhaustedTag,
-  HandleRevokedTag,
-  SensitivityViolationTag,
-} from '../../ports/driven/DataHandle.ts'
+import { DataHandleRegistry } from '../../ports/driven/DataHandle.ts'
 import { EventStore } from '../../ports/driven/EventStore.ts'
 import { PolicyGate } from '../../ports/driven/PolicyGate.ts'
 import { ToolRegistry } from '../../ports/driven/ToolRegistry.ts'
@@ -245,11 +239,11 @@ export const GeorgesToolkitLive = GeorgesToolkit.toLayer(
           .pipe(Effect.mapError(e => ({ message: `handle '${e.handleId}' has been revoked` })))
         const aggregate = yield* handle.runScript(script).pipe(
           Effect.catchTags({
-            [DataHandleErrorTag]: e => Effect.fail({ message: `data handle error: ${String(e.cause)}` }),
-            [HandleExhaustedTag]: e =>
+            '@app/host/DataHandleError': e => Effect.fail({ message: `data handle error: ${String(e.cause)}` }),
+            '@app/host/HandleExhausted': e =>
               Effect.fail({ message: `handle '${e.handleId}' budget exhausted (${e.bitsConsumed} bits consumed)` }),
-            [HandleRevokedTag]: e => Effect.fail({ message: `handle '${e.handleId}' has been revoked` }),
-            [SensitivityViolationTag]: e =>
+            '@app/host/HandleRevoked': e => Effect.fail({ message: `handle '${e.handleId}' has been revoked` }),
+            '@app/host/SensitivityViolation': e =>
               Effect.fail({ message: `sensitivity violation: declared ${e.declared} > max ${e.max} (${e.norm})` }),
           }),
         )
