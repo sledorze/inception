@@ -214,3 +214,59 @@ didn't carve out this safe exception.
 
 > "Passing the resolved `ms: number` from `Clock.currentTimeMillis` into `new Date(ms)` for
 > ISO-string formatting is acceptable — the test-controllable invariant is the clock."
+
+---
+
+## P14 — RED acceptance tests block pre-commit without `it.fails` marker (severity: annoys)
+
+**FIXED 2026-05-14 in feat/phase-3-s1-demo — pattern documented; `it.fails` / `it.effect.fails` applied to all RED tests.**
+test: N/A — workflow pattern, not a code bug.
+
+**Symptom.** The lefthook `test-changed` pre-commit hook runs all tests related to staged files,
+including intentional RED acceptance tests (tests that document current gaps and are expected to
+fail). Without the `it.fails` / `it.effect.fails` marker, every commit made while a RED test
+exists fails the pre-commit hook.
+
+**Encountered in.** Adding P10/P12/P13 RED tests — commit blocked until each was marked with
+the correct vitest fails modifier.
+
+**Fix.** Use `it.fails('RED: ...', () => ...)` for plain vitest RED tests; use
+`it.effect.fails('RED: ...', () => Effect.gen(...))` inside `layer()` callbacks.
+vitest treats `.fails` tests as: "expected to fail — if unexpectedly passes, report as a failure."
+Pattern documented in `.claude/patterns/effect-test-pattern.md`.
+
+---
+
+## P15 — tsgo TS377074 fires when `Effect.runPromise` is used inside an Effect generator (severity: annoys)
+
+**FIXED 2026-05-14 in feat/phase-3-s1-demo — `runPromiseWith(ctx)` + `return yield* forever`.**
+test: `pnpm exec tsgo --noEmit -p packages/host/tsconfig.json` exits 0 (typecheck clean).
+
+**Symptom.** The tsgo Effect plugin raises `effect(runEffectInsideEffect)` (TS377074) when
+`Effect.runPromise(...)` is called inside a function typed as `Effect.Effect<..., ..., R>`, even
+when the inner effect has `never` requirements. A second rule, `effect(missingReturnYieldStar)`
+(TS377006), flags `yield* Effect.forever(...)` without a leading `return`.
+
+**Encountered in.** `CliUserGateway.ts`.
+
+**Fix.** TS377074: capture `const ctx = yield* Effect.context<R>()` at the top of the generator,
+then use `Effect.runPromiseWith(ctx)(...)` in callbacks. TS377006: write
+`return yield* Effect.forever(...)` so the generator exits cleanly.
+
+---
+
+## P16 — `content_hash UNIQUE` constraint fails on repeated tool calls in bootstrap context (severity: blocks work)
+
+**FIXED 2026-05-14 in a7cf9a1c — `INSERT OR IGNORE INTO` + idempotent return of existing row.**
+test: `packages/host/tests/protocol/EventStore.spec.ts` — "duplicate append is idempotent" test (GREEN).
+
+**Symptom.** `SqliteEventStore.append` throws `EventStoreError` when the same tool is called
+twice in the default (bootstrap) correlation context. After the P8 `correlationId` fix, repeated
+`ToolResultObserved` events for the same tool produce identical content hashes, violating the
+`UNIQUE` constraint on `content_hash`.
+
+**Encountered in.** e2e tests failing after a manual server start-and-kill left events in `events.db`.
+
+**Fix.** Changed `INSERT INTO` → `INSERT OR IGNORE INTO` in `SqliteEventStore.ts`. If no row is
+inserted (duplicate), query and return the already-stored event. Applied same idempotency to
+`InMemoryEventStore`. `append` is now a true idempotent upsert.

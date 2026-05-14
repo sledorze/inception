@@ -144,7 +144,7 @@ The v4 source is vendored at `vendor/effect-smol/` (read-only reference — do n
 
 - **No `async`/`await` or `try`/`catch`** in `packages/host/` — use `Effect.tryPromise`, `Effect.gen`, `Effect.catchTag`.
 - **No `Date.now()` or `new Date()`** — use `Clock.currentTimeMillis` / `Clock.currentTimeNano` (enables `TestClock` in tests).
-- **`Effect.fn("Name.method")`** for all named Effect-returning functions — improves stack traces + attaches a span.
+- **`Effect.fn("Name.method")`** for all named Effect-returning functions — improves stack traces + attaches a span. **Never call it as an IIFE:** `Effect.fn("X")(fn)()` is caught by tsgo `effectFnIife`; write `Effect.gen(fn).pipe(Effect.withSpan("X"))` for values, and `Effect.fn("X")(fn)` for functions.
 - **`it.effect`** for all Effect-based tests; import `{ assert, describe, it }` from `@effect/vitest`.
 
 ### When you need to understand an Effect API

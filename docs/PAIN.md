@@ -11,6 +11,20 @@ in the same commit as the fix. This file holds OPEN items only, severity-sorted.
 
 ---
 
+## P6 — `replace_all: true` blast radius on Edit tool (severity: blocks work)
+
+**Symptom.** A broad `replace_all: true` substitution (e.g., `err` → `error`) silently corrupts
+unrelated identifiers (`console.error` → `console.erroror`). Requires reading the entire file
+after every broad edit to catch collisions.
+
+**Encountered in.** `packages/host/src/main.ts` during `catch-error-name` lint fix.
+
+**Candidate fix.** Avoid `replace_all: true` on short tokens. Prefer targeted single-occurrence
+edits or use regex-aware replacement only when the pattern is unambiguous. For lint autofixes,
+let `oxlint-autofix.sh` do the rename rather than doing it manually.
+
+---
+
 ## P10 — LMStudio response shape divergence not surfaced to EventStore (severity: annoys)
 
 **Symptom.** `OpenAiCompatLlmProvider`'s `reasoningAwareFetch` intercept uses
@@ -29,20 +43,6 @@ Proves 0 `UnknownShapeObserved` events reach `EventStore` on current code.
 `EventStore`. Requires bridging the fetch intercept (Promise territory) back to the Effect runtime
 — probably done via a shared `Queue` injected at boot, similar to how `CliUserGateway` bridges
 HTTP callbacks.
-
----
-
-## P6 — `replace_all: true` blast radius on Edit tool (severity: blocks work)
-
-**Symptom.** A broad `replace_all: true` substitution (e.g., `err` → `error`) silently corrupts
-unrelated identifiers (`console.error` → `console.erroror`). Requires reading the entire file
-after every broad edit to catch collisions.
-
-**Encountered in.** `packages/host/src/main.ts` during `catch-error-name` lint fix.
-
-**Candidate fix.** Avoid `replace_all: true` on short tokens. Prefer targeted single-occurrence
-edits or use regex-aware replacement only when the pattern is unambiguous. For lint autofixes,
-let `oxlint-autofix.sh` do the rename rather than doing it manually.
 
 ---
 
@@ -86,62 +86,20 @@ Effect's `Random` module where tests already have an Effect runtime in scope. Re
 
 ---
 
-## P14 — RED acceptance tests block pre-commit without `it.fails` marker (severity: annoys)
+## P17 — `ceremony.ts` key-I/O functions are standalone `async` in `domain/` (severity: annoys)
 
-**Symptom.** The lefthook `test-changed` pre-commit hook runs all tests related to staged files,
-including intentional RED acceptance tests (tests that document current gaps and are expected to
-fail). Without the `it.fails` / `it.effect.fails` marker, every commit made while a RED test
-exists fails the pre-commit hook.
+**Symptom.** `writeKeypair`, `readPublicKey`, `readPrivateKey` in `src/domain/ceremony.ts` are
+standalone `async` functions (not wrapped in Effect). They import `node:fs/promises` and
+`node:path` directly inside `domain/`, which should be a pure layer with no I/O dependencies.
+The imports are suppressed with `// oxlint-disable-line` comments that pre-date the
+`block-oxlint-disable.sh` hook (so they remain, but no new ones can be added).
 
-**Encountered in.** Adding P10/P12/P13 RED tests in this session — commit blocked until each was
-marked with the correct vitest fails modifier.
+**Encountered in.** Async-violation cleanup session (2026-05-14) — fixing all standalone async
+functions in `packages/host/src/`.
 
-**Acceptance test.** N/A — this is a workflow pattern, not a code bug.
+**Acceptance test.** None yet — add one that greps `src/domain/` for `async` keyword and fails
+if found, OR after the fix verify `ceremony.ts` has no `async` keyword.
 
-**Candidate fix (already applied).** Use `it.fails('RED: ...', () => ...)` for plain vitest RED
-tests; use `it.effect.fails('RED: ...', () => Effect.gen(...))` inside `layer()` callbacks.
-vitest treats `.fails` tests as: "expected to fail — if unexpectedly passes, report as a failure."
-The `@effect/vitest` `Vitest.Tester` interface exposes both `it.effect.fails` and `it.fails`.
-Document the pattern in `.claude/patterns/effect-test-pattern.md` to prevent recurrence.
-
----
-
-## P16 — `content_hash UNIQUE` constraint fails on repeated tool calls in bootstrap context (severity: blocks work)
-
-**Symptom.** `SqliteEventStore.append` throws `EventStoreError` when the same tool is called
-twice in the default (bootstrap) correlation context. After P8 fix changed `correlationId` from
-`randomUUID()` to `yield* CurrentCorrelationId` (defaulting to `'bootstrap'`), repeated
-`ToolResultObserved` events for the same tool produce identical content hashes, violating the
-`UNIQUE` constraint on `content_hash`. The second call causes the HTTP route to return 500.
-
-**Encountered in.** e2e tests failing after a manual server start-and-kill left 3 events in
-`events.db`; next server start failed on `list-tools` because the content hash already existed.
-
-**Acceptance test.** `packages/host/tests/protocol/EventStore.spec.ts` — "duplicate append is
-idempotent" test (now GREEN after fix).
-
-**Candidate fix (already applied).** Changed `INSERT INTO` → `INSERT OR IGNORE INTO` in
-`SqliteEventStore.ts`. If no row is inserted (duplicate), query and return the already-stored
-event. Applied the same idempotency check to `InMemoryEventStore`. The `content_hash UNIQUE`
-constraint correctly prevents duplicate entries; `append` is now a true idempotent upsert.
-
----
-
-## P15 — tsgo TS377074 fires when `Effect.runPromise` is used inside an Effect generator (severity: annoys)
-
-**Symptom.** The tsgo Effect plugin raises `effect(runEffectInsideEffect)` (TS377074) when
-`Effect.runPromise(...)` is called inside a function typed as `Effect.Effect<..., ..., R>`, even
-when the inner effect has `never` requirements. A second rule, `effect(missingReturnYieldStar)`
-(TS377006), flags `yield* Effect.forever(...)` without a leading `return`.
-
-**Encountered in.** `CliUserGateway.ts` — the HTTP callback bridge used `Effect.runPromise` to
-offer to a Queue; `Effect.forever` drained without `return yield*`.
-
-**Acceptance test.** `pnpm exec tsgo --noEmit -p packages/host/tsconfig.json` exits non-zero when
-either rule fires.
-
-**Candidate fix (already applied).**
-
-- TS377074: capture `const ctx = yield* Effect.context<R>()` at the top of the `Effect.gen`, then
-  use `Effect.runPromiseWith(ctx)(...)` instead of `Effect.runPromise(...)` in callbacks.
-- TS377006: write `return yield* Effect.forever(...)` so the generator exits cleanly.
+**Candidate fix.** Extract `writeKeypair`, `readPublicKey`, `readPrivateKey` out of `domain/`
+into a new adapter `adapters/driven/CeremonyKeyStore.ts` that uses `FileSystem.FileSystem` +
+`Path.Path`. Keep `domain/ceremony.ts` pure (key generation, signing, verification only).

@@ -80,3 +80,50 @@ expect(result).toBe(...)
 ## State isolation between tests
 
 `layer()` creates one layer instance per describe block. Tests that use unique IDs (e.g. `randomUUID()` for `sessionId`) are automatically isolated even within a shared in-memory store — they filter by ID so they don't see each other's data.
+
+---
+
+## Frontend test helpers: `Response.json()` not `new Response(JSON.stringify(...))`
+
+When mocking `fetch` in frontend tests, create JSON responses with `Response.json(payload)` rather than
+`new Response(JSON.stringify(payload), { status: 200 })`. oxlint's `prefer-response-static-json` rule
+flags the verbose form and no auto-fix is available — it must be written correctly from the start.
+
+```ts
+// ❌ — oxlint flags this, no auto-fix
+mockFetch.mockResolvedValueOnce(new Response(JSON.stringify({ ok: true }), { status: 200 }))
+
+// ✅ — use Response.json(); defaults to status 200 + application/json content-type
+mockFetch.mockResolvedValueOnce(Response.json({ ok: true }))
+
+// ✅ — for non-200 status, use Response with a string body (not JSON)
+mockFetch.mockResolvedValueOnce(new Response('bad request', { status: 400 }))
+```
+
+---
+
+## `it.fails` / `it.effect.fails` for intentional RED acceptance tests
+
+RED tests (documenting a current gap that is expected to fail) must be marked with the `.fails`
+modifier so the pre-commit `test-changed` hook doesn't block commits.
+
+```ts
+// Plain vitest RED test
+it.fails('RED: P12 — integration tests import from bare vitest', () => {
+  const violations = findBareVitestImports(integrationFiles)
+  expect(violations).toHaveLength(0) // fails until P12 is fixed
+})
+
+// Effect-using RED test inside a layer() suite
+layer(testLayer)('RED suite', it => {
+  it.effect.fails('RED: P10 — UnknownShapeObserved not emitted', () =>
+    Effect.gen(function* () {
+      // ... assertions that currently fail
+    }),
+  )
+})
+```
+
+vitest `.fails` semantics: the test is expected to throw/fail — if it unexpectedly _passes_,
+vitest reports it as a test failure (catching regression). This is the correct idiom for
+"a thing that doesn't work yet, proven broken by a test".
