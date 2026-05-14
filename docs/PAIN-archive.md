@@ -5,6 +5,37 @@ Convention: fix → move (cut from PAIN.md, paste here in the same commit as the
 
 ---
 
+## P9 — syncpack drift undetected between package.json edits (severity: slows)
+
+**FIXED 2026-05-14 in feat/1.3-user-gateway — cycle-hunt.**
+
+**Symptom.** The syncpack pre-commit hook fires only when `**/package.json` is staged.
+Pre-existing semver drift (e.g., `^0.86.1` in root devDeps violating the `range: ""` group)
+survives silently across many commits until root `package.json` is next modified.
+Concretely: `@effect/language-service` and `@effect/tsgo` had carets for 7+ commits.
+
+**Fix.** Added `syncpack` command at `priority: 2` in the pre-push `piped` group in `lefthook.yml`,
+running `pnpm syncpack:check:ci` unconditionally (no staging filter). Drift is now caught before
+the expensive typecheck+test phase on every push.
+
+---
+
+## P8 — Test breakage detected at push, not commit (severity: slows)
+
+**FIXED 2026-05-14 in feat/1.3-user-gateway — cycle-hunt.**
+
+**Symptom.** A code change that breaks a test is only caught at pre-push
+(`pnpm turbo run test:coverage:ci`), not at pre-commit. A commit can introduce
+a test-breaking change and the developer only discovers it when the push hook
+fires — by which point context has shifted and the failure is further from the cause.
+
+**Fix.** Added `test-changed` command to `pre-commit` group in `lefthook.yml`:
+`pnpm vitest run --changed HEAD --passWithNoTests` triggered on `packages/host/**/*.ts`.
+Runs only tests related to staged host files; exits 0 when no matching tests exist.
+Full suite stays at pre-push.
+
+---
+
 ## P1 — Layer wiring fan-out
 
 **FIXED 2026-05-14 in feat/1.3-user-gateway (this commit).**

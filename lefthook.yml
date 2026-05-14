@@ -56,6 +56,12 @@ pre-commit:
         Pattern ref → .claude/patterns/effect-test-pattern.md
         Recurring? → docs/PAIN.md (P2 + candidate fix)
 
+    # Fast regression guard — only runs tests related to staged host files (P8 fix).
+    # Full suite stays at pre-push; this catches obvious breakage before context shifts.
+    test-changed:
+      glob: 'packages/host/**/*.ts'
+      run: pnpm vitest run --changed HEAD --passWithNoTests
+
 # CI lint group — check-only versions of pre-commit hooks (no auto-fix)
 # Usage: lefthook run ci
 ci:
@@ -93,15 +99,23 @@ pre-push:
         fi
         git fetch origin main
         git merge origin/main --no-edit
-    checks:
+    # Syncpack runs unconditionally at push (not just when package.json is staged) so
+    # pre-existing semver drift is caught before it reaches the remote (detection-stage fix).
+    syncpack:
       priority: 2
+      run: pnpm syncpack:check:ci
+      fail_text: |
+        Semver drift detected. Run `pnpm syncpack:fix` then re-commit package.json.
+        Recurring? → docs/PAIN.md (P2 + candidate fix)
+    checks:
+      priority: 3
       run: pnpm turbo run deps:check typecheck test:coverage:ci --output-logs errors-only
       fail_text: |
         Build/test/typecheck failed. Check errors above.
         Recurring pattern? → docs/PAIN.md (P1/P2 + candidate fix)
         Pattern ref → .claude/patterns/
     e2e:
-      priority: 3
+      priority: 4
       run: pnpm test:e2e
 
 commit-msg:

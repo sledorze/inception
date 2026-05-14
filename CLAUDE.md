@@ -149,10 +149,11 @@ The v4 source is vendored at `vendor/effect-smol/` (read-only reference — do n
 
 ### When you need to understand an Effect API
 
-1. Read `vendor/effect-smol/ai-docs/` — AI-optimised examples by category.
-2. Read `vendor/effect-smol/packages/effect/src/<Module>.ts` — canonical source.
-3. Read `vendor/effect-smol/MIGRATION.md` — v3 → v4 API mapping table.
-4. Read `vendor/effect-smol/AGENTS.md` — coding-agent conventions for this repo.
+1. Read `.agents/skills/effect-ts/references/` — curated skill guides (layers, schema, error handling, testing, observability, …). Fastest first stop; token-efficient.
+2. Read `vendor/effect-smol/ai-docs/` — AI-optimised examples by category.
+3. Read `vendor/effect-smol/packages/effect/src/<Module>.ts` — canonical source for exact signatures.
+4. Read `vendor/effect-smol/MIGRATION.md` — v3 → v4 API mapping table.
+5. Read `vendor/effect-smol/AGENTS.md` — coding-agent conventions for this repo.
 
 Do **not** rely on web search or your training-data knowledge of Effect v3 APIs — the v4 API changed.
 
@@ -234,7 +235,7 @@ Annotated code patterns for the codebase's recurring constructs. Check here **be
 - "What format should this artifact take?" → §14 (Per-domain artifact standards).
 - "What would an expert say?" → `docs/EXPERTS.md`.
 - "Should I build this or use a library?" → AL.7 + §2.8. Default to adopt/integrate.
-- "How does this Effect API work?" → `vendor/effect-smol/ai-docs/` → `vendor/effect-smol/packages/effect/src/`. Never guess from v3 memory.
+- "How does this Effect API work?" → `.agents/skills/effect-ts/references/` first, then `vendor/effect-smol/ai-docs/` → `vendor/effect-smol/packages/effect/src/`. Never guess from v3 memory.
 - "What code pattern should I follow here?" → `.claude/patterns/` (hex boundaries, test structure, composition root).
 - "Is there waste I'm not seeing?" → `.claude/patterns/cycle-hunt.md`
 - "Where do Georges' behavioral instructions live?" → `packages/host/src/bootstrap/agent.md` (never in `.claude/`)
