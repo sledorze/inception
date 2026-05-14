@@ -5,6 +5,24 @@ Convention: fix → move (cut from PAIN.md, paste here in the same commit as the
 
 ---
 
+## P7 — Reasoning model final answer goes to `reasoning_content`, not `content` (severity: blocks demo)
+
+**FIXED 2026-05-14 in main — fetch intercept in `OpenAiCompatLlmProvider.ts` + integration test.**
+
+**Symptom.** `qwopus3.6-35b-a3b-v1` populates `content` on intermediate tool-calling turns
+(e.g. planning text + `finish_reason: "tool_calls"`) but leaves `content` empty on the final
+`finish_reason: "stop"` turn — the actual answer lands in `reasoning_content`.
+`@effect/ai-openai-compat` reads only `content`, so `GoalCompleted.text` ended up as the
+intermediate planning phrase rather than the real answer.
+
+**Fix.** Added `reasoningAwareFetch` in `src/adapters/driven/OpenAiCompatLlmProvider.ts` that
+intercepts every HTTP response, parses `choices[].message` via `Schema.decodeUnknownOption`,
+and copies `reasoning_content → content` when `content` is blank. Paired with two integration
+tests in `tests/integration/p7ReasoningContent.integration.test.ts` using curated fixture files
+in `tests/fixtures/lmstudio/`. Shape-alerting (P10) deferred to EventStore integration work.
+
+---
+
 ## P9 — syncpack drift undetected between package.json edits (severity: slows)
 
 **FIXED 2026-05-14 in feat/1.3-user-gateway — cycle-hunt.**

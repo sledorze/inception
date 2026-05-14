@@ -9,6 +9,39 @@ in the same commit as the fix. This file holds OPEN items only, severity-sorted.
 
 ---
 
+## P10 — LMStudio response shape divergence not surfaced to EventStore (severity: annoys)
+
+**Symptom.** `OpenAiCompatLlmProvider`'s `reasoningAwareFetch` intercept uses
+`Schema.decodeUnknownOption(LmMessage)` to parse each `message` object. When the shape
+doesn't match (e.g. new LMStudio version adds or removes fields), the intercept emits
+`console.warn` and passes the message through unchanged — but this signal never reaches the
+`EventStore`, so Claude has no way to inspect it later via `/events` or outer-MCP replay.
+
+**Encountered in.** P7 fix implementation — `console.warn` is a temporary bridge; the proper
+channel is an `UnknownShapeObserved` event in the store.
+
+**Candidate fix.** Promote the warn to an `Effect.logWarning` or a structured `UnknownShapeObserved`
+event appended to `EventStore`. Requires bridging the fetch intercept (Promise territory) back
+to the Effect runtime — probably done via a shared `Queue` injected at boot, similar to how
+`CliUserGateway` bridges HTTP callbacks. Worth tackling as part of 3.3 / outer-MCP observability
+work.
+
+---
+
+## P8 — `ToolResultObserved` correlationId drift (severity: slows)
+
+**Symptom.** `ToolResultObserved` events carry a fresh UUID instead of the goal's correlationId,
+breaking the goal-level correlation chain in the trace. Makes it impossible to join tool events
+to their parent goal without a secondary key.
+
+**Encountered in.** S1 trace inspection — `ToolResultObserved.correlationId` ≠ `GoalSubmitted.correlationId`.
+
+**Candidate fix.** Pass the goal's `correlationId` down through `GeorgesToolkit` and use it when
+appending `ToolResultObserved` events (currently `GeorgesToolkit.ts` generates a fresh UUID per
+tool call).
+
+---
+
 ## P3 — `sort-keys` lint rule on handler objects (severity: annoys)
 
 **Symptom.** `Toolkit.of({...})` and any multi-key object literal requires alphabetically sorted

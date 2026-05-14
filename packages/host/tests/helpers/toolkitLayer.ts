@@ -15,7 +15,7 @@ export const makeToolkitComponents = (
   const storeLayer = InMemoryEventStore.layer
   const registryLayer = InMemoryToolRegistry.layer(tools)
   const workspaceLayer = InMemoryWorkspaceMount.layer(initialFiles)
-  const handleRegLayer = InMemoryDataHandleRegistry.layer
+  const handleRegLayer = InMemoryDataHandleRegistry.layer()
   const policyGateLayer = InMemoryPolicyGate.layer(permittedTools ?? tools.map(t => t.name))
   const toolkitLayer = GeorgesToolkitLive.pipe(
     Layer.provide(storeLayer),

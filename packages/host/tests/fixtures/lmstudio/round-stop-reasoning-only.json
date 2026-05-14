@@ -1,0 +1,24 @@
+{
+  "choices": [
+    {
+      "finish_reason": "stop",
+      "index": 0,
+      "logprobs": null,
+      "message": {
+        "content": null,
+        "reasoning_content": "The synthetic-001 fixture has two columns: id and value.",
+        "role": "assistant"
+      }
+    }
+  ],
+  "created": 1778765943,
+  "id": "chatcmpl-test-p7-reasoning-only",
+  "model": "stub",
+  "object": "chat.completion",
+  "usage": {
+    "completion_tokens": 20,
+    "completion_tokens_details": { "reasoning_tokens": 15 },
+    "prompt_tokens": 100,
+    "total_tokens": 120
+  }
+}

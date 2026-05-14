@@ -46,7 +46,7 @@ function runContract(name: string, makeFactory: () => Promise<HandleFactory> | H
 
     beforeEach(async () => {
       factory = await makeFactory()
-      rt = ManagedRuntime.make(InMemoryDataHandleRegistry.layer)
+      rt = ManagedRuntime.make(InMemoryDataHandleRegistry.layer())
     })
 
     afterEach(() => rt.dispose())
@@ -228,7 +228,7 @@ describe('FileBackedHandle info-ledger (L1.7)', () => {
   beforeEach(async () => {
     filePath = join(tmpdir(), `handle-info-${randomUUID()}.csv`)
     await writeFile(filePath, 'x\n1\n2\n3\n', 'utf8')
-    rt = ManagedRuntime.make(InMemoryDataHandleRegistry.layer)
+    rt = ManagedRuntime.make(InMemoryDataHandleRegistry.layer())
   })
 
   afterEach(() => rt.dispose())

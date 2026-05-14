@@ -83,8 +83,8 @@ These items make Phase 1's traces _honest_ and _bounded_: per-handle info budget
 
 ## Phase 3 — First end-to-end story (S1)
 
-- [todo] **3.1** Wire a minimal User entry point that posts a goal + handle (CLI or HTTP — decide in 0.4).
-- [todo] **3.2** Run S1 against a synthetic dataset; capture trace; verify Georges never received bytes.
+- [done] **3.1** Wire a minimal User entry point that posts a goal + handle (CLI or HTTP — decide in 0.4).
+- [done] **3.2** Run S1 against a synthetic dataset; capture trace; verify Georges never received bytes.
 - [todo] **3.3** Replay the trace via outer MCP.
 - [todo] **3.4** Document one observed failure mode and feed it into the next iteration.
 
