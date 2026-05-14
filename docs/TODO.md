@@ -70,7 +70,7 @@ These items make Phase 1's traces _honest_ and _bounded_: per-handle info budget
 - [done] **2.1** `list-tools` — Georges introspects his own capability set (answers Q1).
 - [done] **2.2** `read-workspace` / `write-workspace` — confined to mount.
 - [done] **2.3** `run-script` — submits authored code to the sandbox; returns stdout/exit/aggregate only.
-- [todo] **2.4** `fetch-handle-shape` — returns schema + redacted sample for a data handle.
+- [done] **2.4** `fetch-handle-shape` — returns schema + redacted sample for a data handle.
 - [todo] **2.5** `propose-capability` — submits manifest+code+tests for §S2.
 - [todo] **2.6** Policy hooks on every tool call; deny by default for unknown policies.
 

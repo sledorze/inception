@@ -44,6 +44,14 @@ export const WriteWorkspaceTool = Tool.make('write-workspace', {
   success: Schema.Struct({ path: Schema.String }),
 })
 
+export const FetchHandleShapeTool = Tool.make('fetch-handle-shape', {
+  description: 'Returns the schema and a redacted sample for a data handle. Never returns raw bytes (L1.3).',
+  failure: WorkspaceFailureSchema,
+  failureMode: 'return',
+  parameters: Schema.Struct({ handleId: Schema.String, role: Schema.String }),
+  success: Schema.Struct({ redactedSample: Schema.Unknown, schema: Schema.Unknown }),
+})
+
 export const RunScriptTool = Tool.make('run-script', {
   description:
     'Submits a script to the sandbox against a data handle. Returns aggregate only — never raw data bytes (L1.3).',
@@ -58,7 +66,13 @@ export const RunScriptTool = Tool.make('run-script', {
   }),
 })
 
-export const GeorgesToolkit = Toolkit.make(ListToolsTool, ReadWorkspaceTool, WriteWorkspaceTool, RunScriptTool)
+export const GeorgesToolkit = Toolkit.make(
+  ListToolsTool,
+  ReadWorkspaceTool,
+  FetchHandleShapeTool,
+  RunScriptTool,
+  WriteWorkspaceTool,
+)
 
 export const GeorgesToolkitLive = GeorgesToolkit.toLayer(
   Effect.gen(function* () {
@@ -85,6 +99,31 @@ export const GeorgesToolkitLive = GeorgesToolkit.toLayer(
       })
 
     return GeorgesToolkit.of({
+      'fetch-handle-shape': Effect.fn('GeorgesToolkit.fetchHandleShape')(function* ({
+        handleId,
+        role,
+      }: {
+        handleId: string
+        role: string
+      }) {
+        // L2.2: role must have fetch-handle-shape in its surface
+        const availableTools = yield* registry.listTools(role)
+        if (!availableTools.some(t => t.name === 'fetch-handle-shape')) {
+          return yield* Effect.fail({
+            message: `Permission denied: fetch-handle-shape is not in the tool surface for role '${role}'`,
+          })
+        }
+        // L1.3: return schema + redacted sample only — never raw bytes
+        const handle = yield* handleRegistry
+          .get(handleId)
+          .pipe(Effect.mapError(e => ({ message: `handle '${e.handleId}' has been revoked` })))
+        const shape = yield* handle
+          .fetchShape()
+          .pipe(Effect.mapError(e => ({ message: `fetch-shape failed: ${String(e.cause)}` })))
+        yield* emitCorroborator('fetch-handle-shape', { handleId, role })
+        return { redactedSample: shape.redactedSample, schema: shape.schema }
+      }),
+
       'list-tools': Effect.fn('GeorgesToolkit.listTools')(function* ({ role }: { role: string }) {
         const tools = yield* registry.listTools(role)
         yield* emitCorroborator('list-tools', { role })

@@ -12,13 +12,10 @@
  */
 import { Effect, Layer, Option, Stream } from 'effect'
 import { expect, layer } from '@effect/vitest'
-import { InMemoryDataHandleRegistry } from '../../src/adapters/driven/InMemoryDataHandleRegistry.ts'
-import { InMemoryEventStore } from '../../src/adapters/driven/InMemoryEventStore.ts'
-import { InMemoryToolRegistry } from '../../src/adapters/driven/InMemoryToolRegistry.ts'
 import type { ToolEntry } from '../../src/adapters/driven/InMemoryToolRegistry.ts'
-import { InMemoryWorkspaceMount } from '../../src/adapters/driven/InMemoryWorkspaceMount.ts'
-import { GeorgesToolkit, GeorgesToolkitLive } from '../../src/adapters/driving/GeorgesToolkit.ts'
+import { GeorgesToolkit } from '../../src/adapters/driving/GeorgesToolkit.ts'
 import { EventStore } from '../../src/ports/driven/EventStore.ts'
+import { makeToolkitComponents } from '../helpers/toolkitLayer.ts'
 
 const TOOLS: readonly ToolEntry[] = [
   { description: 'Discovers available tools.', inputSchema: { type: 'object' }, name: 'list-tools', roles: [] },
@@ -36,21 +33,7 @@ const TOOLS: readonly ToolEntry[] = [
   },
 ]
 
-// Single instances — memoized by Effect so GeorgesToolkitLive and tests share the same store.
-const storeLayer = InMemoryEventStore.layer
-const registryLayer = InMemoryToolRegistry.layer(TOOLS)
-const workspaceLayer = InMemoryWorkspaceMount.layer()
-const handleRegLayer = InMemoryDataHandleRegistry.layer
-
-// toolkitLayer satisfies GeorgesToolkitLive's requirements internally.
-const toolkitLayer = GeorgesToolkitLive.pipe(
-  Layer.provide(storeLayer),
-  Layer.provide(registryLayer),
-  Layer.provide(workspaceLayer),
-  Layer.provide(handleRegLayer),
-)
-
-// Merge so tests can yield* GeorgesToolkit AND yield* EventStore (same store instance).
+const { storeLayer, toolkitLayer } = makeToolkitComponents(TOOLS)
 const testLayer = Layer.mergeAll(toolkitLayer, storeLayer)
 
 const callListTools = (role: string) =>
