@@ -5,6 +5,27 @@ Convention: fix → move (cut from PAIN.md, paste here in the same commit as the
 
 ---
 
+## P23 — `.oxlintrc.json` `no-restricted-imports: "off"` override list was not enforced by a test (severity: annoys)
+
+**FIXED 2026-05-14 in 149f2623 (Phase 1 commit) — acceptance test added.**
+test: `packages/host/tests/unit/oxlint-rules.unit.test.ts` — "P23" describe block.
+
+**Symptom.** The `no-restricted-imports: "off"` override that carves out adapters/runtime/checks/main.ts
+was the only sanctioned escape hatch from Effect platform discipline. Nothing prevented a future
+change from silently appending an application-layer file, re-introducing the P19 anti-pattern.
+Discipline alone is fragile.
+
+**Encountered in.** P19 closure session (2026-05-14) — the original anti-pattern was reaching for the
+override list to silence the `node:fs/promises` import in `session.ts`. Closure relied on review
+discipline, not code.
+
+**Fix.** Added acceptance test that parses `.oxlintrc.json` at test time, finds the override where
+`no-restricted-imports === "off"`, and asserts its `files` array equals exactly the canonical
+allow-list: `src/adapters/**`, `src/checks/**`, `src/runtime/**`, `src/main.ts`. Any addition to
+that list breaks CI immediately.
+
+---
+
 ## P18 — `@effect/vitest` `layer()` doesn't compose with file-level `beforeAll`/`afterAll` (severity: blocks work)
 
 **FIXED 2026-05-14 — Effect-native stub server via `NodeHttpServer.layerTest` + `noContentLengthFetchLayer`.**

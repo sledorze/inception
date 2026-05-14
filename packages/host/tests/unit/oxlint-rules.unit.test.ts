@@ -1,5 +1,5 @@
 import { spawnSync } from 'node:child_process'
-import { mkdirSync, rmSync, writeFileSync } from 'node:fs'
+import { mkdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
 import { join } from 'node:path'
 import { tmpdir } from 'node:os'
 import { afterAll, beforeAll, describe, expect, it } from '@effect/vitest'
@@ -251,5 +251,26 @@ describe('P13 — node:os / node:path / node:crypto imports in integration tests
     // RED: observeBin and p7ReasoningContent tests import node:* directly.
     // After fix (use Effect / @effect/platform equivalents): stdout is empty.
     expect(result.stdout.trim()).toBe('')
+  })
+})
+
+// ── P23 — no-restricted-imports "off" override is a closed allow-list ─────────
+
+const ALLOWED_OFF_PATHS = [
+  '**/packages/host/src/adapters/**/*.ts',
+  '**/packages/host/src/checks/**/*.ts',
+  '**/packages/host/src/runtime/**/*.ts',
+  '**/packages/host/src/main.ts',
+] as const
+
+describe('P23 — no-restricted-imports "off" override is a closed allow-list (acceptance)', () => {
+  it('the override allow-list contains exactly the sanctioned paths — nothing more', () => {
+    const raw = readFileSync(join(REPO_ROOT, '.oxlintrc.json'), 'utf8')
+    const config = JSON.parse(raw) as {
+      overrides: { files: string[]; rules: Record<string, unknown> }[]
+    }
+    const offOverrides = config.overrides.filter(o => o.rules['no-restricted-imports'] === 'off')
+    expect(offOverrides.length).toBe(1)
+    expect([...(offOverrides[0]?.files ?? [])].toSorted()).toEqual([...ALLOWED_OFF_PATHS].toSorted())
   })
 })
