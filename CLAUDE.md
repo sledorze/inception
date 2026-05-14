@@ -59,6 +59,7 @@ Implement. Pair every Law you touch with a test in `packages/host/tests/laws/<la
 - **Don't pre-abstract.** Three similar lines is better than premature abstraction. Factorise once a pattern has stabilised (≥3 usage sites OR one usage that clarifies the domain).
 - **Consolidate infrastructure at 2.** The 3-site threshold applies to application logic. For infrastructure — test layer compositions, error `_tag` string constants, shared helpers, binding glue — consolidate as soon as the second copy appears. Divergence in infrastructure is silent and expensive to fix later. Specific patterns: (a) repeated `Layer.mergeAll(...)` in test files → extract to `packages/host/tests/helpers/`; (b) `_tag` strings duplicated between a `TaggedErrorClass` definition and `Effect.catchTags` call sites → export a const from the port file.
 - **Log friction, then fix it.** When a duplication or awkward pattern causes a visible slowdown, add it to `docs/PAIN.md` with severity + candidate fix. At the start of every review session, scan `docs/PAIN.md` for P1/P2 items (blocks work) and address the highest-severity open item before new features. When a fix lands: cut the item from `docs/PAIN.md` and paste it (full text + `FIXED <date> in <commit>`) into `docs/PAIN-archive.md` in the same commit. PAIN.md holds OPEN items only.
+- **Hunt proactively.** When 3+ PAIN items are open or context feels expensive, do a deliberate waste-scan — see `.claude/patterns/cycle-hunt.md`. The hunt feeds findings back into the PAIN→pattern→hook machinery.
 - **Promote to libraries.** When a module stabilises, give it its own `packages/<name>/` workspace with semver, owner, and changelog. Triggers: 3+ usage sites, load-bearing tech decision, or ships in `kernel/`.
 - **Prefer (embedded) DSLs** for domain grammars — workflows, role manifests, policy expressions, fitness vectors, capability declarations. Imperative code is the last resort.
 - **Contract tests run against fake AND prod.** Every port's protocol test is parametrised over all bound adapters. Liskov substitution proven by test, not by intent.
@@ -212,12 +213,13 @@ Mutation report runs nightly (`mutation-report.yml`), not on PRs.
 
 Annotated code patterns for the codebase's recurring constructs. Check here **before** writing code that touches hex boundaries, test structure, or layer wiring — violations are caught at commit time by lefthook and cost a cycle to fix.
 
-| File                       | When to read                                                                           |
-| -------------------------- | -------------------------------------------------------------------------------------- |
-| `dep-boundary.md`          | Importing anything across `domain/`, `application/`, `ports/`, `adapters/`, `runtime/` |
-| `application-vs-domain.md` | Deciding where a new function or module lives                                          |
-| `composition-root.md`      | Adding an adapter or changing the Layer wiring                                         |
-| `effect-test-pattern.md`   | Writing or modifying any test under `packages/host/tests/`                             |
+| File                       | When to read                                                                                    |
+| -------------------------- | ----------------------------------------------------------------------------------------------- |
+| `dep-boundary.md`          | Importing anything across `domain/`, `application/`, `ports/`, `adapters/`, `runtime/`          |
+| `application-vs-domain.md` | Deciding where a new function or module lives                                                   |
+| `composition-root.md`      | Adding an adapter or changing the Layer wiring                                                  |
+| `effect-test-pattern.md`   | Writing or modifying any test under `packages/host/tests/`                                      |
+| `cycle-hunt.md`            | End of slice/phase, or when friction repeats — proactive scan for cycle-time + token-cost waste |
 
 ## When in doubt
 
@@ -229,6 +231,7 @@ Annotated code patterns for the codebase's recurring constructs. Check here **be
 - "Should I build this or use a library?" → AL.7 + §2.8. Default to adopt/integrate.
 - "How does this Effect API work?" → `vendor/effect-smol/ai-docs/` → `vendor/effect-smol/packages/effect/src/`. Never guess from v3 memory.
 - "What code pattern should I follow here?" → `.claude/patterns/` (hex boundaries, test structure, composition root).
+- "Is there waste I'm not seeing?" → `.claude/patterns/cycle-hunt.md`
 
 ## Feedback
 
