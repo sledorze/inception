@@ -99,7 +99,11 @@ packages/
         driving/
         driven/
       runtime/bind.ts       Service registry: ports → adapters at boot
-      domain/               Application core (depends on ports only)
+      application/          Effect.gen orchestrations; imports ports only
+      domain/               Pure leaf: schemas, value objects, invariants
+      bootstrap/
+        tools.yaml          Seed tool registry
+        agent.md            Georges' operating context — injected as system prompt
     tests/
       laws/                 One spec per Law in docs/SPEC.md §3
       protocol/             One spec per port, parametrised over adapters
@@ -113,8 +117,11 @@ docs/
   SPEC.md                   Design source of truth
   TODO.md                   Execution log
   EXPERTS.md                Cross-field critique
-.claude/
+.claude/                    Claude's meta-machinery (NOT shared with Georges)
   rules/                    Path-scoped operating constraints
+  patterns/                 Annotated code patterns (hex boundaries, test structure, …)
+  hooks/                    Lifecycle hooks (pre-commit guardrails, session context)
+  commands/                 Slash commands (/hunt, …)
 ```
 
 ## Effect runtime (`packages/host/`)
@@ -230,6 +237,7 @@ Annotated code patterns for the codebase's recurring constructs. Check here **be
 - "How does this Effect API work?" → `vendor/effect-smol/ai-docs/` → `vendor/effect-smol/packages/effect/src/`. Never guess from v3 memory.
 - "What code pattern should I follow here?" → `.claude/patterns/` (hex boundaries, test structure, composition root).
 - "Is there waste I'm not seeing?" → `.claude/patterns/cycle-hunt.md`
+- "Where do Georges' behavioral instructions live?" → `packages/host/src/bootstrap/agent.md` (never in `.claude/`)
 
 ## Feedback
 

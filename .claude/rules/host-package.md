@@ -7,6 +7,14 @@ paths:
 
 You are inside the Host (`packages/host/`). Per `docs/SPEC.md` §10.1 + L2.14:
 
+## Claude / Georges context boundary
+
+`.claude/` is **Claude's domain** — patterns, rules, hooks, commands. Never encode Georges' behavioral constraints here.
+
+- **Georges' operating context** → `src/bootstrap/agent.md` (injected as system prompt; maintained separately from `.claude/`).
+- If you find yourself writing "Georges should…" anywhere under `.claude/`, stop — it belongs in `agent.md`.
+- The inverse holds: `agent.md` must never reference `.claude/` paths, `docs/PAIN.md`, or Claude's meta-machinery. They share nothing.
+
 ## Port & adapter layout
 
 - **Ports** live in `src/ports/driving/` (User/Claude calls in) and `src/ports/driven/` (Host calls out).
