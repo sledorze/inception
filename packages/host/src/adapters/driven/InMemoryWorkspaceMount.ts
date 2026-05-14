@@ -27,9 +27,7 @@ export const InMemoryWorkspaceMount = {
               const files = yield* Ref.get(store)
               const content = files.get(relativePath)
               if (content === undefined) {
-                return yield* Effect.fail(
-                  new WorkspaceMountError({ cause: new Error(`not found`), path: relativePath }),
-                )
+                return yield* new WorkspaceMountError({ cause: new Error(`not found`), path: relativePath })
               }
               return content
             }),

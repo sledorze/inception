@@ -85,20 +85,18 @@ export const DpFileBackedHandle = {
           Effect.gen(function* () {
             const current = yield* Ref.get(state)
             if (current === 'revoked') {
-              return yield* Effect.fail(new HandleRevoked({ handleId: opts.id }))
+              return yield* new HandleRevoked({ handleId: opts.id })
             }
             const epsilonUsed = yield* Ref.get(epsilonAccumulated)
             const bits = yield* Ref.get(bitsAccumulated)
             if (current === 'exhausted' || epsilonUsed >= epsilonMax) {
-              return yield* Effect.fail(new HandleExhausted({ bitsConsumed: bits, handleId: opts.id }))
+              return yield* new HandleExhausted({ bitsConsumed: bits, handleId: opts.id })
             }
 
             const sens = sensitivity ?? DEFAULT_SENSITIVITY
             const maxSens = sens.norm === 'l1' ? maxSensL1 : maxSensL2
             if (sens.value > maxSens) {
-              return yield* Effect.fail(
-                new SensitivityViolation({ declared: sens.value, max: maxSens, norm: sens.norm }),
-              )
+              return yield* new SensitivityViolation({ declared: sens.value, max: maxSens, norm: sens.norm })
             }
 
             const stdout = yield* Effect.tryPromise({

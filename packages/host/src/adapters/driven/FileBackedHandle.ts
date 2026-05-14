@@ -63,11 +63,11 @@ export const FileBackedHandle = {
           Effect.gen(function* () {
             const current = yield* Ref.get(state)
             if (current === 'revoked') {
-              return yield* Effect.fail(new HandleRevoked({ handleId: opts.id }))
+              return yield* new HandleRevoked({ handleId: opts.id })
             }
             const accumulated = yield* Ref.get(bitsAccumulated)
             if (current === 'exhausted' || accumulated >= limit) {
-              return yield* Effect.fail(new HandleExhausted({ bitsConsumed: accumulated, handleId: opts.id }))
+              return yield* new HandleExhausted({ bitsConsumed: accumulated, handleId: opts.id })
             }
             const stdout = yield* Effect.tryPromise({
               catch: cause => new DataHandleError({ cause }),

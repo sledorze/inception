@@ -4,6 +4,11 @@ import { parse as parseYaml } from 'yaml'
 import { ToolNotFound, ToolRegistry } from '../../ports/driven/ToolRegistry.ts'
 import type { ToolDescriptor } from '../../ports/driven/ToolRegistry.ts'
 
+class ToolsYamlError extends Schema.TaggedErrorClass<ToolsYamlError>()('@app/host/ToolsYamlError', {
+  cause: Schema.Defect,
+  message: Schema.String,
+}) {}
+
 // ─── YAML schema ─────────────────────────────────────────────────────────────
 
 const ToolEntrySchema = Schema.Struct({
@@ -30,7 +35,7 @@ const makeRegistry = (entries: readonly ToolEntry[]) => {
       Effect.gen(function* () {
         const entry = byName.get(name)
         if (entry === undefined) {
-          return yield* Effect.fail(new ToolNotFound({ name }))
+          return yield* new ToolNotFound({ name })
         }
         const descriptor: ToolDescriptor = {
           description: entry.description,
@@ -67,15 +72,15 @@ export const InMemoryToolRegistry = {
       ToolRegistry,
       Effect.gen(function* () {
         const raw = yield* Effect.tryPromise({
-          catch: cause => new Error(`Cannot read ${filePath}: ${String(cause)}`),
+          catch: cause => new ToolsYamlError({ cause, message: `Cannot read ${filePath}` }),
           try: () => readFile(filePath, 'utf8'),
         })
         const parsed = yield* Effect.try({
-          catch: cause => new Error(`Cannot parse YAML in ${filePath}: ${String(cause)}`),
+          catch: cause => new ToolsYamlError({ cause, message: `Cannot parse YAML in ${filePath}` }),
           try: () => parseYaml(raw) as unknown,
         })
         const validated = yield* Schema.decodeUnknownEffect(ToolsFileSchema)(parsed).pipe(
-          Effect.mapError(e => new Error(`Invalid tools.yaml schema: ${String(e)}`)),
+          Effect.mapError(e => new ToolsYamlError({ cause: e, message: `Invalid tools.yaml schema` })),
         )
         return makeRegistry(validated.tools)
       }).pipe(Effect.orDie),

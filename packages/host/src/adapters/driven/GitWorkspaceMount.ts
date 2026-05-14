@@ -30,13 +30,13 @@ export const GitWorkspaceMount = {
           // Workspace must be inside a git repo.
           const wsRoot = yield* gitRoot(absPath)
           if (wsRoot === null) {
-            yield* Effect.die(new Error(`Workspace path ${absPath} is not inside a git repository`))
+            return yield* Effect.die(new Error(`Workspace path ${absPath} is not inside a git repository`))
           }
 
           // Workspace must not be the Host's own repo (boundary check).
           const hostRoot = yield* gitRoot(process.cwd())
           if (hostRoot !== null && wsRoot === hostRoot) {
-            yield* Effect.die(
+            return yield* Effect.die(
               new Error(`Workspace ${absPath} resolves to the Host's own repository — boundary is ambiguous`),
             )
           }

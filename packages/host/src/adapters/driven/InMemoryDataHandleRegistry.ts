@@ -14,7 +14,7 @@ export const InMemoryDataHandleRegistry = {
             const map = yield* Ref.get(store)
             const handle = map.get(id)
             if (handle === undefined) {
-              return yield* Effect.fail(new HandleRevoked({ handleId: id }))
+              return yield* new HandleRevoked({ handleId: id })
             }
             return handle
           }),

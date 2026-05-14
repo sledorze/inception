@@ -13,6 +13,7 @@
     "format": "prettier --write .",
     "format:check": "prettier --check .",
     "format:check:ci": "prettier --check . --log-level warn",
+    "postinstall": "effect-tsgo patch",
     "lint": "oxlint packages/ e2e/ && node --import tsx packages/host/src/checks/check-test-conventions.ts",
     "lint:ci": "oxlint packages/ e2e/ --quiet && node --import tsx packages/host/src/checks/check-test-conventions.ts",
     "lint:fix": "oxlint --fix packages/ e2e/",

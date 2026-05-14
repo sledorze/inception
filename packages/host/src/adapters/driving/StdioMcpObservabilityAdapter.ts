@@ -30,20 +30,19 @@ export const StdioMcpObservabilityAdapter = {
           description: 'Query events from the event store. Returns a JSON array of ObservedEvent matching the filter.',
           inputSchema: listEventsSchema,
         },
-        async args => {
-          try {
-            const events = await Effect.runPromise(
-              gw.query({
+        async args =>
+          Effect.runPromise(
+            gw
+              .query({
                 ...(args.limit !== undefined && { limit: args.limit }),
                 ...(args.sessionId !== undefined && { sessionId: args.sessionId }),
                 ...(args.storyRef !== undefined && { storyRef: args.storyRef }),
-              }),
-            )
-            return textContent(JSON.stringify(events, null, 2))
-          } catch (error) {
-            return { ...textContent(String(error)), isError: true }
-          }
-        },
+              })
+              .pipe(
+                Effect.map(events => textContent(JSON.stringify(events, null, 2))),
+                Effect.catch(error => Effect.succeed({ ...textContent(String(error)), isError: true as const })),
+              ),
+          ),
       )
 
       mcp.registerTool(
@@ -53,17 +52,21 @@ export const StdioMcpObservabilityAdapter = {
           inputSchema: replaySchema,
         },
         async args => {
-          try {
-            const collected: ObservedEvent[] = []
-            await Effect.runPromise(gw.replay(args.fromId, e => Effect.sync(() => collected.push(e))))
-            return textContent(JSON.stringify(collected, null, 2))
-          } catch (error) {
-            return { ...textContent(String(error)), isError: true }
-          }
+          const collected: ObservedEvent[] = []
+          // @effect-diagnostics-next-line runEffectInsideEffect:off
+          return Effect.runPromise(
+            gw
+              .replay(args.fromId, e => Effect.sync(() => collected.push(e)))
+              .pipe(
+                Effect.map(() => textContent(JSON.stringify(collected, null, 2))),
+                Effect.catch(error => Effect.succeed({ ...textContent(String(error)), isError: true as const })),
+              ),
+          )
         },
       )
 
       const transport = new StdioServerTransport()
+      // @effect-diagnostics-next-line unknownInEffectCatch:off
       yield* Effect.tryPromise({
         catch: cause => cause,
         try: () => mcp.connect(transport),

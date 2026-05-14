@@ -38,7 +38,7 @@ function makeRegistry(roles: readonly RoleDescriptor[]) {
       Effect.gen(function* () {
         const role = byName.get(name)
         if (role === undefined) {
-          return yield* Effect.fail(new RoleNotFound({ name }))
+          return yield* new RoleNotFound({ name })
         }
         return role
       }),

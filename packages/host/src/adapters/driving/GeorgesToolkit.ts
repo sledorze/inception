@@ -181,14 +181,9 @@ export const GeorgesToolkitLive = GeorgesToolkit.toLayer(
             message: `Permission denied: propose-capability is not in the tool surface for role '${role}'`,
           })
         }
-        // Parse and validate manifest — no try/catch, use Effect.try
-        const raw = yield* Effect.try({
-          catch: () => ({ message: 'manifest is not valid JSON' }),
-          try: () => JSON.parse(manifestJson) as unknown,
-        })
-        const manifest = yield* Schema.decodeUnknownEffect(CapabilityManifestSchema)(raw).pipe(
-          Effect.mapError(e => ({ message: `manifest validation failed: ${String(e)}` })),
-        )
+        const manifest = yield* Schema.decodeUnknownEffect(Schema.fromJsonString(CapabilityManifestSchema))(
+          manifestJson,
+        ).pipe(Effect.mapError(e => ({ message: `manifest validation failed: ${String(e)}` })))
         // L2.6: record proposal — Georges proposes, Host witnesses, Claude promotes
         const ms = yield* Clock.currentTimeMillis
         const stored = yield* store

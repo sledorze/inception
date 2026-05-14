@@ -32,11 +32,9 @@ export const EventStoreObservabilityGateway = {
             return events.map(toObservedEvent)
           }),
         replay: (fromId, onEvent) =>
-          Effect.gen(function* () {
-            yield* store
-              .replay(fromId, e => onEvent(toObservedEvent(e)))
-              .pipe(Effect.mapError(cause => new ObservabilityGatewayError({ cause })))
-          }),
+          store
+            .replay(fromId, e => onEvent(toObservedEvent(e)))
+            .pipe(Effect.mapError(cause => new ObservabilityGatewayError({ cause }))),
       })
     }),
   ),

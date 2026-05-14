@@ -79,6 +79,7 @@ export const SqliteEventStore = {
                     prevHash,
                     event.schemaV,
                     event.occurredAt,
+                    // @effect-diagnostics-next-line preferSchemaOverJson:off
                     JSON.stringify(event.payload),
                   )
 
