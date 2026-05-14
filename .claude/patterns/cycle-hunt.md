@@ -50,30 +50,43 @@ The same fix applied more than once in a session → mechanize it.
 
 Ask: did I fix the same thing twice this session?
 
-### 3. Token amplifiers
+### 3. Latency vs token economy — don't conflate them
 
-Serial tool calls that could parallelize; sub-agents redoing work the main loop already did; overly broad globs widening reads.
+Parallel tool calls in a single message save **wall-clock time** (latency), not tokens. All results land in context regardless of order. Issue parallel calls for speed; don't expect token savings from parallelism alone.
 
-```
-❌ Read file A, then Read file B, then Read file C (independent reads)
-✅ Three parallel Read calls in one message → 3× faster, same result
-
-❌ Spawn a sub-agent with "find and understand everything about X" → it re-reads files already in context
-✅ Hand the sub-agent the already-known file paths and the specific question
-```
-
-Ask: are there independent reads or searches I'm issuing sequentially?
-
-### 4. Sub-agent arbitrage
-
-Research that should live in a sub-agent (saves main-context tokens) vs work pulled into the main loop unnecessarily.
+Token economy comes from **narrowing reads before issuing them**:
 
 ```
-❌ Doing a 10-file codebase survey directly in the main loop → fills context, makes later calls expensive
-✅ Explore sub-agent returns a 200-word summary → main loop retains room for implementation
+❌ Read a 300-line file to find one function
+✅ grep for the symbol first; read only the relevant 20-line range
+
+❌ Broad glob returning 40 files to find 2 relevant ones
+✅ Tight glob + known path prefix narrows before widening
 ```
 
-Ask: is this exploration work, or decision work? Exploration → sub-agent.
+Ask: can I narrow the read (symbol grep, line offset, tight glob) before reaching for the whole file?
+
+### 4. Agent fork economics
+
+Every fork burns tokens: bootstrap overhead (~2,000–5,000 tokens) plus the sub-agent's own work. A fork **saves** tokens to the caller only when the result returned is significantly smaller than the accumulated context if the work had run in the main loop.
+
+**Simple decision rule: fork iff the work is WIDE and the result is NARROW.**
+
+| Work shape                          | Result shape                               | Decision                                        |
+| ----------------------------------- | ------------------------------------------ | ----------------------------------------------- |
+| Wide (10+ files, open-ended search) | Narrow (a list, a summary, a decision)     | ✅ Fork — saves main-loop tokens                |
+| Wide                                | Wide (caller needs all raw content anyway) | ❌ Don't fork — result fills context regardless |
+| Narrow (1–3 targeted reads)         | Any                                        | ❌ Don't fork — overhead > savings              |
+
+```
+❌ Fork an Explore agent to read one known file
+   → fork overhead (~3,000 tokens) > file read (~300 tokens): net-negative
+
+✅ Fork an Explore agent to survey 20 files, return the 3 relevant paths + 200-word summary
+   → saves 17 file reads from main context: net-positive
+```
+
+Ask: if I do this in the main loop, how many tokens of raw output accumulate? If much more than the sub-agent's summary would, fork.
 
 ### 5. Pattern absence
 
@@ -141,6 +154,30 @@ If a finding fits two channels, pick the one that **closes the loop the fastest*
 - **3 candidates surfaced.** Write them up before scanning further; saturation.
 - **No new candidate in the last 5 minutes.** Signal exhausted for this repo state.
 - **30-minute time-box exceeded.** Treat remaining suspects as a PAIN item; don't let the hunt become a task.
+
+---
+
+## Auto-activation and skill wiring
+
+This pattern is reference-only by default (consulted on demand). Two upgrade paths:
+
+**As a slash command** — create `.claude/commands/hunt.md` with:
+
+```markdown
+Apply the cycle-hunt discipline from `.claude/patterns/cycle-hunt.md` to the current repo.
+Run through all eight heuristics. Surface and land 2–3 candidates before stopping.
+```
+
+This wires `/hunt` as an invocable skill the user (or a hook) can trigger.
+
+**Via `session-context.sh`** — the hook already reads PAIN.md for the top item. Extend it to auto-hint when 3+ items are open:
+
+```bash
+PAIN_COUNT=$(grep -c "^## P[0-9]" docs/PAIN.md 2>/dev/null || echo 0)
+[ "$PAIN_COUNT" -ge 3 ] && CONTEXT="$CONTEXT | 3+ PAIN items open — consider /hunt"
+```
+
+Pattern files are referenceable from any hook, command, or skill by their stable path (`.claude/patterns/cycle-hunt.md`).
 
 ---
 
