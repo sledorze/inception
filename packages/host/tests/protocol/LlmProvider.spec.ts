@@ -12,8 +12,7 @@ import { Effect, Layer } from 'effect'
 import { LanguageModel } from 'effect/unstable/ai'
 import { OpenAiClient, OpenAiLanguageModel } from '@effect/ai-openai-compat'
 import { FetchHttpClient } from 'effect/unstable/http'
-import { afterAll, beforeAll, describe, expect } from 'vitest'
-import { it } from '@effect/vitest'
+import { afterAll, beforeAll, describe, expect, it } from '@effect/vitest'
 
 // ─── stub OpenAI server ───────────────────────────────────────────────────────
 

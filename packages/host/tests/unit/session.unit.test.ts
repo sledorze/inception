@@ -7,9 +7,9 @@
  */
 import { join } from 'node:path'
 import { tmpdir } from 'node:os'
-import { describe, expect } from 'vitest'
-import { it } from '@effect/vitest'
+import { describe, expect, it } from '@effect/vitest'
 import { Effect } from 'effect'
+import { NodeFileSystem } from '@effect/platform-node'
 import { AGENT_MD_PATH, SessionError, readAgentMd } from '../../src/application/session.ts'
 
 describe(readAgentMd, () => {
@@ -19,7 +19,7 @@ describe(readAgentMd, () => {
       // "Georges" is on line 1 of bootstrap/agent.md — stable marker.
       expect(content).toContain('Georges')
       expect(content.length).toBeGreaterThan(0)
-    }),
+    }).pipe(Effect.provide(NodeFileSystem.layer)),
   )
 
   it.effect('raises SessionError with a populated cause when the file is missing', () =>
@@ -28,6 +28,6 @@ describe(readAgentMd, () => {
       const err = yield* Effect.flip(readAgentMd({ path: missing }))
       expect(err).toBeInstanceOf(SessionError)
       expect(err.cause).toBeDefined()
-    }),
+    }).pipe(Effect.provide(NodeFileSystem.layer)),
   )
 })

@@ -13,8 +13,7 @@
  * - The archive retains the fitter of two same-cell variants (quality).
  */
 import { Effect } from 'effect'
-import { describe, expect } from 'vitest'
-import { it } from '@effect/vitest'
+import { describe, expect, it } from '@effect/vitest'
 import { InMemoryBehaviourArchive } from '../../src/adapters/driven/InMemoryBehaviourArchive.ts'
 import { BehaviourArchive } from '../../src/ports/driven/BehaviourArchive.ts'
 import type { BehaviourDescriptor } from '../../src/ports/driven/BehaviourArchive.ts'

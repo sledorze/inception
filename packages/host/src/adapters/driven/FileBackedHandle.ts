@@ -28,17 +28,6 @@ const DEFAULT_INFO_BIT_LIMIT = 80_000
 // Handle state distinguishes the close reason so callers get the right typed error.
 type HandleState = 'alive' | 'revoked' | 'exhausted'
 
-const runScriptInProcess = async (script: string, filePath: string) => {
-  const dir = await mkdtemp(join(tmpdir(), 'handle-script-'))
-  const scriptPath = join(dir, 'script.js')
-  await writeFile(scriptPath, script, 'utf8')
-  const { stdout } = await execFileAsync(process.execPath, [scriptPath], {
-    env: { ...process.env, DATA_FILE: filePath },
-    timeout: 30_000,
-  })
-  return stdout
-}
-
 export const FileBackedHandle = {
   create: (opts: FileBackedHandleOptions) =>
     Effect.gen(function* () {
@@ -71,7 +60,16 @@ export const FileBackedHandle = {
             }
             const stdout = yield* Effect.tryPromise({
               catch: cause => new DataHandleError({ cause }),
-              try: () => runScriptInProcess(script, opts.filePath),
+              try: async () => {
+                const dir = await mkdtemp(join(tmpdir(), 'handle-script-'))
+                const scriptPath = join(dir, 'script.js')
+                await writeFile(scriptPath, script, 'utf8')
+                const { stdout: out } = await execFileAsync(process.execPath, [scriptPath], {
+                  env: { ...process.env, DATA_FILE: opts.filePath },
+                  timeout: 30_000,
+                })
+                return out
+              },
             })
             const bitsConsumed = estimateBits(stdout)
             const newTotal = accumulated + bitsConsumed

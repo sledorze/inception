@@ -4,7 +4,7 @@
  * Laws exercised: L2.10 (roles versioned; tool surface role-scoped), L2.14 (port contract).
  */
 import { Effect, ManagedRuntime } from 'effect'
-import { afterAll, beforeAll, describe, expect, it } from 'vitest'
+import { afterAll, beforeAll, describe, expect, it } from '@effect/vitest'
 import { BOOTSTRAP_ROLES, InMemoryRoleRegistry } from '../../src/adapters/driven/InMemoryRoleRegistry.ts'
 import { RoleNotFound, RoleRegistry } from '../../src/ports/driven/RoleRegistry.ts'
 import type { RoleDescriptor } from '../../src/ports/driven/RoleRegistry.ts'

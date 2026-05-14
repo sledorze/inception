@@ -7,7 +7,7 @@
  * OsProcessSandboxExecutor: documented fallback (OS-process, not WASI); requires per-cycle approval §13.
  */
 import { Effect, ManagedRuntime } from 'effect'
-import { afterAll, beforeAll, describe, expect, it } from 'vitest'
+import { afterAll, beforeAll, describe, expect, it } from '@effect/vitest'
 import { InMemorySandboxExecutor } from '../../src/adapters/driven/InMemorySandboxExecutor.ts'
 import { OsProcessSandboxExecutor } from '../../src/adapters/driven/OsProcessSandboxExecutor.ts'
 import { SandboxExecutor } from '../../src/ports/driven/SandboxExecutor.ts'

@@ -29,7 +29,7 @@
         "effect-patterns/no-date-clock": "error",
         "effect-patterns/no-inline-correlation-id": "error",
         "no-restricted-imports": [
-          "warn",
+          "error",
           {
             "paths": [
               {
@@ -78,10 +78,27 @@
       }
     },
     {
+      "files": [
+        "**/packages/host/src/adapters/**/*.ts",
+        "**/packages/host/src/checks/**/*.ts",
+        "**/packages/host/src/runtime/**/*.ts",
+        "**/packages/host/src/main.ts"
+      ],
+      "rules": {
+        "no-restricted-imports": "off"
+      }
+    },
+    {
       "files": ["**/packages/host/tests/**/*.ts"],
       "rules": {
         "effect-patterns/no-effect-gen-without-vitest": "error",
         "effect-patterns/no-runpromise-in-tests": "error"
+      }
+    },
+    {
+      "files": ["**/packages/host/tests/helpers/**/*.ts"],
+      "rules": {
+        "effect-patterns/no-effect-gen-without-vitest": "off"
       }
     }
   ],

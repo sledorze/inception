@@ -8,8 +8,7 @@
  */
 import { randomUUID } from 'node:crypto'
 import { Effect } from 'effect'
-import { describe, expect } from 'vitest'
-import { it } from '@effect/vitest'
+import { describe, expect, it } from '@effect/vitest'
 import { InMemoryEventStore } from '../../src/adapters/driven/InMemoryEventStore.ts'
 import { computeContentHash, EventStore } from '../../src/ports/driven/EventStore.ts'
 import type { NewEvent, StoredEvent } from '../../src/ports/driven/EventStore.ts'

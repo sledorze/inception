@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it } from '@effect/vitest'
 import { checkTestConventions, defaultCategories } from '../../src/checks/TestConventionChecker.ts'
 import type { FileContent } from '../../src/checks/TestConventionChecker.ts'
 

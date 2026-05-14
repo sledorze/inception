@@ -2,6 +2,7 @@ import { mkdirSync } from 'node:fs'
 import { readFile } from 'node:fs/promises'
 import { dirname, join } from 'node:path'
 import { Effect, Layer } from 'effect'
+import { NodeFileSystem } from '@effect/platform-node'
 import { SessionError } from '../application/session.ts'
 import { CapabilityAwareToolRegistry } from '../adapters/driven/CapabilityAwareToolRegistry.ts'
 import { FileBackedCapabilityRegistry } from '../adapters/driven/FileBackedCapabilityRegistry.ts'
@@ -83,7 +84,7 @@ const toolkitLayer = GeorgesToolkitLive.pipe(
 // InMemoryCapabilityRegistry for tests that don't touch the capability flow.
 export const InMemoryCapabilityRegistryLayer = InMemoryCapabilityRegistry.layer
 
-export const appLayer = Layer.mergeAll(toolkitLayer, eventStoreLayer, capabilityRegistryLayer)
+export const appLayer = Layer.mergeAll(toolkitLayer, eventStoreLayer, capabilityRegistryLayer, NodeFileSystem.layer)
 
 // Full runtime layer: toolkit + LLM + User gateway (used by main.ts)
 export const fullLayer = Layer.mergeAll(appLayer, OpenAiCompatLlmProvider.layer(), CliUserGateway.layer())

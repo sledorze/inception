@@ -15,6 +15,7 @@ import { CapabilityRegistry } from '../../src/ports/driven/CapabilityRegistry.ts
 
 const entry = (name = 'my-tool'): CapabilityEntry => ({
   code: `function ${name}() { return 42; }`,
+  description: `A capability named ${name}`,
   name,
   promotedAt: '2026-01-01T00:00:00.000Z',
   proposalId: 'proposal-hash-1',

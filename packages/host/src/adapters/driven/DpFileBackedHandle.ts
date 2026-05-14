@@ -26,8 +26,6 @@ import {
 import { DataHandleError, HandleExhausted, HandleRevoked, SensitivityViolation } from '../../ports/driven/DataHandle.ts'
 import type { DataHandle, QuerySensitivity } from '../../ports/driven/DataHandle.ts'
 
-const execFileAsync = promisify(execFile)
-
 export interface DpHandleOptions {
   readonly id: string
   readonly filePath: string
@@ -42,16 +40,7 @@ export interface DpHandleOptions {
 
 type HandleState = 'alive' | 'revoked' | 'exhausted'
 
-const runScriptInProcess = async (script: string, filePath: string): Promise<string> => {
-  const dir = await mkdtemp(join(tmpdir(), 'dp-handle-script-'))
-  const scriptPath = join(dir, 'script.js')
-  await writeFile(scriptPath, script, 'utf8')
-  const { stdout } = await execFileAsync(process.execPath, [scriptPath], {
-    env: { ...process.env, DATA_FILE: filePath },
-    timeout: 30_000,
-  })
-  return stdout
-}
+const execFileAsync = promisify(execFile)
 
 const DEFAULT_SENSITIVITY: QuerySensitivity = { norm: 'l1', value: 1 }
 
@@ -101,7 +90,16 @@ export const DpFileBackedHandle = {
 
             const stdout = yield* Effect.tryPromise({
               catch: cause => new DataHandleError({ cause }),
-              try: () => runScriptInProcess(script, opts.filePath),
+              try: async () => {
+                const dir = await mkdtemp(join(tmpdir(), 'dp-handle-script-'))
+                const scriptPath = join(dir, 'script.js')
+                await writeFile(scriptPath, script, 'utf8')
+                const { stdout: out } = await execFileAsync(process.execPath, [scriptPath], {
+                  env: { ...process.env, DATA_FILE: opts.filePath },
+                  timeout: 30_000,
+                })
+                return out
+              },
             })
 
             const trueBits = stdout.length * 8

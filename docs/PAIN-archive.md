@@ -5,6 +5,28 @@ Convention: fix → move (cut from PAIN.md, paste here in the same commit as the
 
 ---
 
+## P18 — `@effect/vitest` `layer()` doesn't compose with file-level `beforeAll`/`afterAll` (severity: blocks work)
+
+**FIXED 2026-05-14 — Effect-native stub server via `NodeHttpServer.layerTest` + `noContentLengthFetchLayer`.**
+test: `packages/host/tests/integration/submitGoal.integration.test.ts`, `correlationIdPropagation.integration.test.ts`, `georgesCapabilityFlow.integration.test.ts`
+
+Root cause 1 (timing): `layer()` builds the Layer BEFORE `beforeAll` resolves, so a manually-created HTTP server wasn't listening yet. Fix: moved the fake OpenAI server into `FakeOpenAiStubLive` (an Effect `Layer`) using `NodeHttpServer.layerTest` — server lifecycle is now managed by Effect's Scope.
+
+Root cause 2 (content-length): `HttpClientRequest.setBody` sets `content-length` in request headers; Node.js `fetch` ALSO computes it from the body; WHATWG Headers joins the two as `"N, M"` (comma-joined); undici@8.2.0 rejects the combined value as invalid. Fix: `noContentLengthFetchLayer` wraps `FetchHttpClient.layer` with an `HttpClient.mapRequest` that strips `content-length` before `fetch` is called.
+
+Consolidated the repeated `llmLayer` pattern across 3 integration tests into `makeLlmStubLayer` in `tests/helpers/fakeOpenAiStub.ts`.
+
+---
+
+## P12 — bare `vitest` imports in Effect-using test files (severity: annoys)
+
+**FIXED 2026-05-14 — all test files migrated to `@effect/vitest`; acceptance test green.**
+test: `packages/host/tests/unit/oxlint-rules.unit.test.ts` — "P12" describe block
+
+Replaced `from 'vitest'` with `from '@effect/vitest'` across all test files in `packages/host/tests/`. The `@effect/vitest` package re-exports everything from `vitest` (via `export * from "vitest"`) so no behaviour changes — only import source is different. Fixed split-import lint errors (duplicate `@effect/vitest` imports merged).
+
+---
+
 ## P11 — Effect pattern guards live in a bash hook, not oxlint (severity: slows)
 
 **FIXED 2026-05-14 in main — oxlint JS plugin + PostToolUse hook replacement.**

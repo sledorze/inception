@@ -9,19 +9,20 @@
  *   5. Assert: stdout contains the expected output from Georges-authored code
  *
  * Fails if any stage of the promote→exercise pipeline is broken.
+ *
+ * Uses @effect/vitest layer() + FakeOpenAiStubLive (scoped Layer) — fixes P18:
+ * the stub server is started by Effect.acquireRelease inside the layer build,
+ * guaranteed to be listening before OpenAiClient.layer is built.
  */
-import { createServer } from 'node:http'
-import type { AddressInfo, Server } from 'node:net'
 import { Effect, Layer, Option, Stream } from 'effect'
-import { OpenAiClient, OpenAiLanguageModel } from '@effect/ai-openai-compat'
-import { FetchHttpClient } from 'effect/unstable/http'
-import { afterAll, beforeAll } from 'vitest'
+import { NodeFileSystem } from '@effect/platform-node'
 import { expect, layer } from '@effect/vitest'
 import { GeorgesToolkit } from '../../src/adapters/driving/GeorgesToolkit.ts'
 import { registerCapability } from '../../src/application/registerCapability.ts'
 import { makeSubmitGoal } from '../../src/application/submitGoal.ts'
 import { EventStore } from '../../src/ports/driven/EventStore.ts'
 import { makeToolkitComponents } from '../helpers/toolkitLayer.ts'
+import { makeLlmStubLayer } from '../helpers/fakeOpenAiStub.ts'
 
 // ─── stub LLM ─────────────────────────────────────────────────────────────────
 // Call 1: LLM proposes a capability via propose-capability tool call.
@@ -73,38 +74,7 @@ const TEXT_BODY = JSON.stringify({
   usage: { completion_tokens: 5, prompt_tokens: 200, total_tokens: 205 },
 })
 
-let stubServer: Server
-let stubBaseUrl = ''
-let callCount = 0
-
-beforeAll(
-  () =>
-    new Promise<void>(resolve => {
-      stubServer = createServer((req, res) => {
-        let body = ''
-        req.on('data', (chunk: Buffer) => {
-          body += chunk.toString()
-        })
-        req.on('end', () => {
-          res.writeHead(200, { 'Content-Type': 'application/json' })
-          res.end(callCount++ === 0 ? TOOL_CALL_BODY : TEXT_BODY)
-        })
-      })
-      stubServer.listen(0, '127.0.0.1', () => {
-        stubBaseUrl = `http://127.0.0.1:${(stubServer.address() as AddressInfo).port}`
-        resolve()
-      })
-    }),
-)
-
-afterAll(
-  () =>
-    new Promise<void>(resolve => {
-      stubServer.close(() => resolve())
-    }),
-)
-
-// ─── layer ────────────────────────────────────────────────────────────────────
+// ─── test setup ───────────────────────────────────────────────────────────────
 
 // Implementer role must have propose-capability in its surface (L2.2 role-scope check).
 const TOOLS = [
@@ -116,20 +86,26 @@ const TOOLS = [
   },
 ]
 
-const makeTestLayer = () => {
-  const { capabilityRegistryLayer, handleRegLayer, storeLayer, toolkitLayer } = makeToolkitComponents(TOOLS, {}, [
-    'propose-capability',
-    'call-capability',
-  ])
-  const stubLlmLayer = OpenAiLanguageModel.layer({ model: 'stub' }).pipe(
-    Layer.provide(OpenAiClient.layer({ apiUrl: stubBaseUrl })),
-    Layer.provide(FetchHttpClient.layer),
-  )
-  // capabilityRegistryLayer exposed at suite level so registerCapability can yield it
-  return Layer.mergeAll(toolkitLayer, storeLayer, handleRegLayer, capabilityRegistryLayer, stubLlmLayer)
-}
+const llmLayer = makeLlmStubLayer([
+  { body: TOOL_CALL_BODY, status: 200 },
+  { body: TEXT_BODY, status: 200 },
+])
 
-// ─── helper (mirrors the protocol-test pattern) ───────────────────────────────
+const { capabilityRegistryLayer, handleRegLayer, storeLayer, toolkitLayer } = makeToolkitComponents(TOOLS, {}, [
+  'propose-capability',
+  'call-capability',
+])
+
+const TestLayer = Layer.mergeAll(
+  toolkitLayer,
+  storeLayer,
+  handleRegLayer,
+  capabilityRegistryLayer,
+  NodeFileSystem.layer,
+  llmLayer,
+)
+
+// ─── helper ───────────────────────────────────────────────────────────────────
 
 const callTool = (name: string, params: Record<string, unknown>) =>
   Effect.gen(function* () {
@@ -141,14 +117,13 @@ const callTool = (name: string, params: Record<string, unknown>) =>
 
 // ─── test ─────────────────────────────────────────────────────────────────────
 
-layer(Layer.suspend(makeTestLayer))('TODO 4.3 — Georges-proposed capability accepted end-to-end', it => {
-  it.effect('propose → promote → call-capability executes Georges-authored code', () =>
+layer(TestLayer)('TODO 4.3 — propose → promote → call-capability executes Georges-authored code', it => {
+  it.effect('propose → promote → call-capability pipeline', () =>
     Effect.gen(function* () {
       const toolkit = yield* GeorgesToolkit
       const store = yield* EventStore
 
-      // Step 1 (= POST /api/goals via SubmitGoal UI panel):
-      // Georges receives the goal, calls propose-capability, CapabilityProposed stored.
+      // Step 1: Georges receives the goal, calls propose-capability, CapabilityProposed stored.
       yield* makeSubmitGoal(toolkit)({ goal: 'Propose a greet capability.', handleId: 'none' }).pipe(Effect.orDie)
 
       // Step 2: verify CapabilityProposed is in the event store
@@ -163,13 +138,11 @@ layer(Layer.suspend(makeTestLayer))('TODO 4.3 — Georges-proposed capability ac
       expect(payload.name).toBe('greet')
       expect(payload.code).toContain('hello-from-georges')
 
-      // Step 3 (= POST /api/proposals/:id/promote via Proposals UI panel):
-      // registerCapability reads CapabilityProposed from EventStore and writes to CapabilityRegistry.
+      // Step 3: registerCapability reads CapabilityProposed from EventStore and writes to CapabilityRegistry.
       const version = yield* registerCapability(proposalId)
       expect(version).toBeGreaterThan(0)
 
-      // Step 4 (= POST /api/tools/call-capability via CallCapability UI panel):
-      // Georges-authored code runs in a sandboxed Node.js subprocess.
+      // Step 4: Georges-authored code runs in a sandboxed Node.js subprocess.
       const result = yield* callTool('call-capability', { name: 'greet', role: 'Implementer' })
       expect(result.isFailure).toBe(false)
       const callResult = result.result as { exitCode: number; output: string }

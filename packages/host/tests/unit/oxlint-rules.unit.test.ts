@@ -43,10 +43,7 @@ const nodeImportProbes: { fn: string; module: string; expected: string }[] = [
 
 describe('no-restricted-imports — node:* in packages/host/src/', () => {
   it.each(nodeImportProbes)('warns on $module import in src/', ({ fn, module, expected }) => {
-    const { stdout } = lint(
-      `packages/host/src/adapters/driven/probe_nri_${fn}.ts`,
-      `import { ${fn} } from '${module}'\n`,
-    )
+    const { stdout } = lint(`packages/host/src/application/probe_nri_${fn}.ts`, `import { ${fn} } from '${module}'\n`)
     expect(stdout).toContain(module)
     expect(stdout).toContain(expected)
   })
@@ -221,14 +218,12 @@ describe('effect-patterns/no-inline-correlation-id — correlationId: randomUUID
 // ── P12 — bare vitest imports in integration tests ────────────────────────────
 
 describe("P12 — bare 'vitest' imports in integration test files (acceptance)", () => {
-  it.fails("RED: no integration test file should import from bare 'vitest'", () => {
+  it("no integration test file imports from bare 'vitest'", () => {
     const result = spawnSync(
       'grep',
       ['--include=*.integration.test.ts', '-r', '-l', "from 'vitest'", join(REPO_ROOT, 'packages', 'host', 'tests')],
       { encoding: 'utf8' },
     )
-    // RED: several integration test files still import from bare 'vitest'.
-    // After fix (import everything from '@effect/vitest'): stdout is empty.
     expect(result.stdout.trim()).toBe('')
   })
 })

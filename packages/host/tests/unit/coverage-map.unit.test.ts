@@ -11,7 +11,7 @@
  */
 import { readdirSync, readFileSync } from 'node:fs'
 import { join } from 'node:path'
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it } from '@effect/vitest'
 
 const HOST_ROOT = join(import.meta.filename, '..', '..', '..')
 const SRC_DIRS = ['src/domain', 'src/application']

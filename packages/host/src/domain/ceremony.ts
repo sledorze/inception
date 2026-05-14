@@ -11,8 +11,8 @@
  * Amendment content is SHA-256 hashed before signing.
  */
 import { createHash, generateKeyPairSync, sign, verify } from 'node:crypto'
-import { readFile, writeFile } from 'node:fs/promises'
-import { join } from 'node:path'
+import { readFile, writeFile } from 'node:fs/promises' // oxlint-disable-line no-restricted-imports -- TODO: migrate to Effect FileSystem
+import { join } from 'node:path' // oxlint-disable-line no-restricted-imports -- TODO: migrate to Path service
 
 // ─── roles ────────────────────────────────────────────────────────────────────
 

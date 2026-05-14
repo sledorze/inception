@@ -7,18 +7,19 @@
  *
  * Fails on pre-fix code (where emitCorroborator used randomUUID()).
  * Passes when CurrentCorrelationId is threaded from submitGoal → generateText → emitCorroborator.
+ *
+ * Uses @effect/vitest layer() + FakeOpenAiStubLive (scoped Layer) — fixes P18:
+ * the stub server is started by Effect.acquireRelease inside the layer build,
+ * guaranteed to be listening before OpenAiClient.layer is built.
  */
-import { createServer } from 'node:http'
-import type { AddressInfo, Server } from 'node:net'
 import { Effect, Layer } from 'effect'
-import { OpenAiClient, OpenAiLanguageModel } from '@effect/ai-openai-compat'
-import { FetchHttpClient } from 'effect/unstable/http'
-import { afterAll, beforeAll, expect } from 'vitest'
-import { layer } from '@effect/vitest'
+import { NodeFileSystem } from '@effect/platform-node'
+import { expect, layer } from '@effect/vitest'
 import { GeorgesToolkit } from '../../src/adapters/driving/GeorgesToolkit.ts'
 import { makeSubmitGoal } from '../../src/application/submitGoal.ts'
 import { EventStore } from '../../src/ports/driven/EventStore.ts'
 import { makeToolkitComponents } from '../helpers/toolkitLayer.ts'
+import { makeLlmStubLayer } from '../helpers/fakeOpenAiStub.ts'
 
 // ─── stub LLM: first call returns list-tools tool_call, second returns text ──
 
@@ -56,54 +57,23 @@ const TEXT_BODY = JSON.stringify({
   usage: { completion_tokens: 5, prompt_tokens: 100, total_tokens: 105 },
 })
 
-let stubServer: Server
-let stubBaseUrl = ''
-let callCount = 0
-
-beforeAll(
-  () =>
-    new Promise<void>(resolve => {
-      stubServer = createServer((req, res) => {
-        let body = ''
-        req.on('data', (chunk: Buffer) => {
-          body += chunk.toString()
-        })
-        req.on('end', () => {
-          res.writeHead(200, { 'Content-Type': 'application/json' })
-          res.end(callCount++ === 0 ? TOOL_CALL_BODY : TEXT_BODY)
-        })
-      })
-      stubServer.listen(0, '127.0.0.1', () => {
-        stubBaseUrl = `http://127.0.0.1:${(stubServer.address() as AddressInfo).port}`
-        resolve()
-      })
-    }),
-)
-
-afterAll(
-  () =>
-    new Promise<void>(resolve => {
-      stubServer.close(() => resolve())
-    }),
-)
-
-// ─── test layer ───────────────────────────────────────────────────────────────
+// ─── test setup ───────────────────────────────────────────────────────────────
 
 const TOOLS = [{ description: 'List tools for a role.', inputSchema: {}, name: 'list-tools', roles: ['Architect'] }]
 
-const makeTestLayer = () => {
-  const { handleRegLayer, storeLayer, toolkitLayer } = makeToolkitComponents(TOOLS, {}, ['list-tools'])
-  const stubLlmLayer = OpenAiLanguageModel.layer({ model: 'stub' }).pipe(
-    Layer.provide(OpenAiClient.layer({ apiUrl: stubBaseUrl })),
-    Layer.provide(FetchHttpClient.layer),
-  )
-  return Layer.mergeAll(toolkitLayer, storeLayer, handleRegLayer, stubLlmLayer)
-}
+const llmLayer = makeLlmStubLayer([
+  { body: TOOL_CALL_BODY, status: 200 },
+  { body: TEXT_BODY, status: 200 },
+])
+
+const { handleRegLayer, storeLayer, toolkitLayer } = makeToolkitComponents(TOOLS, {}, ['list-tools'])
+
+const TestLayer = Layer.mergeAll(toolkitLayer, storeLayer, handleRegLayer, NodeFileSystem.layer, llmLayer)
 
 // ─── acceptance test ──────────────────────────────────────────────────────────
 
-layer(Layer.suspend(makeTestLayer))('P8 — ToolResultObserved correlationId propagation', it => {
-  it.effect('ToolResultObserved.correlationId matches GoalSubmitted.correlationId', () =>
+layer(TestLayer)('P8 — ToolResultObserved.correlationId matches GoalSubmitted.correlationId', it => {
+  it.effect('ToolResultObserved shares correlationId with GoalSubmitted', () =>
     Effect.gen(function* () {
       const toolkit = yield* GeorgesToolkit
       const store = yield* EventStore

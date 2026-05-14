@@ -136,7 +136,7 @@ function SubmitGoal() {
   const [handleId, setHandleId] = useState('synthetic-001')
   const [busy, setBusy] = useState(false)
   const [result, setResult] = useState<GoalResult | null>(null)
-  const [error, setError] = useState<string | null>(null)
+  const [submitError, setSubmitError] = useState<string | null>(null)
 
   const handleSubmit = () => {
     if (!goal.trim()) {
@@ -144,14 +144,14 @@ function SubmitGoal() {
     }
     setBusy(true)
     setResult(null)
-    setError(null)
+    setSubmitError(null)
     submitGoal(goal, handleId)
       .then(r => {
         setResult(r)
         setBusy(false)
       })
       .catch((error: unknown) => {
-        setError(String(error))
+        setSubmitError(String(error))
         setBusy(false)
       })
   }
@@ -190,8 +190,10 @@ function SubmitGoal() {
           {typeof result.text === 'string' ? result.text : JSON.stringify(result, null, 2)}
         </pre>
       )}
-      {error && (
-        <pre className="mt-2 rounded bg-red-50 p-3 text-sm whitespace-pre-wrap break-all text-red-800">{error}</pre>
+      {submitError && (
+        <pre className="mt-2 rounded bg-red-50 p-3 text-sm whitespace-pre-wrap break-all text-red-800">
+          {submitError}
+        </pre>
       )}
     </section>
   )

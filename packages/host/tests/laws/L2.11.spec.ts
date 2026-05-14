@@ -11,7 +11,7 @@
  * type boundary; entries missing fields are rejected by Schema.decodeUnknown.
  */
 import { Effect, Schema } from 'effect'
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it } from '@effect/vitest'
 import { VariantEntrySchema } from '../../src/ports/driven/VariantLog.ts'
 
 const validEntry = {

@@ -10,8 +10,7 @@
  * See docs/PAIN.md P7 for full background.
  */
 import { join } from 'node:path'
-import { describe, expect } from 'vitest'
-import { it } from '@effect/vitest'
+import { describe, expect, it } from '@effect/vitest'
 import { Effect } from 'effect'
 import { LanguageModel } from 'effect/unstable/ai'
 import { OpenAiCompatLlmProvider } from '../../src/adapters/driven/OpenAiCompatLlmProvider.ts'

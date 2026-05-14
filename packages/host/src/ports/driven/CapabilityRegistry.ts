@@ -13,6 +13,7 @@ import { Context, Schema } from 'effect'
 
 export interface CapabilityEntry {
   readonly code: string
+  readonly description: string
   readonly name: string
   readonly proposalId: string
   readonly promotedAt: string
