@@ -263,8 +263,16 @@ const ALLOWED_OFF_PATHS = [
   '**/packages/host/src/main.ts',
 ] as const
 
-describe('P23 — no-restricted-imports "off" override is a closed allow-list (acceptance)', () => {
-  it('the override allow-list contains exactly the sanctioned paths — nothing more', () => {
+describe('P23 — oxlint overrides are a closed list (acceptance)', () => {
+  it('override count is exactly 5 — any new block must update this test', () => {
+    const raw = readFileSync(join(REPO_ROOT, '.oxlintrc.json'), 'utf8')
+    const config = JSON.parse(raw) as {
+      overrides: { files: string[]; rules: Record<string, unknown> }[]
+    }
+    expect(config.overrides.length).toBe(5)
+  })
+
+  it('the no-restricted-imports "off" override allow-list contains exactly the sanctioned paths', () => {
     const raw = readFileSync(join(REPO_ROOT, '.oxlintrc.json'), 'utf8')
     const config = JSON.parse(raw) as {
       overrides: { files: string[]; rules: Record<string, unknown> }[]
