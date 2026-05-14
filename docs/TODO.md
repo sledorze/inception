@@ -14,7 +14,7 @@ Rationale lines are added only when the _why_ is non-obvious from the spec.
 - [parked] **0.1b-ratify** Formal ratification of Tier 1 laws via `ConstitutionalAmendment` event (L0.2: Claude + User-of-record + 2-of-3 Witness pool signatures). Structurally blocked on Phase 1.5 item 1.18 (External Witness pool ceremony, which provisions the 5 long-lived keys). Exits when 1.18 ships and the amendment is emitted.
 - [done] **0.1c** Risk Register (§3.5) — **ship bootstrap thresholds** under `bootstrap=true` (L3.8). Do not negotiate values upfront. Phase 1 enforces R1, R2, R5 in the Supervisor; the rest are watched manually until evidence accumulates.
 - [done] **0.1d** Roles & Fitness (§4) — **ship bootstrap defaults** under `bootstrap=true` (L3.8): 3 seed roles (Architect, Implementer, Reviewer), 7 fitness dimensions (Correctness, Efficiency, Cost, Safety, Acceptance, Information cost, Honesty), N=3 variants per goal, 15 % diversity reserve. Refinement comes from the variant log after first goals run, not from agreement now.
-- [todo] **0.2** User reads spec; we iterate on stories until the set is stable.
+- [done] **0.2** User reads spec; we iterate on stories until the set is stable.
   - Concretely: add/remove stories, sharpen failure modes, agree on the dynamic narrative. Stories should also identify which roles play in each (§4).
 - [done] **0.3** Resolve enough of §10 open questions to start Phase 1.
   - Q1 (tool discovery), Q4 (User surface), Q6 (data-handle primitive) — **v0 answered in SPEC §10.1 as port + bootstrap adapter** per L2.14.
@@ -73,9 +73,9 @@ These items make Phase 1's traces _honest_ and _bounded_: per-handle info budget
 - [done] **2.4** `fetch-handle-shape` — returns schema + redacted sample for a data handle.
 - [done] **2.5** `propose-capability` — submits manifest+code+tests for §S2.
 - [done] **2.6** Policy hooks on every tool call; deny by default for unknown policies.
-- [todo] **2.7** **`agent.md` system-prompt injection**: wire `src/bootstrap/agent.md` as Georges' system prompt in the LLM pipeline — read at session init, prepend as system message via `LlmProvider` adapter. (See TODO in `src/bootstrap/agent.md`.)
-- [todo] **2.8** **`agent.md` workspace mount**: pre-seed `agent.md` into `WorkspaceMount` at bootstrap so Georges can also `read-workspace` it on demand. Mirrors the `tools.yaml` pattern from 1.12.
-- [todo] **2.9** **`agent.md` behavioral content**: extract from `docs/SPEC.md §3` the laws governing Georges' claims, corroboration requirements, trust levels, session protocol, and role-switch ceremony. Populate the two TODO sections in `src/bootstrap/agent.md`.
+- [done] **2.7** **`agent.md` system-prompt injection**: wire `src/bootstrap/agent.md` as Georges' system prompt in the LLM pipeline — read at session init, prepend as system message via `LlmProvider` adapter. (See TODO in `src/bootstrap/agent.md`.)
+- [done] **2.8** **`agent.md` workspace mount**: pre-seed `agent.md` into `WorkspaceMount` at bootstrap so Georges can also `read-workspace` it on demand. Mirrors the `tools.yaml` pattern from 1.12.
+- [done] **2.9** **`agent.md` behavioral content**: extract from `docs/SPEC.md §3` the laws governing Georges' claims, corroboration requirements, trust levels, session protocol, and role-switch ceremony. Populate the two TODO sections in `src/bootstrap/agent.md`.
 
 **Exit:** Georges can fulfil S1 end-to-end against a synthetic dataset without ever holding the data.
 
