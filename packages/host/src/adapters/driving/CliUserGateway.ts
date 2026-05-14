@@ -16,6 +16,7 @@ const makeListenEffect = <R>(
 ): Effect.Effect<void, UserGatewayError, R> =>
   Effect.gen(function* () {
     const queue = yield* Queue.unbounded<GoalSubmission>()
+    const ctx = yield* Effect.context<R>()
 
     // HTTP server enqueues only — no service requirements at boundary
     yield* Effect.forkDetach(
@@ -37,7 +38,7 @@ const makeListenEffect = <R>(
               res.writeHead(400).end('invalid json')
               return
             }
-            void Effect.runPromise(
+            void Effect.runPromiseWith(ctx)(
               Schema.decodeUnknownEffect(GoalSubmissionSchema)(raw).pipe(
                 Effect.flatMap(submission => Queue.offer(queue, submission)),
                 Effect.orDie,
@@ -61,7 +62,7 @@ const makeListenEffect = <R>(
     )
 
     // Drain queue inside Effect context — onGoal's service requirements are satisfied
-    yield* Effect.forever(
+    return yield* Effect.forever(
       Effect.gen(function* () {
         const submission = yield* Queue.take(queue)
         yield* Effect.forkDetach(onGoal(submission))
