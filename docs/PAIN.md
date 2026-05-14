@@ -70,15 +70,8 @@ path (`ai-docs/`).
 
 ## P5 — Vitest must be run from repo root, not package (severity: annoys)
 
-**Symptom.** `pnpm --filter @app/host test` and `cd packages/host && npx vitest run` both
-produce no output or exit code 1 with "No test files found". The vitest config at repo root
-controls all include patterns.
-
-**Encountered in.** Every test run during Phase 2.
-
-**Candidate fix.** Add a `test` script to `packages/host/package.json` that calls
-`cd ../../ && npx vitest run` or delegates to turbo. Or document the root-only invocation
-in `CLAUDE.md` explicitly to avoid rediscovery.
+**Status: FIXED.** Added `"test": "cd ../.. && pnpm exec vitest run"` to
+`packages/host/package.json`. `pnpm test` from the host package now works.
 
 ---
 
@@ -98,16 +91,9 @@ match). For lint autofixes, let oxlint-autofix.sh do the rename rather than doin
 
 ## P7 — No protocol test for `GeorgesToolkit` driving adapter (severity: slows)
 
-**Symptom.** §2.13 + `CLAUDE.md` require every port to have a parametrised protocol-contract
-test in `tests/protocol/<port>.spec.ts`. `GeorgesToolkit` is a driving adapter with no such
-test. Each tool added to the toolkit grows the contract without structural enforcement.
-
-**Encountered in.** Phase 2 (TODOs 2.1–2.3); the gap was noticed but not addressed during
-feature work.
-
-**Candidate fix.** Create `packages/host/tests/protocol/GeorgesToolkit.spec.ts` that exercises
-the full handler matrix (each tool × role × success/failure) against the real adapter layer.
-This becomes the Liskov proof for any future toolkit reimplementation.
+**Status: FIXED.** `packages/host/tests/protocol/GeorgesToolkit.spec.ts` created (14 tests).
+Covers all 6 tools × success + failure paths. `makeToolkitComponents` extended with optional
+`initialFiles` param for workspace seeding.
 
 ---
 
