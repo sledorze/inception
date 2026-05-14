@@ -4,7 +4,7 @@
  * L2.9: provenance — CapabilityEntry carries the proposalId (contentHash of the
  * CapabilityProposed event that was promoted).
  */
-import { Clock, Effect } from 'effect'
+import { DateTime, Effect } from 'effect'
 import { CapabilityRegistry } from '../ports/driven/CapabilityRegistry.ts'
 import { EventStore } from '../ports/driven/EventStore.ts'
 
@@ -27,7 +27,6 @@ export const registerCapability = (proposalId: string): Effect.Effect<number, ne
     }
 
     const payload = proposal.payload as ProposalPayload
-    const ms = yield* Clock.currentTimeMillis
     const registry = yield* CapabilityRegistry
 
     return yield* registry
@@ -35,7 +34,7 @@ export const registerCapability = (proposalId: string): Effect.Effect<number, ne
         code: payload.code,
         description: payload.description,
         name: payload.name,
-        promotedAt: new Date(ms).toISOString(),
+        promotedAt: DateTime.formatIso(yield* DateTime.now),
         proposalId,
         scope: payload.scope,
         tests: payload.tests,

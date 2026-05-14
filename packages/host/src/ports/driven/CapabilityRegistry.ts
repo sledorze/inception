@@ -34,4 +34,4 @@ export class CapabilityRegistry extends Context.Service<
     readonly rollback: (version: number) => Effect.Effect<void, CapabilityRegistryError>
     readonly currentVersion: () => Effect.Effect<number, CapabilityRegistryError>
   }
->()('@app/host/CapabilityRegistry') {}
+>()('@app/host/ports/driven/CapabilityRegistry') {}

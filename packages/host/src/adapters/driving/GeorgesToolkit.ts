@@ -10,7 +10,7 @@ import { mkdtemp, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { promisify } from 'node:util'
-import { Clock, Data, Effect, Schema } from 'effect'
+import { Data, DateTime, Effect, Schema } from 'effect'
 import { Tool, Toolkit } from 'effect/unstable/ai'
 import { CapabilityRegistry } from '../../ports/driven/CapabilityRegistry.ts'
 import { DataHandleRegistry } from '../../ports/driven/DataHandle.ts'
@@ -147,13 +147,12 @@ export const GeorgesToolkitLive = GeorgesToolkit.toLayer(
     const emitCorroborator = (toolName: string, payload: Record<string, unknown>) =>
       Effect.gen(function* () {
         const correlationId = yield* CurrentCorrelationId
-        const ms = yield* Clock.currentTimeMillis
         yield* store
           .append({
             actor: 'host',
             correlationId,
             kind: 'ToolResultObserved',
-            occurredAt: new Date(ms).toISOString(),
+            occurredAt: DateTime.formatIso(yield* DateTime.now),
             payload: { ...payload, toolName },
             schemaV: 1,
             sessionId: 'bootstrap',
@@ -244,13 +243,12 @@ export const GeorgesToolkitLive = GeorgesToolkit.toLayer(
         ).pipe(Effect.mapError(e => ({ message: `manifest validation failed: ${String(e)}` })))
         // L2.6: record proposal — Georges proposes, Host witnesses, Claude promotes
         const correlationId = yield* CurrentCorrelationId
-        const ms = yield* Clock.currentTimeMillis
         const stored = yield* store
           .append({
             actor: 'georges',
             correlationId,
             kind: 'CapabilityProposed',
-            occurredAt: new Date(ms).toISOString(),
+            occurredAt: DateTime.formatIso(yield* DateTime.now),
             payload: {
               code,
               description: manifest.description,

@@ -38,7 +38,7 @@ const extractImportPaths = (content: string): readonly string[] => {
   let match: RegExpExecArray | null
   while ((match = importRegex.exec(content)) !== null) {
     const importPath = match[1] ?? match[2]
-    if (importPath) {
+    if (importPath !== undefined) {
       paths.push(importPath)
     }
   }
@@ -62,7 +62,7 @@ export const checkTestConventions = (
 
     const matchedCategory = categories.find(c => file.path.endsWith(c.suffix))
 
-    if (!matchedCategory) {
+    if (matchedCategory === undefined) {
       violations.push({
         path: file.path,
         reason: `uncategorized test file — must use one of: ${categories.map(c => c.suffix).join(', ')}`,

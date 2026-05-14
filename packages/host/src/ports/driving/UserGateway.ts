@@ -17,4 +17,4 @@ export class UserGateway extends Context.Service<
       onGoal: (submission: GoalSubmission) => Effect.Effect<void, never, R>,
     ) => Effect.Effect<void, UserGatewayError, R>
   }
->()('@app/host/UserGateway') {}
+>()('@app/host/ports/driving/UserGateway') {}

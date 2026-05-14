@@ -1,5 +1,5 @@
 import { randomUUID } from 'node:crypto'
-import { Clock, Effect } from 'effect'
+import { DateTime, Effect } from 'effect'
 import { LanguageModel } from 'effect/unstable/ai'
 import type { LanguageModel as LanguageModelNS, Tool } from 'effect/unstable/ai'
 import { CurrentCorrelationId } from '../domain/tracing.ts'
@@ -9,16 +9,17 @@ import { AGENT_MD_PATH, readAgentMd } from './session.ts'
 
 // The toolkit is injected by the caller (main.ts or tests) to keep this service
 // free of adapter imports (L2.14 application-layer-purity rule).
-export const makeSubmitGoal = <Tools extends Record<string, Tool.Any>>(toolkit: LanguageModelNS.ToolkitOption<Tools>) =>
+export const makeSubmitGoal = <Tools extends Record<string, Tool.Any>>(
+  toolkit: LanguageModelNS.ToolkitOption<Tools, never, never>,
+) =>
   Effect.fn('application.submitGoal')(function* (s: GoalSubmission) {
     const correlationId = randomUUID()
     const store = yield* EventStore
-    const ms = yield* Clock.currentTimeMillis
     yield* store.append({
       actor: 'user',
       correlationId,
       kind: 'GoalSubmitted',
-      occurredAt: new Date(ms).toISOString(),
+      occurredAt: DateTime.formatIso(yield* DateTime.now),
       payload: { goal: s.goal, handleId: s.handleId },
       schemaV: 1,
       sessionId: 'bootstrap',
@@ -38,12 +39,11 @@ export const makeSubmitGoal = <Tools extends Record<string, Tool.Any>>(toolkit: 
       correlationId,
     )
 
-    const ms2 = yield* Clock.currentTimeMillis
     yield* store.append({
       actor: 'host',
       correlationId,
       kind: 'GoalCompleted',
-      occurredAt: new Date(ms2).toISOString(),
+      occurredAt: DateTime.formatIso(yield* DateTime.now),
       payload: { text: response.text },
       schemaV: 1,
       sessionId: 'bootstrap',

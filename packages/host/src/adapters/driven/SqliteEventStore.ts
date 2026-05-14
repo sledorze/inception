@@ -126,7 +126,7 @@ export const SqliteEventStore = {
                     const anchor = db.prepare('SELECT rowid FROM events WHERE id = ?').get(fromId) as
                       | { rowid: number }
                       | undefined
-                    if (!anchor) {
+                    if (anchor === undefined) {
                       return []
                     }
                     return db

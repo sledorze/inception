@@ -5,7 +5,7 @@
  * L1.5: A proposed capability is shelved until a Promoted event activates it.
  * L2.9: Provenance — the decision event carries the proposalId (contentHash of the proposal).
  */
-import { Clock, Effect } from 'effect'
+import { DateTime, Effect } from 'effect'
 import { EventStore } from '../ports/driven/EventStore.ts'
 import type { StoredEvent } from '../ports/driven/EventStore.ts'
 
@@ -36,13 +36,12 @@ const emitDecision =
       if (proposal === undefined) {
         return yield* Effect.die(`proposal not found: ${proposalId}`)
       }
-      const ms = yield* Clock.currentTimeMillis
       yield* store
         .append({
           actor: 'claude',
           correlationId: proposal.correlationId,
           kind,
-          occurredAt: new Date(ms).toISOString(),
+          occurredAt: DateTime.formatIso(yield* DateTime.now),
           payload: notes === undefined ? { proposalId } : { notes, proposalId },
           schemaV: 1,
           sessionId: proposal.sessionId,

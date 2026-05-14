@@ -17,4 +17,4 @@ export class ToolRegistry extends Context.Service<
     readonly listTools: (role: string) => Effect.Effect<readonly ToolDescriptor[]>
     readonly get: (name: string) => Effect.Effect<ToolDescriptor, ToolNotFound>
   }
->()('@app/host/ToolRegistry') {}
+>()('@app/host/ports/driven/ToolRegistry') {}

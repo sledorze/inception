@@ -66,4 +66,4 @@ export class EventStore extends Context.Service<
       onEvent: (e: StoredEvent) => Effect.Effect<void>,
     ) => Effect.Effect<void, EventStoreError>
   }
->()('@app/host/EventStore') {}
+>()('@app/host/ports/driven/EventStore') {}

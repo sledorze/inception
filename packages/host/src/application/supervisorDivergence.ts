@@ -9,7 +9,7 @@
  * domain after computing signals via the read-only ObservabilityGateway.
  * In tests, the Monitor computation is injected directly.
  */
-import { Clock, Effect } from 'effect'
+import { DateTime, Effect } from 'effect'
 import { EventStore } from '../ports/driven/EventStore.ts'
 import type { SignalResult } from '../ports/driven/Supervisor.ts'
 
@@ -37,7 +37,7 @@ export const checkSupervisorDivergence = (
         actor: 'monitor',
         correlationId: `monitor-divergence-${riskId}-${sessionId}`,
         kind: 'SupervisorDivergence',
-        occurredAt: new Date(yield* Clock.currentTimeMillis).toISOString(),
+        occurredAt: DateTime.formatIso(yield* DateTime.now),
         payload: {
           monitorTripped: monitorResult.tripped,
           monitorValue: monitorResult.currentValue,

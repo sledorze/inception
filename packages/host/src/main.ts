@@ -108,7 +108,7 @@ const server = createServer((req, res) => {
   }
 
   const promoteMatch = PROMOTE_ROUTE.exec(url)
-  if (promoteMatch && req.method === 'POST') {
+  if (promoteMatch !== null && req.method === 'POST') {
     const proposalId = decodeURIComponent(promoteMatch[1] ?? '')
     rt.runPromise(
       Effect.gen(function* () {
@@ -142,7 +142,7 @@ const server = createServer((req, res) => {
   }
 
   const toolMatch = TOOL_ROUTE.exec(url)
-  if (toolMatch && req.method === 'POST') {
+  if (toolMatch !== null && req.method === 'POST') {
     const toolName = decodeURIComponent(toolMatch[1] ?? '')
     let body = ''
     req.on('data', (chunk: Buffer) => {
@@ -177,9 +177,9 @@ const server = createServer((req, res) => {
   const urlPath = url === '/' ? '/index.html' : (url.split('?')[0] ?? '/index.html')
   const filePath = join(DIST, urlPath)
   readFile(filePath, (error, data) => {
-    if (error) {
+    if (error !== null) {
       readFile(join(DIST, 'index.html'), (error2, fallback) => {
-        if (error2) {
+        if (error2 !== null) {
           res.writeHead(404).end('not found')
           return
         }

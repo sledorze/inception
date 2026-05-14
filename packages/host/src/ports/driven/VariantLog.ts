@@ -63,4 +63,4 @@ export class VariantLog extends Context.Service<
       readonly storyRef?: string
     }) => Effect.Effect<readonly VariantEntry[], VariantLogError>
   }
->()('@app/host/VariantLog') {}
+>()('@app/host/ports/driven/VariantLog') {}

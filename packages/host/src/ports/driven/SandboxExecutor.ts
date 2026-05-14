@@ -22,4 +22,4 @@ export class SandboxExecutor extends Context.Service<
   {
     readonly run: (script: string, constraints: SandboxConstraints) => Effect.Effect<SandboxResult, SandboxError>
   }
->()('@app/host/SandboxExecutor') {}
+>()('@app/host/ports/driven/SandboxExecutor') {}

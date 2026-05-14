@@ -80,4 +80,4 @@ export class BehaviourArchive extends Context.Service<
     // Current number of occupied cells.
     readonly size: () => Effect.Effect<number, BehaviourArchiveError>
   }
->()('@app/host/BehaviourArchive') {}
+>()('@app/host/ports/driven/BehaviourArchive') {}
