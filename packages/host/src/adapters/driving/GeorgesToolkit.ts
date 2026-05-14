@@ -1,13 +1,15 @@
 /**
  * Inner MCP driving adapter — Georges' tool surface (Phase 2, §10.1 Q1).
- * Exposes list-tools, read-workspace, write-workspace backed by ToolRegistry and WorkspaceMount.
+ * Exposes list-tools, read-workspace, write-workspace, run-script backed by ports.
  * Emits ToolResultObserved for every call (L1.8 wiring).
- * Laws: L1.1 (every Georges effect passes through inner MCP), L2.1 (self-description),
- *       L2.2 (write-workspace enforces role-scoped mutability).
+ * Laws: L1.1 (every Georges effect passes through inner MCP), L1.3 (run-script returns
+ *       aggregate only — never raw bytes), L2.1 (self-description),
+ *       L2.2 (write-workspace + run-script enforce role-scoped mutability).
  */
 import { randomUUID } from 'node:crypto'
 import { Clock, Effect, Schema } from 'effect'
 import { Tool, Toolkit } from 'effect/unstable/ai'
+import { DataHandleRegistry } from '../../ports/driven/DataHandle.ts'
 import { EventStore } from '../../ports/driven/EventStore.ts'
 import { ToolRegistry } from '../../ports/driven/ToolRegistry.ts'
 import { WorkspaceMount } from '../../ports/driven/WorkspaceMount.ts'
@@ -42,13 +44,28 @@ export const WriteWorkspaceTool = Tool.make('write-workspace', {
   success: Schema.Struct({ path: Schema.String }),
 })
 
-export const GeorgesToolkit = Toolkit.make(ListToolsTool, ReadWorkspaceTool, WriteWorkspaceTool)
+export const RunScriptTool = Tool.make('run-script', {
+  description:
+    'Submits a script to the sandbox against a data handle. Returns aggregate only — never raw data bytes (L1.3).',
+  failure: WorkspaceFailureSchema,
+  failureMode: 'return',
+  parameters: Schema.Struct({ handleId: Schema.String, role: Schema.String, script: Schema.String }),
+  success: Schema.Struct({
+    bitsConsumed: Schema.Number,
+    exitCode: Schema.Number,
+    stdoutHash: Schema.String,
+    summary: Schema.String,
+  }),
+})
+
+export const GeorgesToolkit = Toolkit.make(ListToolsTool, ReadWorkspaceTool, WriteWorkspaceTool, RunScriptTool)
 
 export const GeorgesToolkitLive = GeorgesToolkit.toLayer(
   Effect.gen(function* () {
     const registry = yield* ToolRegistry
     const store = yield* EventStore
     const workspace = yield* WorkspaceMount
+    const handleRegistry = yield* DataHandleRegistry
 
     const emitCorroborator = (toolName: string, payload: Record<string, unknown>) =>
       Effect.gen(function* () {
@@ -80,6 +97,45 @@ export const GeorgesToolkitLive = GeorgesToolkit.toLayer(
           .pipe(Effect.mapError(e => ({ message: `read failed: ${e.path} — ${String(e.cause)}` })))
         yield* emitCorroborator('read-workspace', { path })
         return { content }
+      }),
+
+      'run-script': Effect.fn('GeorgesToolkit.runScript')(function* ({
+        handleId,
+        role,
+        script,
+      }: {
+        handleId: string
+        role: string
+        script: string
+      }) {
+        // L2.2: only Implementer may run scripts
+        const availableTools = yield* registry.listTools(role)
+        if (!availableTools.some(t => t.name === 'run-script')) {
+          return yield* Effect.fail({
+            message: `Permission denied: run-script is not in the tool surface for role '${role}'`,
+          })
+        }
+        // L1.3: resolve handle, run script, return aggregate only — never raw bytes
+        const handle = yield* handleRegistry
+          .get(handleId)
+          .pipe(Effect.mapError(e => ({ message: `handle '${e.handleId}' has been revoked` })))
+        const aggregate = yield* handle.runScript(script).pipe(
+          Effect.catchTags({
+            '@app/host/DataHandleError': e => Effect.fail({ message: `data handle error: ${String(e.cause)}` }),
+            '@app/host/HandleExhausted': e =>
+              Effect.fail({ message: `handle '${e.handleId}' budget exhausted (${e.bitsConsumed} bits consumed)` }),
+            '@app/host/HandleRevoked': e => Effect.fail({ message: `handle '${e.handleId}' has been revoked` }),
+            '@app/host/SensitivityViolation': e =>
+              Effect.fail({ message: `sensitivity violation: declared ${e.declared} > max ${e.max} (${e.norm})` }),
+          }),
+        )
+        yield* emitCorroborator('run-script', { handleId, role })
+        return {
+          bitsConsumed: aggregate.bitsConsumed,
+          exitCode: aggregate.exitCode,
+          stdoutHash: aggregate.stdoutHash,
+          summary: aggregate.summary,
+        }
       }),
 
       'write-workspace': Effect.fn('GeorgesToolkit.writeWorkspace')(function* ({

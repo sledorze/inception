@@ -10,6 +10,7 @@ import { createServer } from 'node:http'
 import { dirname, extname, join } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { Effect, Layer, ManagedRuntime, Option, Stream } from 'effect'
+import { InMemoryDataHandleRegistry } from './adapters/driven/InMemoryDataHandleRegistry.ts'
 import { InMemoryEventStore } from './adapters/driven/InMemoryEventStore.ts'
 import { InMemoryToolRegistry } from './adapters/driven/InMemoryToolRegistry.ts'
 import { InMemoryWorkspaceMount } from './adapters/driven/InMemoryWorkspaceMount.ts'
@@ -32,6 +33,7 @@ const appLayer = GeorgesToolkitLive.pipe(
   Layer.provide(InMemoryEventStore.layer),
   Layer.provide(InMemoryToolRegistry.layerFromYamlFile(TOOLS_YAML)),
   Layer.provide(InMemoryWorkspaceMount.layer()),
+  Layer.provide(InMemoryDataHandleRegistry.layer),
 )
 
 const rt = ManagedRuntime.make(appLayer)
