@@ -24,12 +24,22 @@ A self-hosted "factory": an application where an AI inhabitant (**Georges**) and
 
 Plus Host-side tracing identities: **Supervisor** (in-process risk monitor) and **Monitor** (out-of-process cross-check of the Supervisor).
 
+## Resuming after auto-compaction
+
+If you are picking up from a compacted summary, do this BEFORE the first action:
+
+1. Read `docs/SPEC-nav.md` (~1 min) — law IDs, SPEC line numbers, paired test paths.
+2. Check `docs/TODO.md` — active phase + lowest-numbered `[todo]`.
+3. Scan `docs/PAIN.md` — any P1 (blocks work) items relevant to the current task?
+4. Skip full SPEC §3 / §A re-read unless the current task touches a law or port directly.
+
 ## Start-of-session ritual
 
-1. Read `docs/SPEC.md` **Appendix A** (Glossary) — vocabulary the body assumes.
-2. Read `docs/SPEC.md` **§3 Quick Index** — laws overview.
-3. Read `docs/TODO.md` top to bottom — current phase + items.
-4. Pick the lowest-numbered `[todo]` in the active phase.
+1. Read `docs/SPEC-nav.md` — laws quick index. For any law or port you need in depth, jump to the SPEC.md section referenced there.
+2. Read `docs/SPEC.md` **Appendix A** (Glossary) — vocabulary the body assumes.
+3. Read `docs/SPEC.md` **§3 Quick Index** — laws overview.
+4. Read `docs/TODO.md` top to bottom — current phase + items.
+5. Pick the lowest-numbered `[todo]` in the active phase.
 
 ## Per-task ritual (every cycle, per L3.9)
 
@@ -48,7 +58,7 @@ Implement. Pair every Law you touch with a test in `packages/host/tests/laws/<la
 
 - **Don't pre-abstract.** Three similar lines is better than premature abstraction. Factorise once a pattern has stabilised (≥3 usage sites OR one usage that clarifies the domain).
 - **Consolidate infrastructure at 2.** The 3-site threshold applies to application logic. For infrastructure — test layer compositions, error `_tag` string constants, shared helpers, binding glue — consolidate as soon as the second copy appears. Divergence in infrastructure is silent and expensive to fix later. Specific patterns: (a) repeated `Layer.mergeAll(...)` in test files → extract to `packages/host/tests/helpers/`; (b) `_tag` strings duplicated between a `TaggedErrorClass` definition and `Effect.catchTags` call sites → export a const from the port file.
-- **Log friction, then fix it.** When a duplication or awkward pattern causes a visible slowdown, add it to `docs/PAIN.md` with severity + candidate fix. At the start of every review session, scan `docs/PAIN.md` for P1/P2 items (blocks work) and address the highest-severity open item before new features.
+- **Log friction, then fix it.** When a duplication or awkward pattern causes a visible slowdown, add it to `docs/PAIN.md` with severity + candidate fix. At the start of every review session, scan `docs/PAIN.md` for P1/P2 items (blocks work) and address the highest-severity open item before new features. When a fix lands: cut the item from `docs/PAIN.md` and paste it (full text + `FIXED <date> in <commit>`) into `docs/PAIN-archive.md` in the same commit. PAIN.md holds OPEN items only.
 - **Promote to libraries.** When a module stabilises, give it its own `packages/<name>/` workspace with semver, owner, and changelog. Triggers: 3+ usage sites, load-bearing tech decision, or ships in `kernel/`.
 - **Prefer (embedded) DSLs** for domain grammars — workflows, role manifests, policy expressions, fitness vectors, capability declarations. Imperative code is the last resort.
 - **Contract tests run against fake AND prod.** Every port's protocol test is parametrised over all bound adapters. Liskov substitution proven by test, not by intent.
@@ -201,7 +211,7 @@ Mutation report runs nightly (`mutation-report.yml`), not on PRs.
 ## When in doubt
 
 - Vocabulary → `docs/SPEC.md` Appendix A.
-- "Is X enforced?" → §3 Quick Index → law text → `if absent` clause.
+- "Is X enforced?" → `docs/SPEC-nav.md` (law ID + test path) → then SPEC §3 for full text + `if absent` clause.
 - "Why was Y chosen?" → §13 (Tech) for tech, §12 (Calibrations) for parameters.
 - "What format should this artifact take?" → §14 (Per-domain artifact standards).
 - "What would an expert say?" → `docs/EXPERTS.md`.
