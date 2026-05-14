@@ -208,6 +208,17 @@ Mutation report runs nightly (`mutation-report.yml`), not on PRs.
 - `.claude/rules/kernel.md` — `kernel/**`
 - `.claude/rules/formal.md` — `formal/**`
 
+## Patterns reference (`.claude/patterns/`)
+
+Annotated code patterns for the codebase's recurring constructs. Check here **before** writing code that touches hex boundaries, test structure, or layer wiring — violations are caught at commit time by lefthook and cost a cycle to fix.
+
+| File                       | When to read                                                                           |
+| -------------------------- | -------------------------------------------------------------------------------------- |
+| `dep-boundary.md`          | Importing anything across `domain/`, `application/`, `ports/`, `adapters/`, `runtime/` |
+| `application-vs-domain.md` | Deciding where a new function or module lives                                          |
+| `composition-root.md`      | Adding an adapter or changing the Layer wiring                                         |
+| `effect-test-pattern.md`   | Writing or modifying any test under `packages/host/tests/`                             |
+
 ## When in doubt
 
 - Vocabulary → `docs/SPEC.md` Appendix A.
@@ -217,6 +228,7 @@ Mutation report runs nightly (`mutation-report.yml`), not on PRs.
 - "What would an expert say?" → `docs/EXPERTS.md`.
 - "Should I build this or use a library?" → AL.7 + §2.8. Default to adopt/integrate.
 - "How does this Effect API work?" → `vendor/effect-smol/ai-docs/` → `vendor/effect-smol/packages/effect/src/`. Never guess from v3 memory.
+- "What code pattern should I follow here?" → `.claude/patterns/` (hex boundaries, test structure, composition root).
 
 ## Feedback
 
