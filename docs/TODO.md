@@ -95,7 +95,7 @@ These items make Phase 1's traces _honest_ and _bounded_: per-handle info budget
 ## Phase 4 — Capability proposals (S2)
 
 - [done] **4.1** Promotion queue + Claude-mediated review path (likely a CLI subcommand).
-- [todo] **4.2** Versioned capability registry on disk; rollback by version pin.
+- [done] **4.2** Versioned capability registry on disk; rollback by version pin.
 - [todo] **4.3** First Georges-proposed capability accepted end-to-end.
 
 **Exit:** Georges can grow his own tool surface, gated.
