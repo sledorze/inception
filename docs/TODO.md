@@ -73,6 +73,9 @@ These items make Phase 1's traces _honest_ and _bounded_: per-handle info budget
 - [done] **2.4** `fetch-handle-shape` — returns schema + redacted sample for a data handle.
 - [done] **2.5** `propose-capability` — submits manifest+code+tests for §S2.
 - [done] **2.6** Policy hooks on every tool call; deny by default for unknown policies.
+- [todo] **2.7** **`agent.md` system-prompt injection**: wire `src/bootstrap/agent.md` as Georges' system prompt in the LLM pipeline — read at session init, prepend as system message via `LlmProvider` adapter. (See TODO in `src/bootstrap/agent.md`.)
+- [todo] **2.8** **`agent.md` workspace mount**: pre-seed `agent.md` into `WorkspaceMount` at bootstrap so Georges can also `read-workspace` it on demand. Mirrors the `tools.yaml` pattern from 1.12.
+- [todo] **2.9** **`agent.md` behavioral content**: extract from `docs/SPEC.md §3` the laws governing Georges' claims, corroboration requirements, trust levels, session protocol, and role-switch ceremony. Populate the two TODO sections in `src/bootstrap/agent.md`.
 
 **Exit:** Georges can fulfil S1 end-to-end against a synthetic dataset without ever holding the data.
 
