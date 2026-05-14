@@ -55,10 +55,9 @@ module.exports = {
     // ── L2.14: Non-adapter code cannot import from adapters/ ──────────────
     {
       comment:
-        'L2.14: domain, ports, and runtime/bind must not import from adapters. ' +
+        'L2.14: domain, application, and ports must not import from adapters. ' +
         'Adapters implement ports; callers depend on ports only. ' +
-        'Layer composition (runtime wiring) is the only place adapters are referenced, ' +
-        'and that lives in separate boot files, not in bind.ts.',
+        'Layer composition (runtime wiring) lives in runtime/bind.ts (SPEC §2.14).',
       from: {
         path: String.raw`^packages/host/src/(?!adapters/)`,
         pathNot: [String.raw`^packages/host/src/runtime/`, String.raw`^packages/host/src/adapters/`],
@@ -83,8 +82,8 @@ module.exports = {
     // ── Domain purity ───────────────────────────────────────────────────────
     {
       comment:
-        'Domain is pure: no imports from ports, adapters, or runtime. ' +
-        'Domain types may be referenced by ports, not the reverse.',
+        'Domain is a pure leaf: no imports from ports, adapters, runtime, or application. ' +
+        'Domain types (schemas, value objects) may be referenced by ports and application — not the reverse.',
       from: { path: String.raw`^packages/host/src/domain/` },
       name: 'host-domain-pure',
       severity: 'error',
@@ -93,7 +92,21 @@ module.exports = {
           String.raw`^packages/host/src/ports/`,
           String.raw`^packages/host/src/adapters/`,
           String.raw`^packages/host/src/runtime/`,
+          String.raw`^packages/host/src/application/`,
         ],
+      },
+    },
+
+    // ── Application layer purity ────────────────────────────────────────────
+    {
+      comment:
+        'Application services (Effect.gen orchestrations) depend on ports only — never adapters or runtime. ' +
+        'This is the impureim sandwich outer shell; adapters are injected at runtime via Layer.',
+      from: { path: String.raw`^packages/host/src/application/` },
+      name: 'host-application-pure',
+      severity: 'error',
+      to: {
+        path: [String.raw`^packages/host/src/adapters/`, String.raw`^packages/host/src/runtime/`],
       },
     },
 

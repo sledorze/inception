@@ -1,0 +1,35 @@
+{
+  "$schema": "https://json.schemastore.org/tsconfig",
+  "compilerOptions": {
+    "allowImportingTsExtensions": true,
+    "declaration": true,
+    "declarationMap": true,
+    "exactOptionalPropertyTypes": true,
+    "isolatedModules": true,
+    "module": "nodenext",
+    "moduleDetection": "force",
+    "noEmit": true,
+
+    "noUncheckedIndexedAccess": true,
+    "noUncheckedSideEffectImports": true,
+
+    "plugins": [
+      {
+        "completions": true,
+        "diagnostics": true,
+        "name": "@effect/language-service",
+        "quickinfo": true,
+        "refactors": true
+      }
+    ],
+    "rewriteRelativeImportExtensions": true,
+    "skipLibCheck": true,
+    "sourceMap": true,
+    "strict": true,
+    "target": "esnext",
+    "types": ["node"],
+    "verbatimModuleSyntax": true
+  },
+  "exclude": ["node_modules", "dist"],
+  "include": ["src/**/*", "tests/**/*"]
+}

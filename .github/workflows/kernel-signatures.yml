@@ -1,0 +1,39 @@
+name: Kernel Signatures
+
+# Rejects any push or PR that touches kernel/ unless the amendment file carries
+# valid signatures meeting quorum (claude + user-of-record + ≥2-of-3 witnesses).
+# Enforcement of L0.5: Inviolable Kernel.
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'kernel/**'
+  pull_request:
+    branches: [main]
+    paths:
+      - 'kernel/**'
+
+permissions:
+  contents: read
+
+jobs:
+  verify-kernel-signatures:
+    name: verify kernel signatures (L0.5)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+
+      - run: pnpm install --frozen-lockfile --reporter append-only
+
+      - name: Verify MANIFEST signatures meet quorum
+        working-directory: ${{ github.workspace }}
+        run: |
+          node --import tsx packages/host/bin/ceremony.ts verify \
+            kernel/MANIFEST.amendment.json \
+            kernel/keys

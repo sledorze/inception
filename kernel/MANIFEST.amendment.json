@@ -1,0 +1,7 @@
+{
+  "amendmentId": "kernel-initial-provisioning-2026-05-13",
+  "content": "Initial kernel provisioning (bootstrap=true). Establishes the Inviolable Kernel TCB manifest: actor model (§1), laws-to-enforcement map (L0.1), TCB adapter manifests for EventStore/DataHandle/SandboxExecutor (§10.1), corroboration discipline (L1.8), and External Witness pool manifest (§6, Appendix A). Signed by Claude + User-of-record + 3 Witnesses (2-of-3 quorum met).",
+  "contentHash": "32df21a0025deb1edae548c18fa24cde166626cf6d43efe39ecd19afbf7d1795",
+  "proposedAt": "2026-05-13T00:00:00.000Z",
+  "proposedBy": "claude"
+}

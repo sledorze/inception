@@ -25,6 +25,12 @@ if command -v docker &> /dev/null; then
     echo '{"auths": {}, "credsStore": ""}' > ~/.docker/config.json
 fi
 
+# Install Playwright browsers for e2e tests
+if [ -f "package.json" ]; then
+    echo "Installing Playwright browsers..."
+    pnpm exec playwright install chromium --with-deps
+fi
+
 # Install managed MCP configuration for Claude Code
 if [ -f "scripts/setup-mcp-tools.sh" ]; then
     echo "Installing MCP configuration for Claude Code..."

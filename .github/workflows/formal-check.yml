@@ -1,0 +1,36 @@
+name: Formal model check
+
+on:
+  push:
+    paths:
+      - 'formal/**'
+  pull_request:
+    paths:
+      - 'formal/**'
+
+jobs:
+  tlc:
+    name: TLC model check
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Java (required by TLC)
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '21'
+
+      - name: Download TLA+ tools
+        run: |
+          curl -sSL \
+            "https://github.com/tlaplus/tlaplus/releases/latest/download/tla2tools.jar" \
+            -o /tmp/tla2tools.jar
+
+      - name: Model-check formal/promoter.tla
+        run: |
+          java -jar /tmp/tla2tools.jar \
+            -config formal/promoter.cfg \
+            -deadlock \
+            formal/promoter.tla

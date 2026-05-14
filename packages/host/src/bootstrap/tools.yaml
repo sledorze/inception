@@ -1,0 +1,100 @@
+# Bootstrap tool registry — Phase 1 seed tools.
+# Every field is validated against ToolsFileSchema at Host boot.
+# roles: [] means the tool is accessible to all roles.
+# See §10.1 Q1 + TODO 1.12.
+
+tools:
+  - name: list-tools
+    description: Returns the set of tools available to the caller's current role.
+    roles: []
+    inputSchema:
+      type: object
+      properties: {}
+      additionalProperties: false
+
+  - name: fetch-handle-shape
+    description: Returns the schema and a redacted sample for a registered data handle.
+    roles:
+      - Architect
+      - Implementer
+    inputSchema:
+      type: object
+      properties:
+        handleId:
+          type: string
+      required:
+        - handleId
+      additionalProperties: false
+
+  - name: propose-capability
+    description: >
+      Submits a capability manifest, code, and tests for promotion review.
+      Records a CapabilityProposed event; requires Claude or a delegated policy
+      to emit Promoted before the capability is active (L2.6).
+    roles:
+      - Implementer
+    inputSchema:
+      type: object
+      properties:
+        manifest:
+          type: string
+          description: JSON-encoded CapabilityManifest (name, description, version, scope).
+        code:
+          type: string
+        tests:
+          type: string
+      required:
+        - manifest
+        - code
+        - tests
+      additionalProperties: false
+
+  - name: run-script
+    description: >
+      Submits a Node.js script to the sandbox. The script receives DATA_FILE via
+      environment and must write an aggregate result to stdout. Returns exitCode,
+      stdoutHash, and summary only — never raw data bytes.
+    roles:
+      - Implementer
+    inputSchema:
+      type: object
+      properties:
+        handleId:
+          type: string
+        script:
+          type: string
+      required:
+        - handleId
+        - script
+      additionalProperties: false
+
+  - name: read-workspace
+    description: Reads a file from the managed workspace (confined to mount).
+    roles:
+      - Architect
+      - Implementer
+      - Reviewer
+    inputSchema:
+      type: object
+      properties:
+        path:
+          type: string
+      required:
+        - path
+      additionalProperties: false
+
+  - name: write-workspace
+    description: Writes a file to the managed workspace (confined to mount).
+    roles:
+      - Implementer
+    inputSchema:
+      type: object
+      properties:
+        content:
+          type: string
+        path:
+          type: string
+      required:
+        - path
+        - content
+      additionalProperties: false

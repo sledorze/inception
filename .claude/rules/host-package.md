@@ -7,11 +7,21 @@ paths:
 
 You are inside the Host (`packages/host/`). Per `docs/SPEC.md` §10.1 + L2.14:
 
+## Claude / Georges context boundary
+
+`.claude/` is **Claude's domain** — patterns, rules, hooks, commands. Never encode Georges' behavioral constraints here.
+
+- **Georges' operating context** → `src/bootstrap/agent.md` (injected as system prompt; maintained separately from `.claude/`).
+- If you find yourself writing "Georges should…" anywhere under `.claude/`, stop — it belongs in `agent.md`.
+- The inverse holds: `agent.md` must never reference `.claude/` paths, `docs/PAIN.md`, or Claude's meta-machinery. They share nothing.
+
 ## Port & adapter layout
 
 - **Ports** live in `src/ports/driving/` (User/Claude calls in) and `src/ports/driven/` (Host calls out).
 - **Adapters** live in `src/adapters/driving/` and `src/adapters/driven/`.
-- Application code (services, domain logic) depends on **ports**, never adapters.
+- **Application services** (`src/application/`) orchestrate via ports (`Effect.gen` + `yield* SomePort`) — they depend on ports, never adapters or runtime.
+- **Pure domain** (`src/domain/`) holds schemas, value objects, and invariants — it depends on nothing inside `src/` except other `domain/` modules.
+- **Runtime wiring** (`src/runtime/bind.ts`) is the only place adapters are imported; it is the composition root (`Layer.provide` chain, per SPEC §2.14).
 - Driving adapters must not import from driven adapters.
 
 ## Mandatory test pairings
@@ -43,6 +53,68 @@ If you write code that holds raw bytes outside `runScript`, you are violating L1
 - Backend test files: `*.unit.test.ts` or `*.integration.test.ts` (never bare `*.test.ts`). Stryker excludes test files by pattern.
 - Frontend test files: `*.test.ts` or `*.test.tsx`.
 - Files under `src/` are TypeScript, strict mode.
+
+## Effect over Promise (hard rule for `packages/host/src/`)
+
+All async operations must be expressed in Effect, never plain Promises or `async`/`await`:
+
+- **Wrapping Node.js / third-party async APIs**: use `Effect.tryPromise({ try: async () => ..., catch: e => new MyError({ cause: e }) })`. The `async () =>` callback is acceptable here — it is the bridge layer.
+- **Never write a standalone `async` function** outside of an `Effect.tryPromise` / `Effect.promise` callback. If you find yourself writing `async function foo()`, convert the whole function to `Effect.fn("Module.foo")(function*() { ... })`.
+- **Clock, not Date**: `Clock.currentTimeMillis` / `Clock.currentTimeNano` instead of `Date.now()` / `new Date()`. Pass the resolved `number` into `new Date(ms)` only for formatting. Enforced by `lefthook check-effect-patterns.sh`.
+- **Tests use `it.effect`**: import `{ it }` from `@effect/vitest`; never `Effect.runPromise` in test bodies. Enforced by `lefthook check-effect-patterns.sh`.
+
+Rationale: Effect enables `TestClock`, structured error channels, and deterministic tracing. Native Promises bypass all three.
+
+## Consolidation patterns (apply before every commit)
+
+Check your diff for these two failure modes before committing.
+
+### Test layer compositions → `tests/helpers/`
+
+The same `Layer.mergeAll(toolkitLayer, storeLayer, ...)` block in two or more test files is a
+consolidation failure (PAIN P1). Extract immediately to `packages/host/tests/helpers/<name>.ts`
+and import it. That helper is the single place that must change when `GeorgesToolkitLive` gains a
+new dependency:
+
+```ts
+// packages/host/tests/helpers/toolkitLayer.ts
+export const makeToolkitTestLayer = (tools: readonly ToolEntry[]) => {
+  const storeLayer = InMemoryEventStore.layer
+  const registryLayer = InMemoryToolRegistry.layer(tools)
+  const workspaceLayer = InMemoryWorkspaceMount.layer()
+  const handleRegLayer = InMemoryDataHandleRegistry.layer
+  const toolkitLayer = GeorgesToolkitLive.pipe(
+    Layer.provide(storeLayer),
+    Layer.provide(registryLayer),
+    Layer.provide(workspaceLayer),
+    Layer.provide(handleRegLayer),
+  )
+  return Layer.mergeAll(toolkitLayer, storeLayer, workspaceLayer, handleRegLayer)
+}
+```
+
+### Error `_tag` strings → exported const from port file
+
+`Schema.TaggedErrorClass` sets `_tag` to the full `id` string (e.g. `'@app/host/HandleRevoked'`).
+`Effect.catchTags` silently ignores keys that don't match exactly — no TypeScript error (PAIN P2).
+
+Whenever a `_tag` string appears in both a port definition and a `catchTags` call site, export it
+as a named constant from the port file:
+
+```ts
+// port file
+export const HandleRevokedTag = '@app/host/HandleRevoked' as const
+class HandleRevoked extends Schema.TaggedErrorClass<HandleRevoked>()(HandleRevokedTag, { ... }) {}
+
+// call site — key derived from const, not string literal
+Effect.catchTags({ [HandleRevokedTag]: e => ... })
+```
+
+### `Clock.currentTimeMillis` → `new Date(ms).toISOString()`
+
+Using `new Date(ms)` where `ms` comes from `Clock.currentTimeMillis` is the correct pattern (PAIN
+P8). The test-controllable invariant is the clock source, not the `Date` constructor. This is the
+only acceptable use of `new Date()` in `packages/host/src/`.
 
 ## Forbidden by inherited rules
 

@@ -11,6 +11,15 @@
     "moduleResolution": "bundler",
     "noEmit": true,
     "noUncheckedIndexedAccess": true,
+    "plugins": [
+      {
+        "completions": true,
+        "diagnostics": true,
+        "name": "@effect/language-service",
+        "quickinfo": true,
+        "refactors": true
+      }
+    ],
     "skipLibCheck": true,
     "strict": true,
     "target": "esnext",

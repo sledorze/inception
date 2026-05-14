@@ -18,17 +18,18 @@ export default defineConfig({
       include: ['packages/host/src/**/*.ts', 'packages/frontend/src/**/*.{ts,tsx}'],
       provider: 'v8',
       reporter: ['text', 'html', 'json-summary'],
-      // Uncomment once tests are established (increase thresholds as coverage improves):
-      // thresholds: {
-      //   lines: 50,
-      //   statements: 50,
-      //   functions: 40,
-      //   branches: 30,
-      // },
+      thresholds: {
+        branches: 60,
+        functions: 75,
+        lines: 73,
+        statements: 73,
+      },
     },
     include: [
       'packages/host/src/**/*.test.ts',
       'packages/host/tests/**/*.spec.ts',
+      'packages/host/tests/**/*.unit.test.ts',
+      'packages/monitor/tests/**/*.unit.test.ts',
       'packages/frontend/src/**/*.test.ts',
       'packages/frontend/src/**/*.test.tsx',
     ],

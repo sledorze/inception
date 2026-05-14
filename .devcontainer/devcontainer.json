@@ -104,7 +104,12 @@
     "ghcr.io/devcontainers/features/docker-in-docker:2": {}
   },
 
+  "forwardPorts": [3000, 5173],
   "name": "Claude Code Dev Environment",
+  "portsAttributes": {
+    "3000": { "label": "Host API (backend)", "onAutoForward": "silent" },
+    "5173": { "label": "Vite dev server (frontend)", "onAutoForward": "openBrowser" }
+  },
 
   // Check GitHub auth on attach. `gh auth login` cannot run here (no TTY), so
   // if you're not authenticated, run `gh auth login` manually in a terminal,

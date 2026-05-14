@@ -24,12 +24,20 @@ A self-hosted "factory": an application where an AI inhabitant (**Georges**) and
 
 Plus Host-side tracing identities: **Supervisor** (in-process risk monitor) and **Monitor** (out-of-process cross-check of the Supervisor).
 
+## Resuming after auto-compaction
+
+If you are picking up from a compacted summary, do this BEFORE the first action:
+
+1. Read `docs/SPEC-nav.md` (~1 min) — law IDs, SPEC line numbers, paired test paths.
+2. Check `docs/TODO.md` — active phase + lowest-numbered `[todo]`.
+3. Scan `docs/PAIN.md` — any P1 (blocks work) items relevant to the current task?
+4. Skip full SPEC §3 / §A re-read unless the current task touches a law or port directly.
+
 ## Start-of-session ritual
 
-1. Read `docs/SPEC.md` **Appendix A** (Glossary) — vocabulary the body assumes.
-2. Read `docs/SPEC.md` **§3 Quick Index** — laws overview.
-3. Read `docs/TODO.md` top to bottom — current phase + items.
-4. Pick the lowest-numbered `[todo]` in the active phase.
+1. Read `docs/SPEC-nav.md` — laws quick index. Jump to the SPEC.md section it references only if the current task touches a law or port directly. (Skip full §A + §3 otherwise — same rule as "Resuming after auto-compaction".)
+2. Read `docs/TODO.md` top to bottom — current phase + items.
+3. Pick the lowest-numbered `[todo]` in the active phase.
 
 ## Per-task ritual (every cycle, per L3.9)
 
@@ -47,6 +55,9 @@ Implement. Pair every Law you touch with a test in `packages/host/tests/laws/<la
 ## Code economy (§2.13, AL.7)
 
 - **Don't pre-abstract.** Three similar lines is better than premature abstraction. Factorise once a pattern has stabilised (≥3 usage sites OR one usage that clarifies the domain).
+- **Consolidate infrastructure at 2.** The 3-site threshold applies to application logic. For infrastructure — test layer compositions, error `_tag` string constants, shared helpers, binding glue — consolidate as soon as the second copy appears. Divergence in infrastructure is silent and expensive to fix later. Specific patterns: (a) repeated `Layer.mergeAll(...)` in test files → extract to `packages/host/tests/helpers/`; (b) `_tag` strings duplicated between a `TaggedErrorClass` definition and `Effect.catchTags` call sites → export a const from the port file.
+- **Log friction, then fix it.** When a duplication or awkward pattern causes a visible slowdown, add it to `docs/PAIN.md` with severity + candidate fix. At the start of every review session, scan `docs/PAIN.md` for P1/P2 items (blocks work) and address the highest-severity open item before new features. When a fix lands: cut the item from `docs/PAIN.md` and paste it (full text + `FIXED <date> in <commit>`) into `docs/PAIN-archive.md` in the same commit. PAIN.md holds OPEN items only.
+- **Hunt proactively.** When 3+ PAIN items are open or context feels expensive, do a deliberate waste-scan — see `.claude/patterns/cycle-hunt.md`. The hunt feeds findings back into the PAIN→pattern→hook machinery.
 - **Promote to libraries.** When a module stabilises, give it its own `packages/<name>/` workspace with semver, owner, and changelog. Triggers: 3+ usage sites, load-bearing tech decision, or ships in `kernel/`.
 - **Prefer (embedded) DSLs** for domain grammars — workflows, role manifests, policy expressions, fitness vectors, capability declarations. Imperative code is the last resort.
 - **Contract tests run against fake AND prod.** Every port's protocol test is parametrised over all bound adapters. Liskov substitution proven by test, not by intent.
@@ -88,7 +99,11 @@ packages/
         driving/
         driven/
       runtime/bind.ts       Service registry: ports → adapters at boot
-      domain/               Application core (depends on ports only)
+      application/          Effect.gen orchestrations; imports ports only
+      domain/               Pure leaf: schemas, value objects, invariants
+      bootstrap/
+        tools.yaml          Seed tool registry
+        agent.md            Georges' operating context — injected as system prompt
     tests/
       laws/                 One spec per Law in docs/SPEC.md §3
       protocol/             One spec per port, parametrised over adapters
@@ -102,8 +117,11 @@ docs/
   SPEC.md                   Design source of truth
   TODO.md                   Execution log
   EXPERTS.md                Cross-field critique
-.claude/
+.claude/                    Claude's meta-machinery (NOT shared with Georges)
   rules/                    Path-scoped operating constraints
+  patterns/                 Annotated code patterns (hex boundaries, test structure, …)
+  hooks/                    Lifecycle hooks (pre-commit guardrails, session context)
+  commands/                 Slash commands (/hunt, …)
 ```
 
 ## Effect runtime (`packages/host/`)
@@ -131,10 +149,11 @@ The v4 source is vendored at `vendor/effect-smol/` (read-only reference — do n
 
 ### When you need to understand an Effect API
 
-1. Read `vendor/effect-smol/ai-docs/` — AI-optimised examples by category.
-2. Read `vendor/effect-smol/packages/effect/src/<Module>.ts` — canonical source.
-3. Read `vendor/effect-smol/MIGRATION.md` — v3 → v4 API mapping table.
-4. Read `vendor/effect-smol/AGENTS.md` — coding-agent conventions for this repo.
+1. Read `.agents/skills/effect-ts/references/` — curated skill guides (layers, schema, error handling, testing, observability, …). Fastest first stop; token-efficient.
+2. Read `vendor/effect-smol/ai-docs/` — AI-optimised examples by category.
+3. Read `vendor/effect-smol/packages/effect/src/<Module>.ts` — canonical source for exact signatures.
+4. Read `vendor/effect-smol/MIGRATION.md` — v3 → v4 API mapping table.
+5. Read `vendor/effect-smol/AGENTS.md` — coding-agent conventions for this repo.
 
 Do **not** rely on web search or your training-data knowledge of Effect v3 APIs — the v4 API changed.
 
@@ -153,6 +172,7 @@ Do **not** rely on web search or your training-data knowledge of Effect v3 APIs 
 - **Plan before building** for any task touching 3+ files or introducing a new pattern.
 - **Vertical feature slices.** Every task traverses the stack — frontend (if any) → backend → data. No horizontal tasks.
 - **BDD.** Start from observable behaviour. Write the test, then implement.
+- **Consolidate before you commit.** After implementing a feature, scan the diff for duplicated structure. If the same layer composition, error tag string, or import block appears in two or more files, extract it before the commit lands. One extra minute of consolidation prevents one hour of divergence debugging.
 - **Strategic refactors.** Only valid as preparation for an upcoming slice; state what it prepares; never merge refactors and new behaviour in the same commit.
 - **Spikes for unknowns.** Time-boxed; produce findings + recommendation; no production code.
 - **Witness the automation.** Run `pnpm test`, `pnpm typecheck`, `pnpm lint` locally before pushing.
@@ -195,15 +215,31 @@ Mutation report runs nightly (`mutation-report.yml`), not on PRs.
 - `.claude/rules/kernel.md` — `kernel/**`
 - `.claude/rules/formal.md` — `formal/**`
 
+## Patterns reference (`.claude/patterns/`)
+
+Annotated code patterns for the codebase's recurring constructs. Check here **before** writing code that touches hex boundaries, test structure, or layer wiring — violations are caught at commit time by lefthook and cost a cycle to fix.
+
+| File                       | When to read                                                                                    |
+| -------------------------- | ----------------------------------------------------------------------------------------------- |
+| `dep-boundary.md`          | Importing anything across `domain/`, `application/`, `ports/`, `adapters/`, `runtime/`          |
+| `application-vs-domain.md` | Deciding where a new function or module lives                                                   |
+| `composition-root.md`      | Adding an adapter or changing the Layer wiring                                                  |
+| `effect-test-pattern.md`   | Writing or modifying any test under `packages/host/tests/`                                      |
+| `cycle-hunt.md`            | End of slice/phase, or when friction repeats — proactive scan for cycle-time + token-cost waste |
+
 ## When in doubt
 
 - Vocabulary → `docs/SPEC.md` Appendix A.
-- "Is X enforced?" → §3 Quick Index → law text → `if absent` clause.
+- "Is X enforced?" → `docs/SPEC-nav.md` (law ID + test path) → then SPEC §3 for full text + `if absent` clause.
 - "Why was Y chosen?" → §13 (Tech) for tech, §12 (Calibrations) for parameters.
 - "What format should this artifact take?" → §14 (Per-domain artifact standards).
 - "What would an expert say?" → `docs/EXPERTS.md`.
 - "Should I build this or use a library?" → AL.7 + §2.8. Default to adopt/integrate.
-- "How does this Effect API work?" → `vendor/effect-smol/ai-docs/` → `vendor/effect-smol/packages/effect/src/`. Never guess from v3 memory.
+- "How does this Effect API work?" → `.agents/skills/effect-ts/references/` first, then `vendor/effect-smol/ai-docs/` → `vendor/effect-smol/packages/effect/src/`. Never guess from v3 memory.
+- "What code pattern should I follow here?" → `.claude/patterns/` (hex boundaries, test structure, composition root).
+- "Is there waste I'm not seeing?" → `.claude/patterns/cycle-hunt.md`
+- "Where do Georges' behavioral instructions live?" → `packages/host/src/bootstrap/agent.md` (never in `.claude/`)
+- "Are the self-improving loops healthy?" → `docs/META-LOOPS.md` (metrics + degradation signals for L1–L6)
 
 ## Feedback
 
