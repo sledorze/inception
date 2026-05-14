@@ -238,6 +238,7 @@ Annotated code patterns for the codebase's recurring constructs. Check here **be
 - "What code pattern should I follow here?" → `.claude/patterns/` (hex boundaries, test structure, composition root).
 - "Is there waste I'm not seeing?" → `.claude/patterns/cycle-hunt.md`
 - "Where do Georges' behavioral instructions live?" → `packages/host/src/bootstrap/agent.md` (never in `.claude/`)
+- "Are the self-improving loops healthy?" → `docs/META-LOOPS.md` (metrics + degradation signals for L1–L6)
 
 ## Feedback
 
