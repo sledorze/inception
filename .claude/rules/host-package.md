@@ -11,7 +11,9 @@ You are inside the Host (`packages/host/`). Per `docs/SPEC.md` §10.1 + L2.14:
 
 - **Ports** live in `src/ports/driving/` (User/Claude calls in) and `src/ports/driven/` (Host calls out).
 - **Adapters** live in `src/adapters/driving/` and `src/adapters/driven/`.
-- Application code (services, domain logic) depends on **ports**, never adapters.
+- **Application services** (`src/application/`) orchestrate via ports (`Effect.gen` + `yield* SomePort`) — they depend on ports, never adapters or runtime.
+- **Pure domain** (`src/domain/`) holds schemas, value objects, and invariants — it depends on nothing inside `src/` except other `domain/` modules.
+- **Runtime wiring** (`src/runtime/bind.ts`) is the only place adapters are imported; it is the composition root (`Layer.provide` chain, per SPEC §2.14).
 - Driving adapters must not import from driven adapters.
 
 ## Mandatory test pairings
