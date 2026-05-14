@@ -47,6 +47,8 @@ Implement. Pair every Law you touch with a test in `packages/host/tests/laws/<la
 ## Code economy (§2.13, AL.7)
 
 - **Don't pre-abstract.** Three similar lines is better than premature abstraction. Factorise once a pattern has stabilised (≥3 usage sites OR one usage that clarifies the domain).
+- **Consolidate infrastructure at 2.** The 3-site threshold applies to application logic. For infrastructure — test layer compositions, error `_tag` string constants, shared helpers, binding glue — consolidate as soon as the second copy appears. Divergence in infrastructure is silent and expensive to fix later. Specific patterns: (a) repeated `Layer.mergeAll(...)` in test files → extract to `packages/host/tests/helpers/`; (b) `_tag` strings duplicated between a `TaggedErrorClass` definition and `Effect.catchTags` call sites → export a const from the port file.
+- **Log friction, then fix it.** When a duplication or awkward pattern causes a visible slowdown, add it to `docs/PAIN.md` with severity + candidate fix. At the start of every review session, scan `docs/PAIN.md` for P1/P2 items (blocks work) and address the highest-severity open item before new features.
 - **Promote to libraries.** When a module stabilises, give it its own `packages/<name>/` workspace with semver, owner, and changelog. Triggers: 3+ usage sites, load-bearing tech decision, or ships in `kernel/`.
 - **Prefer (embedded) DSLs** for domain grammars — workflows, role manifests, policy expressions, fitness vectors, capability declarations. Imperative code is the last resort.
 - **Contract tests run against fake AND prod.** Every port's protocol test is parametrised over all bound adapters. Liskov substitution proven by test, not by intent.
@@ -153,6 +155,7 @@ Do **not** rely on web search or your training-data knowledge of Effect v3 APIs 
 - **Plan before building** for any task touching 3+ files or introducing a new pattern.
 - **Vertical feature slices.** Every task traverses the stack — frontend (if any) → backend → data. No horizontal tasks.
 - **BDD.** Start from observable behaviour. Write the test, then implement.
+- **Consolidate before you commit.** After implementing a feature, scan the diff for duplicated structure. If the same layer composition, error tag string, or import block appears in two or more files, extract it before the commit lands. One extra minute of consolidation prevents one hour of divergence debugging.
 - **Strategic refactors.** Only valid as preparation for an upcoming slice; state what it prepares; never merge refactors and new behaviour in the same commit.
 - **Spikes for unknowns.** Time-boxed; produce findings + recommendation; no production code.
 - **Witness the automation.** Run `pnpm test`, `pnpm typecheck`, `pnpm lint` locally before pushing.

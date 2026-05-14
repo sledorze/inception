@@ -55,6 +55,57 @@ All async operations must be expressed in Effect, never plain Promises or `async
 
 Rationale: Effect enables `TestClock`, structured error channels, and deterministic tracing. Native Promises bypass all three.
 
+## Consolidation patterns (apply before every commit)
+
+Check your diff for these two failure modes before committing.
+
+### Test layer compositions → `tests/helpers/`
+
+The same `Layer.mergeAll(toolkitLayer, storeLayer, ...)` block in two or more test files is a
+consolidation failure (PAIN P1). Extract immediately to `packages/host/tests/helpers/<name>.ts`
+and import it. That helper is the single place that must change when `GeorgesToolkitLive` gains a
+new dependency:
+
+```ts
+// packages/host/tests/helpers/toolkitLayer.ts
+export const makeToolkitTestLayer = (tools: readonly ToolEntry[]) => {
+  const storeLayer = InMemoryEventStore.layer
+  const registryLayer = InMemoryToolRegistry.layer(tools)
+  const workspaceLayer = InMemoryWorkspaceMount.layer()
+  const handleRegLayer = InMemoryDataHandleRegistry.layer
+  const toolkitLayer = GeorgesToolkitLive.pipe(
+    Layer.provide(storeLayer),
+    Layer.provide(registryLayer),
+    Layer.provide(workspaceLayer),
+    Layer.provide(handleRegLayer),
+  )
+  return Layer.mergeAll(toolkitLayer, storeLayer, workspaceLayer, handleRegLayer)
+}
+```
+
+### Error `_tag` strings → exported const from port file
+
+`Schema.TaggedErrorClass` sets `_tag` to the full `id` string (e.g. `'@app/host/HandleRevoked'`).
+`Effect.catchTags` silently ignores keys that don't match exactly — no TypeScript error (PAIN P2).
+
+Whenever a `_tag` string appears in both a port definition and a `catchTags` call site, export it
+as a named constant from the port file:
+
+```ts
+// port file
+export const HandleRevokedTag = '@app/host/HandleRevoked' as const
+class HandleRevoked extends Schema.TaggedErrorClass<HandleRevoked>()(HandleRevokedTag, { ... }) {}
+
+// call site — key derived from const, not string literal
+Effect.catchTags({ [HandleRevokedTag]: e => ... })
+```
+
+### `Clock.currentTimeMillis` → `new Date(ms).toISOString()`
+
+Using `new Date(ms)` where `ms` comes from `Clock.currentTimeMillis` is the correct pattern (PAIN
+P8). The test-controllable invariant is the clock source, not the `Date` constructor. This is the
+only acceptable use of `new Date()` in `packages/host/src/`.
+
 ## Forbidden by inherited rules
 
 - Importing Node.js built-ins (`node:fs`, etc.) from non-`packages/host/**` code (oxlint `import/no-nodejs-modules`).
