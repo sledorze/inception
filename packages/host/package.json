@@ -11,11 +11,10 @@
   },
   "dependencies": {
     "@effect/ai-openai-compat": "4.0.0-beta.66",
-    "@modelcontextprotocol/sdk": "^1.29.0",
+    "@effect/platform-node": "4.0.0-beta.66",
     "better-sqlite3": "^12.10.0",
     "effect": "4.0.0-beta.66",
-    "yaml": "^2.9.0",
-    "zod": "^4.4.3"
+    "yaml": "^2.9.0"
   },
   "devDependencies": {
     "@effect/vitest": "4.0.0-beta.66",
