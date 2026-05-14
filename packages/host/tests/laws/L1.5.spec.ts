@@ -18,14 +18,10 @@
  */
 import { Effect, Layer, Option, Stream } from 'effect'
 import { expect, layer } from '@effect/vitest'
-import { InMemoryDataHandleRegistry } from '../../src/adapters/driven/InMemoryDataHandleRegistry.ts'
-import { InMemoryEventStore } from '../../src/adapters/driven/InMemoryEventStore.ts'
-import { InMemoryPolicyGate } from '../../src/adapters/driven/InMemoryPolicyGate.ts'
-import { InMemoryToolRegistry } from '../../src/adapters/driven/InMemoryToolRegistry.ts'
 import type { ToolEntry } from '../../src/adapters/driven/InMemoryToolRegistry.ts'
-import { InMemoryWorkspaceMount } from '../../src/adapters/driven/InMemoryWorkspaceMount.ts'
-import { GeorgesToolkit, GeorgesToolkitLive } from '../../src/adapters/driving/GeorgesToolkit.ts'
+import { GeorgesToolkit } from '../../src/adapters/driving/GeorgesToolkit.ts'
 import { PolicyGate } from '../../src/ports/driven/PolicyGate.ts'
+import { makeToolkitComponents } from '../helpers/toolkitLayer.ts'
 
 // Full tool registry — role checks can run normally.
 const TOOLS: readonly ToolEntry[] = [
@@ -44,24 +40,9 @@ const TOOLS: readonly ToolEntry[] = [
   },
 ]
 
-// Empty PolicyGate — deny by default. Deliberately NOT using makeToolkitComponents
-// because that helper pre-seeds the gate from TOOLS; this test needs an empty gate
-// to demonstrate the deny-by-default invariant.
-const storeLayer = InMemoryEventStore.layer
-const registryLayer = InMemoryToolRegistry.layer(TOOLS)
-const workspaceLayer = InMemoryWorkspaceMount.layer()
-const handleRegLayer = InMemoryDataHandleRegistry.layer
-const emptyPolicyLayer = InMemoryPolicyGate.layer([])
-
-const toolkitLayer = GeorgesToolkitLive.pipe(
-  Layer.provide(storeLayer),
-  Layer.provide(registryLayer),
-  Layer.provide(workspaceLayer),
-  Layer.provide(handleRegLayer),
-  Layer.provide(emptyPolicyLayer),
-)
-
-const testLayer = Layer.mergeAll(toolkitLayer, emptyPolicyLayer)
+// Empty PolicyGate (permittedTools=[]) — deny by default.
+const { policyGateLayer, toolkitLayer } = makeToolkitComponents(TOOLS, {}, [])
+const testLayer = Layer.mergeAll(toolkitLayer, policyGateLayer)
 
 const callTool = (name: string, params: Record<string, string>) =>
   Effect.gen(function* () {

@@ -7,13 +7,16 @@ import type { ToolEntry } from '../../src/adapters/driven/InMemoryToolRegistry.t
 import { InMemoryWorkspaceMount } from '../../src/adapters/driven/InMemoryWorkspaceMount.ts'
 import { GeorgesToolkitLive } from '../../src/adapters/driving/GeorgesToolkit.ts'
 
-export const makeToolkitComponents = (tools: readonly ToolEntry[], initialFiles: Record<string, string> = {}) => {
+export const makeToolkitComponents = (
+  tools: readonly ToolEntry[],
+  initialFiles: Record<string, string> = {},
+  permittedTools?: readonly string[],
+) => {
   const storeLayer = InMemoryEventStore.layer
   const registryLayer = InMemoryToolRegistry.layer(tools)
   const workspaceLayer = InMemoryWorkspaceMount.layer(initialFiles)
   const handleRegLayer = InMemoryDataHandleRegistry.layer
-  // PolicyGate pre-seeded from the tool list — only registered tools are permitted.
-  const policyGateLayer = InMemoryPolicyGate.layer(tools.map(t => t.name))
+  const policyGateLayer = InMemoryPolicyGate.layer(permittedTools ?? tools.map(t => t.name))
   const toolkitLayer = GeorgesToolkitLive.pipe(
     Layer.provide(storeLayer),
     Layer.provide(registryLayer),
