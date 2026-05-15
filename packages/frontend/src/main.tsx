@@ -3,6 +3,7 @@ import ReactDOM from 'react-dom/client'
 import './index.css'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
+import { Textarea } from '@/components/ui/textarea'
 import { callTool } from './api/toolkit.ts'
 import type { HandlerResult } from './api/toolkit.ts'
 import { submitGoal } from './api/goals.ts'
@@ -110,8 +111,7 @@ function WriteWorkspace() {
           value={path}
         />
       </div>
-      <textarea
-        className="w-full rounded border px-2 py-1 text-sm"
+      <Textarea
         data-testid="ww-content"
         onChange={e => setContent(e.target.value)}
         placeholder="content"
@@ -161,8 +161,7 @@ function SubmitGoal() {
   return (
     <section className="rounded border p-4 space-y-2">
       <h2 className="font-semibold">Submit Goal to Georges</h2>
-      <textarea
-        className="w-full rounded border px-2 py-1 text-sm"
+      <Textarea
         data-testid="sg-goal"
         onChange={e => setGoal(e.target.value)}
         placeholder="Describe what you want Georges to do…"
