@@ -440,18 +440,29 @@ S? — <Name>
 - **Goal advance:** User can hand confidential work to the factory; Claude can prove non-leakage from traces.
 - **Failure modes:** Georges' code attempts to exfiltrate (e.g. encode rows into return value) → Host enforces aggregate-only return and emits `ExfiltrationAttempt`.
 
-#### S6 — N-way: long-running build across multiple User asks
+#### S6 — Multi-turn session: User iterates toward a goal across multiple exchanges
 
-- **Trigger:** User opens a session with a broad goal ("build me a small CRM").
-- **Actors:** n-way over time: User ↔ Georges multiple turns; Georges ↔ Host many cycles; Claude observing and tuning between sessions.
+_Phase 6 MVP story. Advances S6 from "described" to "demonstrated."_
+
+_Assessment frame (L3.9):_
+_Success:_ Playwright e2e: select a session/project → send one message about a startup → receive Georges' reply scoped to that session → `correlationId` provably maps to the turn. Deterministic in CI (`LLM_MODE=replay`). `LlmProvider` protocol green over InMemory + OpenAiCompat + RecordReplay.
+_Concern tag:_ §14 AI-safety eval discipline (controlled inputs, scored outputs, recorded provenance).
+_Experts:_ Cockburn (extend driving `UserGateway` port — the seam, don't bolt routes on); Evans ("Project" is SPEC `Session` — no new vocabulary); Kleppmann/Young (multi-turn = projection over `sessionId` chain, `schemaV`, no event reshaping); Russell (don't auto-close on "done" — L3.2 explicit); Beck (spike unknowns; refactor commits separate from feature).
+_Build vs adopt:_ Reuse `Session`, `EventStore.query({sessionId})`, `CurrentCorrelationId`, `submitGoal`, `UserGateway`, `OpenAiCompatLlmProvider`; adopt VCR/cassette pattern as a thin Effect adapter for LLM record-replay. No new Project/Conversation aggregate (AL.7).
+_Risk:_ LLM nondeterminism breaks cassettes → Spike 1a/1b (TODO 6.2/6.3); `sessionId` hardcoded across enforcement points → Spike 2 blast-radius (TODO 6.4); `correlationId` race in `main.ts:84-86` → acceptance test (red before fix, green after).
+_Measurement:_ e2e green in `LLM_MODE=replay`; `correlationId`-race acceptance test green; `LlmProvider` protocol test parametrised over three adapters.
+
+- **Trigger:** User opens a session with a goal that will span multiple turns ("let's work through ideas for a startup").
+- **Actors:** n-way over time: User ↔ Georges across turns; Georges ↔ Host per turn; Claude observing the event chain.
 - **Exchange:**
-  1. Georges treats the managed workspace as durable memory, not his prompt.
-  2. Host's recall tool curates which artifacts/notes Georges sees per turn.
-  3. User adds new sub-goals; Georges integrates; Host emits per-sub-goal correlations.
-  4. Claude observes drift (e.g. repeated context loss) and adjusts recall heuristics or proposes new tools.
-- **Code-over-data:** Georges' context is _artifacts in the workspace_, queried by code, not stuffed in his window.
-- **Goal advance:** User accumulates value across sessions; Georges' working memory is externalised and inspectable; Claude refines recall.
-- **Failure modes:** context loss → Claude tunes recall; workspace bloat → Host enforces curation.
+  1. User submits a goal; Host generates a `correlationId` and a stable `sessionId` (= the project scope).
+  2. Host presents Georges with: (a) the current goal, (b) a bounded recall of prior turns in the session (last-N, Host-curated, L3.5 — bootstrap N=2–3), (c) no raw chat history — curated artifacts only.
+  3. Georges produces a response. Georges' "done" is a proposal, not an auto-close; the turn closes only when User explicitly accepts, rejects, or the session budget is exhausted (L3.2).
+  4. User sends a follow-up goal; Host issues a new `correlationId`, threads the same `sessionId`, advances the recall window.
+  5. Each turn produces a `GoalSubmitted`→`GoalCompleted` event pair under its `correlationId`, chained by `prevHash` under `sessionId`.
+- **Code-over-data:** n/a for pure-text startup discussion; L1.3/L1.7 enforcement remains active for any data handle submitted in the session.
+- **Goal advance:** User iterates toward a concrete plan across turns; Georges accumulates context without holding raw history in his prompt window; Claude gains a per-session, per-turn queryable trace.
+- **Failure modes:** context loss → Claude/Host tunes recall heuristics (long-run path beyond MVP); workspace bloat → Host enforces curation; concurrent goal race → `correlationId`-scoped result queries prevent cross-contamination; budget exhausted → Host emits `StuckCycle`.
 
 #### S7 — Failure & quarantine
 
@@ -465,7 +476,29 @@ S? — <Name>
 - **Goal advance:** safety preserved; Claude gains a high-signal failure dataset.
 - **Failure modes:** repeated quarantines from the same root cause → Claude flags a substrate-level fix.
 
-> Stories to consider next iteration: **S8** Georges asks the User a clarifying question; **S9** multi-Georges (parallel inhabitants for independent goals); **S10** User-authored capability submitted directly to Claude bypassing Georges; **S11** time-bounded autonomous run with a kill switch.
+#### S8 — Georges asks a clarifying question before proceeding
+
+_Assessment frame (L3.9):_
+_Success:_ A clarify exchange is visible in the event trace under the same `correlationId`: `ClarifyRequested` followed by `ClarifyAnswered`; Georges uses the answer to complete the original turn without issuing a new `correlationId`. L3.2 law test covers the no-auto-close invariant. Conversation UI renders clarify bubbles distinctly.
+_Concern tag:_ §14 AI-safety eval discipline + L3.2 (Georges' "done" is a proposal; clarify = an intermediate state, not a commit).
+_Experts:_ Cockburn (clarify extends `UserGateway.respond(correlation, clarify(text))` — the seam, not a bolt-on); Russell (clarify is not reflexive shaping — User controls the cycle; Georges may not close the turn on clarify); Evans (no new vocabulary — a clarifying exchange is a sub-step under the same `correlationId`).
+_Build vs adopt:_ Extend `UserGateway.respond(correlation, clarify(text))` (already in the designed port contract, SPEC §10.1 Q4); add `ClarifyRequested`/`ClarifyAnswered` event kinds; surface in Conversation UI. No new port or aggregate.
+_Risk:_ Infinite clarify loops → Host caps per-`correlationId` clarify cycles (same `StuckCycle` guard as S3); clarify used to bypass L1.3 → Host enforces L1.3 on clarify response content.
+_Measurement:_ Law test for L3.2 covering the clarify path; event trace round-trip: `ClarifyRequested` + `ClarifyAnswered` under one `correlationId`; Conversation UI component test.
+
+- **Trigger:** During a turn, Georges' response would be imprecise without more context — ambiguous goal text, missing data schema, conflicting constraints.
+- **Actors:** 3-way (Georges → Host → User), within one `correlationId`.
+- **Exchange:**
+  1. Georges calls a `clarify` tool with a question text and optional `reason`.
+  2. Host records `ClarifyRequested` (actor: host) under the current `correlationId`; surfaces to User via the Conversation UI.
+  3. User answers via `UserGateway.respond(correlation, clarify(text))`; Host records `ClarifyAnswered`.
+  4. Georges receives the answer and continues the original turn under the same `correlationId`.
+  5. Georges' "done" is a proposal; the turn closes only on explicit User accept/reject/budget (L3.2).
+- **Code-over-data:** clarify is on the goal description, not data; L1.3/L1.7 enforcement unchanged.
+- **Goal advance:** User gets a more accurate answer; Georges avoids wasted sandbox cycles; Claude traces show clarify is used appropriately (not as deflection).
+- **Failure modes:** excessive clarify questions → Host caps clarify iterations per `correlationId` before emitting `StuckCycle`; User never answers → session budget eventually expires; clarify used to exfiltrate information → Host enforces L1.3 on clarify response content.
+
+> Stories to consider next iteration: **S9** multi-Georges (parallel inhabitants for independent goals); **S10** User-authored capability submitted directly to Claude bypassing Georges; **S11** time-bounded autonomous run with a kill switch.
 
 ---
 

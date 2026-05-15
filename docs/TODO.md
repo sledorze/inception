@@ -117,7 +117,7 @@ These items make Phase 1's traces _honest_ and _bounded_: per-handle info budget
 Advances S6 (parked P.2) and S8 (placeholder) to _demonstrated_. Exit: deterministic Playwright e2e of project-scoped multi-turn conversation; S6 + S8 demonstrated.
 
 - [done] **6.0** Capture breakdown-strategy working method into prescriptive files + feedback loop: `CLAUDE.md` Working Practices (breakdown-strategy bullet + Phase 6 entry), `.claude/patterns/breakdown-strategy.md`, `docs/META-LOOPS.md` L7, `feedback_*` auto-memory. Process commit, not feature.
-- [todo] **6.1** SPEC §5: promote S6 to MVP story (Exchange = minimal turn protocol); author S8 (clarify-question); both carry assessment frames; update TODO ordering. SPEC/TODO-only commit.
+- [done] **6.1** SPEC §5: promote S6 to MVP story (Exchange = minimal turn protocol); author S8 (clarify-question); both carry assessment frames; update TODO ordering. SPEC/TODO-only commit.
 - [todo] **6.2** Spike 1a (offline): pin `generateText` request/response shape + `requestHash` seam from `vendor/effect-smol` + `OpenAiCompatLlmProvider`. Findings only; no prod code.
 - [blocked] **6.3** Spike 1b (human-gated, same gate as 4.3 — needs LMStudio): measure output variance; decide temp/seed pinning + replay viability. Gates 6.6.
 - [todo] **6.4** Spike 2: `sessionId` / `UserGateway`-return blast-radius map + refactor recommendation. Decision gates whether 6.8/6.9 are broken down or deferred. Map only; no prod code.
@@ -132,7 +132,7 @@ Advances S6 (parked P.2) and S8 (placeholder) to _demonstrated_. Exit: determini
 ## Parked / later
 
 - [parked] **P.1** S5 hard code-over-data wall implementation (waits on a clear sensitive-data fixture).
-- [parked] **P.2** S6 long-session recall heuristics.
+- [parked] **P.2** S6 long-session recall heuristics (adaptive beyond bounded last-N; MVP kernel is in Phase 6 items 6.1–6.7).
 - [parked] **P.3** S9 multi-Georges; revisit only when single-Georges is boring.
 - [parked] **P.4** WASM/isolate sandbox upgrade from process-level.
 
