@@ -135,7 +135,7 @@ Advances S6 (parked P.2) and S8 (placeholder) to _demonstrated_. Exit: determini
   - Verdict: SMALL blast radius — ≤6 files, all in packages/host/. R1/R2 collapse into 6.6 as refactor-commits-first within the slice. 6.5 is not needed as a separate strategic refactor.
   - 6.8/6.9 remain parked — correct; shape of Slice 1's Conversation component must exist before breaking down Slice 2/3.
 - [done] **6.5** R1/R2 collapsed into 6.6 refactor-commits-first (small blast radius per Spike 2). No separate strategic refactor needed.
-- [todo] **6.6** Vertical Slice 1 (MVP kernel): RecordReplay adapter + bind + parametrised protocol/integration tests; `submitGoal` returns `correlationId`; `main.ts` race fix + real `sessionId`; `chat.ts` + `Conversation.tsx` + shadcn; RED→GREEN `e2e/conversation.spec.ts`; human-gated cassette capture + replay lock.
+- [in-progress] **6.6** Vertical Slice 1 (MVP kernel): all code shipped (RecordReplayLlmProvider, bind.ts LLM_MODE gate, LlmProvider.spec.ts 3rd runContract, GET /api/sessions/:sessionId/turns, api/chat.ts, Conversation.tsx, App.tsx, e2e/conversation.spec.ts RED). Remaining: **human-gated cassette capture** (`LLM_MODE=record LLM_MODEL=qwopus3.6-35b-a3b-v1 pnpm e2e` with LMStudio running → commit cassettes) then **replay lock** (`LLM_MODE=replay pnpm e2e` → green → mark done).
 - [todo] **6.7** North-star checkpoint: re-evaluate against goal condition; self-refine 6.1–6.6 or spawn follow-ups until satisfied.
 - [parked] **6.8** Vertical Slice 2 (bounded multi-turn recall) — deferred until 6.6 + 6.4 land.
 - [parked] **6.9** Slice 3 (tool-activity surface / S8 `respond(clarify)`) — deferred until Slice 1 settles.
