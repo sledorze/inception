@@ -12,7 +12,7 @@ import { Effect, Layer } from 'effect'
 import { LanguageModel } from 'effect/unstable/ai'
 import { OpenAiClient, OpenAiLanguageModel } from '@effect/ai-openai-compat'
 import { FetchHttpClient } from 'effect/unstable/http'
-import { afterAll, beforeAll, describe, expect, it } from 'vitest'
+import { afterAll, beforeAll, describe, expect, it } from '@effect/vitest'
 
 // ─── stub OpenAI server ───────────────────────────────────────────────────────
 
@@ -78,31 +78,43 @@ const generateText = Effect.gen(function* () {
 
 function runContract(name: string, makeLayer: () => Layer.Layer<LanguageModel.LanguageModel>) {
   describe(name, () => {
-    const run = <A>(eff: Effect.Effect<A, unknown, LanguageModel.LanguageModel>) =>
-      Effect.runPromise(Effect.provide(eff, makeLayer()))
+    const withLayer = <A>(eff: Effect.Effect<A, unknown, LanguageModel.LanguageModel>) =>
+      Effect.provide(eff, makeLayer())
 
-    it('generateText returns non-empty text content', async () => {
-      const response = await run(generateText)
-      const text = response.text
-      expect(text).toBeTypeOf('string')
-      expect(text.length).toBeGreaterThan(0)
-    })
+    it.effect('generateText returns non-empty text content', () =>
+      withLayer(
+        Effect.gen(function* () {
+          const response = yield* generateText
+          const text = response.text
+          expect(text).toBeTypeOf('string')
+          expect(text.length).toBeGreaterThan(0)
+        }),
+      ),
+    )
 
-    it('generateText captures modelId for L3.6 provenance', async () => {
-      const response = await run(generateText)
-      const meta = response.content.find(p => p.type === 'response-metadata')
-      expect(meta).toBeDefined()
-      expect(meta?.modelId).toBeTypeOf('string')
-      expect((meta?.modelId ?? '').length).toBeGreaterThan(0)
-    })
+    it.effect('generateText captures modelId for L3.6 provenance', () =>
+      withLayer(
+        Effect.gen(function* () {
+          const response = yield* generateText
+          const meta = response.content.find(p => p.type === 'response-metadata')
+          expect(meta).toBeDefined()
+          expect(meta?.modelId).toBeTypeOf('string')
+          expect((meta?.modelId ?? '').length).toBeGreaterThan(0)
+        }),
+      ),
+    )
 
-    it('generateText captures token usage', async () => {
-      const response = await run(generateText)
-      const input = response.usage.inputTokens.total
-      const output = response.usage.outputTokens.total
-      expect(typeof input === 'number' || input === undefined).toBeTruthy()
-      expect(typeof output === 'number' || output === undefined).toBeTruthy()
-    })
+    it.effect('generateText captures token usage', () =>
+      withLayer(
+        Effect.gen(function* () {
+          const response = yield* generateText
+          const input = response.usage.inputTokens.total
+          const output = response.usage.outputTokens.total
+          expect(typeof input === 'number' || input === undefined).toBeTruthy()
+          expect(typeof output === 'number' || output === undefined).toBeTruthy()
+        }),
+      ),
+    )
   })
 }
 

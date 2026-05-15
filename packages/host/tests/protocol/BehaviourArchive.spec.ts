@@ -3,7 +3,7 @@
  * Parametrised over archive implementations — Liskov substitution proven by test.
  */
 import { Effect, ManagedRuntime } from 'effect'
-import { afterEach, beforeEach, describe, expect, it } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it } from '@effect/vitest'
 import { InMemoryBehaviourArchive } from '../../src/adapters/driven/InMemoryBehaviourArchive.ts'
 import { BehaviourArchive } from '../../src/ports/driven/BehaviourArchive.ts'
 import type { BehaviourDescriptor } from '../../src/ports/driven/BehaviourArchive.ts'

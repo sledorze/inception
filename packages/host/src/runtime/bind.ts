@@ -1,21 +1,30 @@
+import { mkdirSync } from 'node:fs'
 import { readFile } from 'node:fs/promises'
 import { dirname, join } from 'node:path'
-import { fileURLToPath } from 'node:url'
-import { Effect, Layer } from 'effect'
+import { Config, ConfigProvider, Effect, Layer } from 'effect'
+import { NodeFileSystem } from '@effect/platform-node'
 import { SessionError } from '../application/session.ts'
+import { CapabilityAwareToolRegistry } from '../adapters/driven/CapabilityAwareToolRegistry.ts'
+import { FileBackedCapabilityRegistry } from '../adapters/driven/FileBackedCapabilityRegistry.ts'
+import { FileBackedHandle } from '../adapters/driven/FileBackedHandle.ts'
+import { InMemoryCapabilityRegistry } from '../adapters/driven/InMemoryCapabilityRegistry.ts'
 import { InMemoryDataHandleRegistry } from '../adapters/driven/InMemoryDataHandleRegistry.ts'
-import { InMemoryEventStore } from '../adapters/driven/InMemoryEventStore.ts'
 import { InMemoryPolicyGate } from '../adapters/driven/InMemoryPolicyGate.ts'
-import { InMemoryToolRegistry } from '../adapters/driven/InMemoryToolRegistry.ts'
 import { InMemoryWorkspaceMount } from '../adapters/driven/InMemoryWorkspaceMount.ts'
 import { OpenAiCompatLlmProvider } from '../adapters/driven/OpenAiCompatLlmProvider.ts'
+import { SqliteEventStore } from '../adapters/driven/SqliteEventStore.ts'
+import { CliUserGateway } from '../adapters/driving/CliUserGateway.ts'
 import { GeorgesToolkit, GeorgesToolkitLive } from '../adapters/driving/GeorgesToolkit.ts'
 
 export { GeorgesToolkit }
 
-const __dir = dirname(fileURLToPath(import.meta.url))
+const __dir = import.meta.dirname
 const TOOLS_YAML = join(__dir, '../bootstrap', 'tools.yaml')
 const AGENT_MD_PATH = join(__dir, '../bootstrap', 'agent.md')
+const FIXTURE_PATH = join(__dir, '../bootstrap/fixtures', 'synthetic-001.csv')
+// Capability registry persisted to disk; promoted capabilities survive restarts.
+const REGISTRY_PATH = join(__dir, '..', '..', 'data', 'capability-registry.json')
+mkdirSync(dirname(REGISTRY_PATH), { recursive: true })
 
 // 2.8: seed agent.md into the workspace at boot so Georges can `read-workspace agent.md`
 const workspaceMountLayer = Layer.unwrap(
@@ -28,7 +37,22 @@ const workspaceMountLayer = Layer.unwrap(
   }),
 )
 
+// Pre-seed the synthetic-001 fixture handle so Georges can call fetch-handle-shape
+// without registering data on the User side (real registration lands in 3.2).
+const dataHandlesLayer = Layer.unwrap(
+  Effect.gen(function* () {
+    const handle = yield* FileBackedHandle.create({
+      filePath: FIXTURE_PATH,
+      id: 'synthetic-001',
+      redactedSample: { id: 'int', value: 'string' },
+      schema: { columns: ['id', 'value'] },
+    })
+    return InMemoryDataHandleRegistry.layer([handle])
+  }),
+)
+
 const BOOTSTRAP_TOOLS = [
+  'call-capability',
   'fetch-handle-shape',
   'list-tools',
   'propose-capability',
@@ -37,15 +61,41 @@ const BOOTSTRAP_TOOLS = [
   'write-workspace',
 ]
 
-export const appLayer = GeorgesToolkitLive.pipe(
-  Layer.provide(InMemoryEventStore.layer),
-  Layer.provide(InMemoryToolRegistry.layerFromYamlFile(TOOLS_YAML)),
-  Layer.provide(workspaceMountLayer),
-  Layer.provide(InMemoryDataHandleRegistry.layer),
-  Layer.provide(InMemoryPolicyGate.layer(BOOTSTRAP_TOOLS)),
+const eventStoreLayer = Layer.unwrap(
+  Effect.gen(function* () {
+    const dbPath = yield* Config.string('EVENT_STORE_PATH').pipe(
+      Config.withDefault(join(__dir, '..', '..', 'data', 'events.db')),
+    )
+    mkdirSync(dirname(dbPath), { recursive: true })
+    return SqliteEventStore.layer(dbPath)
+  }),
 )
 
-// Full runtime layer: toolkit + storage + LLM provider (used by main.ts)
-export const fullLayer = Layer.mergeAll(appLayer, OpenAiCompatLlmProvider.layer())
+// FileBackedCapabilityRegistry persists promoted capabilities across restarts.
+// CapabilityAwareToolRegistry merges YAML seed tools + promoted capabilities.
+const capabilityRegistryLayer = FileBackedCapabilityRegistry.layer(REGISTRY_PATH)
+const toolRegistryLayer = CapabilityAwareToolRegistry.layerFromYamlFile(TOOLS_YAML).pipe(
+  Layer.provide(capabilityRegistryLayer),
+)
+
+const toolkitLayer = GeorgesToolkitLive.pipe(
+  Layer.provide(eventStoreLayer),
+  Layer.provide(toolRegistryLayer),
+  Layer.provide(workspaceMountLayer),
+  Layer.provide(dataHandlesLayer),
+  Layer.provide(InMemoryPolicyGate.layer(BOOTSTRAP_TOOLS)),
+  Layer.provide(capabilityRegistryLayer),
+)
+
+// InMemoryCapabilityRegistry for tests that don't touch the capability flow.
+export const InMemoryCapabilityRegistryLayer = InMemoryCapabilityRegistry.layer
+
+export const appLayer = Layer.mergeAll(toolkitLayer, eventStoreLayer, capabilityRegistryLayer, NodeFileSystem.layer)
+
+// Full runtime layer: toolkit + LLM + User gateway (used by main.ts)
+// ConfigProvider.layer is provided last so all sub-layers can read env config.
+export const fullLayer = Layer.mergeAll(appLayer, OpenAiCompatLlmProvider.layer(), CliUserGateway.layer()).pipe(
+  Layer.provide(ConfigProvider.layer(ConfigProvider.fromEnv())),
+)
 
 export type AppServices = Layer.Success<typeof appLayer>

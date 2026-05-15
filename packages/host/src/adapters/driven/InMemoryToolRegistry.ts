@@ -27,7 +27,7 @@ export type ToolEntry = typeof ToolEntrySchema.Type
 
 // ─── adapter ─────────────────────────────────────────────────────────────────
 
-const makeRegistry = (entries: readonly ToolEntry[]) => {
+export const makeRegistry = (entries: readonly ToolEntry[]) => {
   const byName = new Map<string, ToolEntry>(entries.map(e => [e.name, e]))
 
   return ToolRegistry.of({
@@ -60,6 +60,25 @@ const makeRegistry = (entries: readonly ToolEntry[]) => {
   })
 }
 
+// ─── shared YAML loader ───────────────────────────────────────────────────────
+
+// Exported so CapabilityAwareToolRegistry can merge YAML tools with promoted capabilities.
+export const loadYamlTools = (filePath: string): Effect.Effect<readonly ToolEntry[]> =>
+  Effect.gen(function* () {
+    const raw = yield* Effect.tryPromise({
+      catch: cause => new ToolsYamlError({ cause, message: `Cannot read ${filePath}` }),
+      try: () => readFile(filePath, 'utf8'),
+    })
+    const parsed = yield* Effect.try({
+      catch: cause => new ToolsYamlError({ cause, message: `Cannot parse YAML in ${filePath}` }),
+      try: () => parseYaml(raw) as unknown,
+    })
+    const validated = yield* Schema.decodeUnknownEffect(ToolsFileSchema)(parsed).pipe(
+      Effect.mapError(e => new ToolsYamlError({ cause: e, message: `Invalid tools.yaml schema` })),
+    )
+    return validated.tools
+  }).pipe(Effect.orDie)
+
 // ─── public builders ─────────────────────────────────────────────────────────
 
 export const InMemoryToolRegistry = {
@@ -68,21 +87,5 @@ export const InMemoryToolRegistry = {
 
   // Bootstrap builder: reads + validates a tools.yaml file at layer construction.
   layerFromYamlFile: (filePath: string) =>
-    Layer.effect(
-      ToolRegistry,
-      Effect.gen(function* () {
-        const raw = yield* Effect.tryPromise({
-          catch: cause => new ToolsYamlError({ cause, message: `Cannot read ${filePath}` }),
-          try: () => readFile(filePath, 'utf8'),
-        })
-        const parsed = yield* Effect.try({
-          catch: cause => new ToolsYamlError({ cause, message: `Cannot parse YAML in ${filePath}` }),
-          try: () => parseYaml(raw) as unknown,
-        })
-        const validated = yield* Schema.decodeUnknownEffect(ToolsFileSchema)(parsed).pipe(
-          Effect.mapError(e => new ToolsYamlError({ cause: e, message: `Invalid tools.yaml schema` })),
-        )
-        return makeRegistry(validated.tools)
-      }).pipe(Effect.orDie),
-    ),
+    Layer.effect(ToolRegistry, loadYamlTools(filePath).pipe(Effect.map(makeRegistry))),
 }

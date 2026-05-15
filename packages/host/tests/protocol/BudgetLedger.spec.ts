@@ -5,7 +5,7 @@
  * §4.6: per-call/variant/cycle/handle/session debit; all dimensions tracked.
  */
 import { Effect, ManagedRuntime } from 'effect'
-import { afterAll, beforeAll, describe, expect, it } from 'vitest'
+import { afterAll, beforeAll, describe, expect, it } from '@effect/vitest'
 import { InMemoryBudgetLedger } from '../../src/adapters/driven/InMemoryBudgetLedger.ts'
 import { BudgetLedger } from '../../src/ports/driven/BudgetLedger.ts'
 import type { BudgetScope, BudgetVector } from '../../src/ports/driven/BudgetLedger.ts'

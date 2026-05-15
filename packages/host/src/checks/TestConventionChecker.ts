@@ -13,9 +13,9 @@ export interface Violation {
   readonly reason: string
 }
 
-const TEST_FILE_PATTERN = /\.test\.tsx?$/
+const TEST_FILE_PATTERN = /\.test\.tsx?$/u
 
-const EXEMPT_PATTERNS = [/\.test\.tsx$/, /^packages\/frontend\//]
+const EXEMPT_PATTERNS = [/\.test\.tsx$/u, /^packages\/frontend\//u]
 
 export const defaultCategories: readonly CategoryConfig[] = [
   {
@@ -33,12 +33,12 @@ export const defaultCategories: readonly CategoryConfig[] = [
 ]
 
 const extractImportPaths = (content: string): readonly string[] => {
-  const importRegex = /^import\s[\s\S]*?from\s+['"]([^'"]+)['"]|^import\s+['"]([^'"]+)['"]/gm
+  const importRegex = /^import\s[\s\S]*?from\s+['"]([^'"]+)['"]|^import\s+['"]([^'"]+)['"]/gmu
   const paths: string[] = []
   let match: RegExpExecArray | null
   while ((match = importRegex.exec(content)) !== null) {
     const importPath = match[1] ?? match[2]
-    if (importPath) {
+    if (importPath !== undefined) {
       paths.push(importPath)
     }
   }
@@ -62,7 +62,7 @@ export const checkTestConventions = (
 
     const matchedCategory = categories.find(c => file.path.endsWith(c.suffix))
 
-    if (!matchedCategory) {
+    if (matchedCategory === undefined) {
       violations.push({
         path: file.path,
         reason: `uncategorized test file — must use one of: ${categories.map(c => c.suffix).join(', ')}`,

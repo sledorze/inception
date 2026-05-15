@@ -46,20 +46,12 @@ pre-commit:
         Pattern ref → .claude/patterns/dep-boundary.md
         Recurring? → docs/PAIN.md (P1/P2 + candidate fix)
 
-    # Effect coding-pattern guardrails (oxlint lacks no-restricted-syntax)
-    # Catches: Date.now()/new Date() in src → use Clock; Effect.runPromise in tests → use it.effect
-    effect-patterns:
-      glob: 'packages/host/**/*.ts'
-      run: .claude/hooks/check-effect-patterns.sh
-      fail_text: |
-        Effect pattern violation. See error above for the specific fix.
-        Pattern ref → .claude/patterns/effect-test-pattern.md
-        Recurring? → docs/PAIN.md (P2 + candidate fix)
-
     # Fast regression guard — only runs tests related to staged host files (P8 fix).
     # Full suite stays at pre-push; this catches obvious breakage before context shifts.
     test-changed:
       glob: 'packages/host/**/*.ts'
+      env:
+        CI: 'true'
       run: pnpm vitest run --changed HEAD --passWithNoTests
 
 # CI lint group — check-only versions of pre-commit hooks (no auto-fix)

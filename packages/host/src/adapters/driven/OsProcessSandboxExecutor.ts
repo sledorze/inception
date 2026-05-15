@@ -20,9 +20,12 @@ import { execFile } from 'node:child_process'
 import { mkdtemp, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
+import { promisify } from 'node:util'
 import { Clock, Effect, Layer } from 'effect'
 import { SandboxError, SandboxExecutor } from '../../ports/driven/SandboxExecutor.ts'
 import type { SandboxConstraints, SandboxResult } from '../../ports/driven/SandboxExecutor.ts'
+
+const execFileAsync = promisify(execFile)
 
 interface ProcessOutput {
   readonly exitCode: number
@@ -30,46 +33,36 @@ interface ProcessOutput {
   readonly stderr: string
 }
 
-const runInProcess = (script: string, constraints: SandboxConstraints, sandboxTime: number): Promise<ProcessOutput> =>
-  new Promise((resolve, reject) => {
-    mkdtemp(join(tmpdir(), 'sandbox-'))
-      .then(dir => {
-        const scriptPath = join(dir, 'script.js')
-        return writeFile(scriptPath, script, 'utf8').then(() => scriptPath)
-      })
-      .then(scriptPath => {
-        const nodeArgs = [`--max-old-space-size=${constraints.memoryMb}`, scriptPath]
-        execFile(
-          process.execPath,
-          nodeArgs,
-          {
-            env: {
-              ...process.env,
-              SANDBOX_SEED: '0',
-              SANDBOX_TIME: String(sandboxTime),
-            },
-            timeout: constraints.wallMs,
-          },
-          (error, stdout, stderr) => {
-            // timeout: execFile sets killed=true when it sends the signal itself
-            if (error?.killed === true) {
-              reject(new Error(`Wall time budget exceeded (${constraints.wallMs}ms)`))
-              return
-            }
-            const exitCode =
-              typeof error?.code === 'number' ? error.code
-              : error !== null && error !== undefined ? 1
-              : 0
-            resolve({ exitCode, stderr, stdout })
-          },
-        )
-      })
-      .catch(error => {
-        reject(error)
-      })
-  })
+interface ExecError extends Error {
+  readonly killed?: boolean
+  readonly code?: unknown
+  readonly stdout?: string
+  readonly stderr?: string
+}
 
 const hashString = (s: string) => createHash('sha256').update(s).digest('hex')
+
+const runInProcess = (script: string, constraints: SandboxConstraints, sandboxTime: number): Promise<ProcessOutput> =>
+  mkdtemp(join(tmpdir(), 'sandbox-'))
+    .then(dir => {
+      const scriptPath = join(dir, 'script.js')
+      return writeFile(scriptPath, script, 'utf8').then(() => scriptPath)
+    })
+    .then(scriptPath =>
+      execFileAsync(process.execPath, [`--max-old-space-size=${constraints.memoryMb}`, scriptPath], {
+        env: { ...process.env, SANDBOX_SEED: '0', SANDBOX_TIME: String(sandboxTime) },
+        timeout: constraints.wallMs,
+      }).then(
+        ({ stdout, stderr }) => ({ exitCode: 0, stderr, stdout }),
+        (error: ExecError) => {
+          if (error.killed === true) {
+            throw new Error(`Wall time budget exceeded (${constraints.wallMs}ms)`)
+          }
+          const exitCode = typeof error.code === 'number' ? error.code : 1
+          return { exitCode, stderr: error.stderr ?? '', stdout: error.stdout ?? '' }
+        },
+      ),
+    )
 
 const execute = (script: string, constraints: SandboxConstraints): Effect.Effect<SandboxResult, SandboxError> =>
   Effect.gen(function* () {

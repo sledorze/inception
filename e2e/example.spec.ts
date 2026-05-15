@@ -4,5 +4,5 @@ import { expect, test } from '@playwright/test'
 // Uncomment webServer in playwright.config.ts first.
 test.skip('homepage loads', async ({ page }) => {
   await page.goto('/')
-  await expect(page).toHaveTitle(/.*/)
+  await expect(page).toHaveTitle(/.*/u)
 })

@@ -10,137 +10,12 @@
  * GC: deletes blob files whose hashes are not in the reachable set.
  */
 import { createHash } from 'node:crypto'
-import { mkdir, readdir, readFile, rm, stat, writeFile } from 'node:fs/promises'
-import { dirname, join } from 'node:path'
-import { Effect, Layer } from 'effect'
+import { Effect, FileSystem, Layer, Path } from 'effect'
+import { NodeFileSystem, NodePath } from '@effect/platform-node'
 import { ContentStoreError, ContentStore } from '../../ports/driven/ContentStore.ts'
 import type { ContentHash } from '../../ports/driven/ContentStore.ts'
 
 const sha256 = (bytes: Uint8Array): ContentHash => createHash('sha256').update(bytes).digest('hex')
-
-const blobPath = (casDir: string, hash: ContentHash) => join(casDir, hash.slice(0, 2), hash.slice(2))
-
-const refPath = (refsDir: string, name: string) => join(refsDir, ...name.split('/'))
-
-const wrap = <A>(op: () => Promise<A>): Effect.Effect<A, ContentStoreError> =>
-  Effect.tryPromise({
-    catch: cause => new ContentStoreError({ cause }),
-    try: op,
-  })
-
-const ensureDir = (dir: string): Effect.Effect<void, ContentStoreError> =>
-  wrap(() => mkdir(dir, { recursive: true }).then(() => undefined))
-
-const makeStore = (casDir: string, refsDir: string) =>
-  ContentStore.of({
-    exists: hash =>
-      wrap(() =>
-        stat(blobPath(casDir, hash))
-          .then(() => true)
-          .catch(() => false),
-      ),
-
-    gc: reachable =>
-      wrap(async () => {
-        let removed = 0
-        let prefixDirs: string[]
-        try {
-          prefixDirs = await readdir(casDir)
-        } catch {
-          return 0
-        }
-        for (const prefix of prefixDirs) {
-          const prefixPath = join(casDir, prefix)
-          let suffixes: string[]
-          try {
-            suffixes = await readdir(prefixPath)
-          } catch {
-            continue
-          }
-          for (const suffix of suffixes) {
-            const hash = prefix + suffix
-            if (!reachable.has(hash)) {
-              await rm(join(prefixPath, suffix), { force: true })
-              removed++
-            }
-          }
-        }
-        return removed
-      }),
-
-    get: hash =>
-      wrap(async () => {
-        try {
-          const buf = await readFile(blobPath(casDir, hash))
-          return new Uint8Array(buf)
-        } catch {
-          return undefined
-        }
-      }),
-
-    put: content =>
-      wrap(async () => {
-        const hash = sha256(content)
-        const path = blobPath(casDir, hash)
-        await mkdir(dirname(path), { recursive: true })
-        try {
-          await stat(path)
-        } catch {
-          await writeFile(path, content)
-        }
-        return hash
-      }),
-
-    refGet: name =>
-      wrap(async () => {
-        try {
-          const text = await readFile(refPath(refsDir, name), 'utf8')
-          return text.trim()
-        } catch {
-          return undefined
-        }
-      }),
-
-    refList: prefix =>
-      wrap(async () => {
-        const collect = async (dir: string, base: string): Promise<string[]> => {
-          let entries: string[]
-          try {
-            entries = await readdir(dir)
-          } catch {
-            return []
-          }
-          const results: string[] = []
-          for (const entry of entries) {
-            const entryPath = join(dir, entry)
-            const entryKey = base.length > 0 ? `${base}/${entry}` : entry
-            let s: Awaited<ReturnType<typeof stat>>
-            try {
-              s = await stat(entryPath)
-            } catch {
-              continue
-            }
-            if (s.isDirectory()) {
-              results.push(...(await collect(entryPath, entryKey)))
-            } else {
-              results.push(entryKey)
-            }
-          }
-          return results
-        }
-
-        const baseDir = prefix.length > 0 ? join(refsDir, ...prefix.split('/')) : refsDir
-        const all = await collect(baseDir, prefix.length > 0 ? prefix : '')
-        return all.toSorted()
-      }),
-
-    refSet: (name, hash) =>
-      wrap(async () => {
-        const path = refPath(refsDir, name)
-        await mkdir(dirname(path), { recursive: true })
-        await writeFile(path, `${hash}\n`, 'utf8')
-      }),
-  })
 
 export const GitContentStore = {
   // gitRoot: absolute path to the managed workspace git repository root.
@@ -148,11 +23,117 @@ export const GitContentStore = {
     Layer.effect(
       ContentStore,
       Effect.gen(function* () {
-        const casDir = join(gitRoot, '.git', 'cas')
-        const refsDir = join(gitRoot, '.git', 'cas-refs')
-        yield* ensureDir(casDir)
-        yield* ensureDir(refsDir)
-        return makeStore(casDir, refsDir)
+        const fs = yield* FileSystem.FileSystem
+        const path = yield* Path.Path
+
+        const casDir = path.join(gitRoot, '.git', 'cas')
+        const refsDir = path.join(gitRoot, '.git', 'cas-refs')
+
+        yield* fs
+          .makeDirectory(casDir, { recursive: true })
+          .pipe(Effect.mapError(e => new ContentStoreError({ cause: e })))
+        yield* fs
+          .makeDirectory(refsDir, { recursive: true })
+          .pipe(Effect.mapError(e => new ContentStoreError({ cause: e })))
+
+        const blobPath = (hash: ContentHash) => path.join(casDir, hash.slice(0, 2), hash.slice(2))
+
+        const refPath = (name: string) => path.join(refsDir, ...name.split('/'))
+
+        const statOrNull = (p: string) => fs.stat(p).pipe(Effect.catch(() => Effect.succeed(null)))
+
+        const collect = (dir: string, base: string): Effect.Effect<string[]> =>
+          fs.readDirectory(dir).pipe(
+            Effect.catch(() => Effect.succeed([] as string[])),
+            Effect.flatMap(entries =>
+              Effect.all(
+                entries.map(entry =>
+                  Effect.gen(function* () {
+                    const entryPath = path.join(dir, entry)
+                    const entryKey = base.length > 0 ? `${base}/${entry}` : entry
+                    const info = yield* statOrNull(entryPath)
+                    if (info === null) {
+                      return [] as string[]
+                    }
+                    if (info.type === 'Directory') {
+                      return yield* collect(entryPath, entryKey)
+                    }
+                    return [entryKey]
+                  }),
+                ),
+              ),
+            ),
+            Effect.map(arrays => arrays.flat()),
+          )
+
+        return ContentStore.of({
+          exists: hash =>
+            statOrNull(blobPath(hash)).pipe(
+              Effect.map(info => info !== null),
+              Effect.mapError(e => new ContentStoreError({ cause: e })),
+            ),
+
+          gc: reachable =>
+            Effect.gen(function* () {
+              let removed = 0
+              const prefixDirs = yield* fs
+                .readDirectory(casDir)
+                .pipe(Effect.catch(() => Effect.succeed([] as string[])))
+              for (const prefix of prefixDirs) {
+                const prefixPath = path.join(casDir, prefix)
+                const suffixes = yield* fs
+                  .readDirectory(prefixPath)
+                  .pipe(Effect.catch(() => Effect.succeed([] as string[])))
+                for (const suffix of suffixes) {
+                  const hash = prefix + suffix
+                  if (!reachable.has(hash)) {
+                    yield* fs.remove(path.join(prefixPath, suffix), { force: true })
+                    removed++
+                  }
+                }
+              }
+              return removed
+            }).pipe(Effect.mapError(e => new ContentStoreError({ cause: e }))),
+
+          get: hash =>
+            fs.readFile(blobPath(hash)).pipe(
+              Effect.catch(() => Effect.succeed(undefined as Uint8Array | undefined)),
+              Effect.mapError(e => new ContentStoreError({ cause: e })),
+            ),
+
+          put: content =>
+            Effect.gen(function* () {
+              const hash = sha256(content)
+              const bPath = blobPath(hash)
+              yield* fs.makeDirectory(path.dirname(bPath), { recursive: true })
+              const already = yield* statOrNull(bPath)
+              if (already === null) {
+                yield* fs.writeFile(bPath, content)
+              }
+              return hash
+            }).pipe(Effect.mapError(e => new ContentStoreError({ cause: e }))),
+
+          refGet: name =>
+            fs.readFileString(refPath(name)).pipe(
+              Effect.map(text => text.trim()),
+              Effect.catch(() => Effect.succeed(undefined as string | undefined)),
+              Effect.mapError(e => new ContentStoreError({ cause: e })),
+            ),
+
+          refList: prefix =>
+            Effect.gen(function* () {
+              const baseDir = prefix.length > 0 ? path.join(refsDir, ...prefix.split('/')) : refsDir
+              const all = yield* collect(baseDir, prefix.length > 0 ? prefix : '')
+              return all.toSorted()
+            }).pipe(Effect.mapError(e => new ContentStoreError({ cause: e }))),
+
+          refSet: (name, hash) =>
+            Effect.gen(function* () {
+              const rPath = refPath(name)
+              yield* fs.makeDirectory(path.dirname(rPath), { recursive: true })
+              yield* fs.writeFileString(rPath, `${hash}\n`)
+            }).pipe(Effect.mapError(e => new ContentStoreError({ cause: e }))),
+        })
       }),
-    ),
+    ).pipe(Layer.provide(Layer.mergeAll(NodeFileSystem.layer, NodePath.layer))),
 }

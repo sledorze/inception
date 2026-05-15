@@ -18,4 +18,4 @@ export class ContentStore extends Context.Service<
     readonly refList: (prefix: string) => Effect.Effect<readonly string[], ContentStoreError>
     readonly gc: (reachable: ReadonlySet<ContentHash>) => Effect.Effect<number, ContentStoreError>
   }
->()('@app/host/ContentStore') {}
+>()('@app/host/ports/driven/ContentStore') {}

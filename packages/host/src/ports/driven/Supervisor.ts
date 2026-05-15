@@ -35,4 +35,4 @@ export class Supervisor extends Context.Service<
     // to EventStore for any that exceed their threshold.
     readonly evaluate: (sessionId: string) => Effect.Effect<readonly SignalResult[], SupervisorError>
   }
->()('@app/host/Supervisor') {}
+>()('@app/host/ports/driven/Supervisor') {}

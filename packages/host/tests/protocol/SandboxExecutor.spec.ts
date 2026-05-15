@@ -7,7 +7,7 @@
  * OsProcessSandboxExecutor: documented fallback (OS-process, not WASI); requires per-cycle approval §13.
  */
 import { Effect, ManagedRuntime } from 'effect'
-import { afterAll, beforeAll, describe, expect, it } from 'vitest'
+import { afterAll, beforeAll, describe, expect, it } from '@effect/vitest'
 import { InMemorySandboxExecutor } from '../../src/adapters/driven/InMemorySandboxExecutor.ts'
 import { OsProcessSandboxExecutor } from '../../src/adapters/driven/OsProcessSandboxExecutor.ts'
 import { SandboxExecutor } from '../../src/ports/driven/SandboxExecutor.ts'
@@ -28,7 +28,7 @@ const FIXED_RESULT: SandboxResult = {
 }
 
 // SHA-256 hex string: 64 lowercase hex characters.
-const SHA256_RE = /^[0-9a-f]{64}$/
+const SHA256_RE = /^[0-9a-f]{64}$/u
 
 // ─── shared contract ─────────────────────────────────────────────────────────
 

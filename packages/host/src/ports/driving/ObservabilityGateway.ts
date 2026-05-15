@@ -38,4 +38,4 @@ export class ObservabilityGateway extends Context.Service<
       onEvent: (e: ObservedEvent) => Effect.Effect<void>,
     ) => Effect.Effect<void, ObservabilityGatewayError>
   }
->()('@app/host/ObservabilityGateway') {}
+>()('@app/host/ports/driving/ObservabilityGateway') {}

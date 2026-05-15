@@ -5,7 +5,7 @@
 DATE=$(date '+%Y-%m-%d')
 BRANCH=$(git branch --show-current 2>/dev/null || echo "unknown")
 DIRTY=$(git status --porcelain 2>/dev/null | wc -l | tr -d ' ')
-AHEAD=$(git rev-list @{u}..HEAD 2>/dev/null | wc -l | tr -d ' ')
+AHEAD=$(git rev-list '@{u}..HEAD' 2>/dev/null | wc -l | tr -d ' ')
 
 STATUS=""
 [ "$DIRTY" -gt 0 ] && STATUS="$DIRTY uncommitted change(s)"

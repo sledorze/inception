@@ -14,4 +14,4 @@ export class PolicyGate extends Context.Service<
     // Explicitly permits a tool name (used at bootstrap and by future promotion path).
     readonly permit: (toolName: string) => Effect.Effect<void>
   }
->()('@app/host/PolicyGate') {}
+>()('@app/host/ports/driven/PolicyGate') {}

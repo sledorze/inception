@@ -8,7 +8,7 @@ import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { randomUUID } from 'node:crypto'
 import { Effect, ManagedRuntime, Ref } from 'effect'
-import { afterEach, beforeEach, describe, expect, it } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it } from '@effect/vitest'
 import { DpFileBackedHandle } from '../../src/adapters/driven/DpFileBackedHandle.ts'
 import { FileBackedHandle } from '../../src/adapters/driven/FileBackedHandle.ts'
 import { InMemoryDataHandleRegistry } from '../../src/adapters/driven/InMemoryDataHandleRegistry.ts'
@@ -46,7 +46,7 @@ function runContract(name: string, makeFactory: () => Promise<HandleFactory> | H
 
     beforeEach(async () => {
       factory = await makeFactory()
-      rt = ManagedRuntime.make(InMemoryDataHandleRegistry.layer)
+      rt = ManagedRuntime.make(InMemoryDataHandleRegistry.layer())
     })
 
     afterEach(() => rt.dispose())
@@ -228,7 +228,7 @@ describe('FileBackedHandle info-ledger (L1.7)', () => {
   beforeEach(async () => {
     filePath = join(tmpdir(), `handle-info-${randomUUID()}.csv`)
     await writeFile(filePath, 'x\n1\n2\n3\n', 'utf8')
-    rt = ManagedRuntime.make(InMemoryDataHandleRegistry.layer)
+    rt = ManagedRuntime.make(InMemoryDataHandleRegistry.layer())
   })
 
   afterEach(() => rt.dispose())

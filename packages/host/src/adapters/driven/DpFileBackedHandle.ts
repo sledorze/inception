@@ -8,12 +8,7 @@
  * Bootstrap calibration (bootstrap=true §12):
  *   ε_per_query = 0.1, ε_max = 1.0, δ = 1e-5, max_sensitivity = 1.0
  */
-import { execFile } from 'node:child_process'
 import { createHash } from 'node:crypto'
-import { mkdtemp, writeFile } from 'node:fs/promises'
-import { tmpdir } from 'node:os'
-import { join } from 'node:path'
-import { promisify } from 'node:util'
 import { Effect, Ref } from 'effect'
 import {
   DEFAULT_DELTA,
@@ -25,8 +20,7 @@ import {
 } from '../../domain/dp.ts'
 import { DataHandleError, HandleExhausted, HandleRevoked, SensitivityViolation } from '../../ports/driven/DataHandle.ts'
 import type { DataHandle, QuerySensitivity } from '../../ports/driven/DataHandle.ts'
-
-const execFileAsync = promisify(execFile)
+import { runScriptInTempDir } from '../runScriptInTempDir.ts'
 
 export interface DpHandleOptions {
   readonly id: string
@@ -41,17 +35,6 @@ export interface DpHandleOptions {
 }
 
 type HandleState = 'alive' | 'revoked' | 'exhausted'
-
-const runScriptInProcess = async (script: string, filePath: string): Promise<string> => {
-  const dir = await mkdtemp(join(tmpdir(), 'dp-handle-script-'))
-  const scriptPath = join(dir, 'script.js')
-  await writeFile(scriptPath, script, 'utf8')
-  const { stdout } = await execFileAsync(process.execPath, [scriptPath], {
-    env: { ...process.env, DATA_FILE: filePath },
-    timeout: 30_000,
-  })
-  return stdout
-}
 
 const DEFAULT_SENSITIVITY: QuerySensitivity = { norm: 'l1', value: 1 }
 
@@ -101,7 +84,12 @@ export const DpFileBackedHandle = {
 
             const stdout = yield* Effect.tryPromise({
               catch: cause => new DataHandleError({ cause }),
-              try: () => runScriptInProcess(script, opts.filePath),
+              try: () =>
+                runScriptInTempDir({
+                  code: script,
+                  env: { ...process.env, DATA_FILE: opts.filePath },
+                  prefix: 'dp-handle-script-',
+                }),
             })
 
             const trueBits = stdout.length * 8

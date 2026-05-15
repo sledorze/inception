@@ -30,6 +30,9 @@ You are inside the Host (`packages/host/`). Per `docs/SPEC.md` §10.1 + L2.14:
 - Every port has a CSP-style protocol test in `tests/protocol/<port>.spec.ts` **parametrised over all bound adapters** (in-memory fake + production). Liskov substitution proven by test, not intent (§2.13). A new adapter fails CI until the protocol test passes against it.
 - Every Supervisor signal you implement needs a paired Monitor recomputation (L3.7) and the test verifies a `SupervisorDivergence` event fires on injected disagreement.
 - Every adapter swap emits `AdapterBound` before the application uses the new binding (L2.14).
+- Every new `bin/<name>.ts` entry-point script → `tests/integration/<name>Bin.integration.test.ts` that exercises the observable behavior of the script's layer composition (spawn or in-process, whichever is practical).
+- Every change to `runtime/bind.ts` (composition root) → `tests/integration/bootstrap.integration.test.ts` must remain green; if the change adds or removes a service, update the test to cover the new surface.
+- Every PAIN item fix → an acceptance test (plain vitest or `@effect/vitest`) that **fails before the fix and passes after**. The test path is cited in the `PAIN-archive.md` closure line.
 
 ## Trust domain hygiene (L3.10)
 
@@ -115,6 +118,24 @@ Effect.catchTags({ [HandleRevokedTag]: e => ... })
 Using `new Date(ms)` where `ms` comes from `Clock.currentTimeMillis` is the correct pattern (PAIN
 P8). The test-controllable invariant is the clock source, not the `Date` constructor. This is the
 only acceptable use of `new Date()` in `packages/host/src/`.
+
+### `correlationId` → `yield* CurrentCorrelationId` in adapters
+
+Any `store.append(...)` call inside an adapter that emits an event tied to a user request must
+inherit the correlation ID from the Effect context rather than generating a fresh UUID:
+
+```ts
+// WRONG — breaks the goal-level event chain (P8)
+store.append({ correlationId: randomUUID(), ... })
+
+// RIGHT — inherits the ID set by submitGoal via Effect.provideService
+const correlationId = yield* CurrentCorrelationId  // from 'src/domain/tracing.ts'
+store.append({ correlationId, ... })
+```
+
+The `check-effect-patterns.sh` pre-commit hook flags `correlationId: randomUUID()` in `src/`.
+`CurrentCorrelationId` defaults to `'bootstrap'` so tests that don't go through `submitGoal` still
+emit valid events.
 
 ## Forbidden by inherited rules
 

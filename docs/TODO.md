@@ -83,10 +83,10 @@ These items make Phase 1's traces _honest_ and _bounded_: per-handle info budget
 
 ## Phase 3 — First end-to-end story (S1)
 
-- [todo] **3.1** Wire a minimal User entry point that posts a goal + handle (CLI or HTTP — decide in 0.4).
-- [todo] **3.2** Run S1 against a synthetic dataset; capture trace; verify Georges never received bytes.
-- [todo] **3.3** Replay the trace via outer MCP.
-- [todo] **3.4** Document one observed failure mode and feed it into the next iteration.
+- [done] **3.1** Wire a minimal User entry point that posts a goal + handle (CLI or HTTP — decide in 0.4).
+- [done] **3.2** Run S1 against a synthetic dataset; capture trace; verify Georges never received bytes.
+- [done] **3.3** Replay the trace via outer MCP.
+- [done] **3.4** Document one observed failure mode and feed it into the next iteration.
 
 **Exit:** A repeatable demo of S1 with a clean trace and one identified improvement.
 
@@ -94,9 +94,9 @@ These items make Phase 1's traces _honest_ and _bounded_: per-handle info budget
 
 ## Phase 4 — Capability proposals (S2)
 
-- [todo] **4.1** Promotion queue + Claude-mediated review path (likely a CLI subcommand).
-- [todo] **4.2** Versioned capability registry on disk; rollback by version pin.
-- [todo] **4.3** First Georges-proposed capability accepted end-to-end.
+- [done] **4.1** Promotion queue + Claude-mediated review path (likely a CLI subcommand).
+- [done] **4.2** Versioned capability registry on disk; rollback by version pin.
+- [in-progress] **4.3** First Georges-proposed capability accepted end-to-end. UI wired: SubmitGoal, Proposals (list+promote), CallCapability panels added to frontend; backend routes POST /api/goals, GET /api/proposals, POST /api/proposals/:id/promote added to main.ts; CapabilityRegistry exposed in appLayer. Pending: run with real LLM to observe Georges propose a capability end-to-end.
 
 **Exit:** Georges can grow his own tool surface, gated.
 

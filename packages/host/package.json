@@ -3,11 +3,19 @@
   "version": "0.0.0",
   "private": true,
   "type": "module",
+  "bin": {
+    "observe-cli": "./bin/observe.ts",
+    "review-cli": "./bin/review.ts",
+    "user-cli": "./bin/user.ts"
+  },
   "scripts": {
     "dev": "tsx watch src/main.ts",
+    "observe-cli": "tsx bin/observe.ts",
+    "review-cli": "tsx bin/review.ts",
     "start": "node --import tsx src/main.ts",
     "test": "cd ../.. && pnpm exec vitest run",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "user-cli": "tsx bin/user.ts"
   },
   "dependencies": {
     "@effect/ai-openai-compat": "4.0.0-beta.66",

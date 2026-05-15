@@ -8,7 +8,7 @@ import { join } from 'node:path'
 import { randomUUID } from 'node:crypto'
 import type { Layer } from 'effect'
 import { Effect, ManagedRuntime } from 'effect'
-import { afterEach, beforeEach, describe, expect, it } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it } from '@effect/vitest'
 import { InMemoryEventStore } from '../../src/adapters/driven/InMemoryEventStore.ts'
 import { SqliteEventStore } from '../../src/adapters/driven/SqliteEventStore.ts'
 import { computeContentHash, EventStore } from '../../src/ports/driven/EventStore.ts'
@@ -155,6 +155,16 @@ function runContract(name: string, makeLayer: () => Layer.Layer<EventStore>) {
       const payload = { arr: [1, 2, 3], nested: { value: 42 } }
       const event = await run(append({ ...baseEvent(), payload }))
       expect(event.payload).toEqual(payload)
+    })
+
+    it('duplicate append is idempotent — returns existing stored event without error', async () => {
+      const event = baseEvent()
+      const first = await run(append(event))
+      const second = await run(append(event))
+      expect(second.id).toBe(first.id)
+      expect(second.contentHash).toBe(first.contentHash)
+      const all = await run(query({}))
+      expect(all.filter(e => e.contentHash === first.contentHash)).toHaveLength(1)
     })
   })
 }

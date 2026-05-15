@@ -16,7 +16,7 @@ const port = process.env['USER_GATEWAY_PORT'] ?? '3001'
 const url = `http://127.0.0.1:${port}/goals`
 
 const res = await fetch(url, {
-  body: JSON.stringify({ goal, handleId, sessionId: String(process.pid) }),
+  body: JSON.stringify({ goal, handleId }),
   headers: { 'Content-Type': 'application/json' },
   method: 'POST',
 })

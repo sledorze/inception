@@ -9,7 +9,7 @@ import { join } from 'node:path'
 import { execFile } from 'node:child_process'
 import { promisify } from 'node:util'
 import { Effect, ManagedRuntime } from 'effect'
-import { afterAll, beforeAll, describe, expect, it } from 'vitest'
+import { afterAll, beforeAll, describe, expect, it } from '@effect/vitest'
 import { GitContentStore } from '../../src/adapters/driven/GitContentStore.ts'
 import { InMemoryContentStore } from '../../src/adapters/driven/InMemoryContentStore.ts'
 import { ContentStore } from '../../src/ports/driven/ContentStore.ts'
@@ -22,7 +22,7 @@ const enc = (s: string) => new TextEncoder().encode(s)
 const dec = (b: Uint8Array) => new TextDecoder().decode(b)
 
 // SHA-256 hex: 64 lowercase hex characters.
-const SHA256_RE = /^[0-9a-f]{64}$/
+const SHA256_RE = /^[0-9a-f]{64}$/u
 
 const makeTempGitRepo = async (): Promise<string> => {
   const dir = await mkdtemp(join(tmpdir(), 'cas-test-'))

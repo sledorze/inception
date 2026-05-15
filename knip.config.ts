@@ -1,7 +1,7 @@
 import type { KnipConfig } from 'knip'
 
 const config: KnipConfig = {
-  ignore: ['vendor/**'],
+  ignore: ['.claude/**', 'vendor/**'],
   workspaces: {
     '.': {
       entry: [

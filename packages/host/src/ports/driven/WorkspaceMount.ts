@@ -14,4 +14,4 @@ export class WorkspaceMount extends Context.Service<
     readonly write: (relativePath: string, content: string) => Effect.Effect<void, WorkspaceMountError>
     readonly list: (relativeDir: string) => Effect.Effect<readonly string[], WorkspaceMountError>
   }
->()('@app/host/WorkspaceMount') {}
+>()('@app/host/ports/driven/WorkspaceMount') {}

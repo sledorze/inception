@@ -13,7 +13,7 @@
  * - The archive retains the fitter of two same-cell variants (quality).
  */
 import { Effect } from 'effect'
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it } from '@effect/vitest'
 import { InMemoryBehaviourArchive } from '../../src/adapters/driven/InMemoryBehaviourArchive.ts'
 import { BehaviourArchive } from '../../src/ports/driven/BehaviourArchive.ts'
 import type { BehaviourDescriptor } from '../../src/ports/driven/BehaviourArchive.ts'
@@ -46,12 +46,11 @@ const makeEntry = (
   workflowHash: 'wf-1',
 })
 
-const run = <A>(eff: Effect.Effect<A, unknown, BehaviourArchive>) =>
-  Effect.runPromise(Effect.provide(eff, InMemoryBehaviourArchive.layer))
+const run = <A>(eff: Effect.Effect<A, unknown, BehaviourArchive>) => Effect.provide(eff, InMemoryBehaviourArchive.layer)
 
 describe('L2.13 — Diversity reserve via BehaviourArchive', () => {
-  it('distinct descriptors each get their own cell (exploration not pruned)', async () => {
-    await run(
+  it.effect('distinct descriptors each get their own cell (exploration not pruned)', () =>
+    run(
       Effect.gen(function* () {
         const archive = yield* BehaviourArchive
         yield* archive.insert(DESC_A, makeEntry('v1', 0.9, 'accepted'))
@@ -59,11 +58,11 @@ describe('L2.13 — Diversity reserve via BehaviourArchive', () => {
         const size = yield* archive.size()
         expect(size).toBe(2)
       }),
-    )
-  })
+    ),
+  )
 
-  it('a weaker variant in a new cell IS retained (stepping-stone preserved)', async () => {
-    await run(
+  it.effect('a weaker variant in a new cell IS retained (stepping-stone preserved)', () =>
+    run(
       Effect.gen(function* () {
         const archive = yield* BehaviourArchive
         yield* archive.insert(DESC_A, makeEntry('v-best', 0.9, 'accepted'))
@@ -73,11 +72,11 @@ describe('L2.13 — Diversity reserve via BehaviourArchive', () => {
         const variantIds = cells.map(c => c.entry.variantId).toSorted()
         expect(variantIds).toEqual(['v-best', 'v-weak'])
       }),
-    )
-  })
+    ),
+  )
 
-  it('archive retains fitter incumbent in same cell (quality maintained)', async () => {
-    await run(
+  it.effect('archive retains fitter incumbent in same cell (quality maintained)', () =>
+    run(
       Effect.gen(function* () {
         const archive = yield* BehaviourArchive
         yield* archive.insert(DESC_A, makeEntry('v-good', 0.8, 'accepted'))
@@ -85,11 +84,11 @@ describe('L2.13 — Diversity reserve via BehaviourArchive', () => {
         const cells = yield* archive.query({ concernTag: 'correctness' })
         expect(cells[0]?.entry.variantId).toBe('v-good')
       }),
-    )
-  })
+    ),
+  )
 
-  it('sample can return a non-Pareto-best cell (diversity reserve)', async () => {
-    await run(
+  it.effect('sample can return a non-Pareto-best cell (diversity reserve)', () =>
+    run(
       Effect.gen(function* () {
         const archive = yield* BehaviourArchive
         yield* archive.insert(DESC_A, makeEntry('v-best', 0.9, 'accepted'))
@@ -97,6 +96,6 @@ describe('L2.13 — Diversity reserve via BehaviourArchive', () => {
         const cell = yield* archive.sample()
         expect(cell).not.toBeNull()
       }),
-    )
-  })
+    ),
+  )
 })

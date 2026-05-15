@@ -1,4 +1,6 @@
 import { Layer } from 'effect'
+import { NodeFileSystem } from '@effect/platform-node'
+import { InMemoryCapabilityRegistry } from '../../src/adapters/driven/InMemoryCapabilityRegistry.ts'
 import { InMemoryDataHandleRegistry } from '../../src/adapters/driven/InMemoryDataHandleRegistry.ts'
 import { InMemoryEventStore } from '../../src/adapters/driven/InMemoryEventStore.ts'
 import { InMemoryPolicyGate } from '../../src/adapters/driven/InMemoryPolicyGate.ts'
@@ -15,14 +17,24 @@ export const makeToolkitComponents = (
   const storeLayer = InMemoryEventStore.layer
   const registryLayer = InMemoryToolRegistry.layer(tools)
   const workspaceLayer = InMemoryWorkspaceMount.layer(initialFiles)
-  const handleRegLayer = InMemoryDataHandleRegistry.layer
+  const handleRegLayer = InMemoryDataHandleRegistry.layer()
   const policyGateLayer = InMemoryPolicyGate.layer(permittedTools ?? tools.map(t => t.name))
+  const capabilityRegistryLayer = InMemoryCapabilityRegistry.layer
   const toolkitLayer = GeorgesToolkitLive.pipe(
     Layer.provide(storeLayer),
     Layer.provide(registryLayer),
     Layer.provide(workspaceLayer),
     Layer.provide(handleRegLayer),
     Layer.provide(policyGateLayer),
+    Layer.provide(capabilityRegistryLayer),
   )
-  return { handleRegLayer, policyGateLayer, storeLayer, toolkitLayer, workspaceLayer }
+  return {
+    capabilityRegistryLayer,
+    handleRegLayer,
+    nodeFileSystemLayer: NodeFileSystem.layer,
+    policyGateLayer,
+    storeLayer,
+    toolkitLayer,
+    workspaceLayer,
+  }
 }

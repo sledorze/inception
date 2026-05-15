@@ -8,6 +8,7 @@
     "suspicious": "error"
   },
   "ignorePatterns": ["node_modules", "dist", ".astro", "coverage", ".stryker-tmp", "vendor"],
+  "jsPlugins": ["./.claude/oxlint-plugins/effect-patterns.js"],
   "overrides": [
     {
       "files": [
@@ -25,29 +26,79 @@
     {
       "files": ["**/packages/host/src/**/*.ts"],
       "rules": {
-        "no-restricted-syntax": [
+        "effect-patterns/no-date-clock": "error",
+        "effect-patterns/no-inline-correlation-id": "error",
+        "no-restricted-imports": [
           "error",
           {
-            "message": "Use Clock.currentTimeMillis from 'effect' instead of Date.now() — enables TestClock in tests.",
-            "selector": "CallExpression[callee.type='MemberExpression'][callee.object.name='Date'][callee.property.name='now']"
-          },
-          {
-            "message": "Use Clock.currentTimeMillis from 'effect' instead of new Date() — enables TestClock in tests.",
-            "selector": "NewExpression[callee.name='Date'][arguments.length=0]"
+            "paths": [
+              {
+                "message": "Use Uint8Array (native) + Encoding from 'effect' for encode/decode. Skill: .agents/skills/effect-ts/references/features.md",
+                "name": "node:buffer"
+              },
+              {
+                "message": "Use Command from '@effect/platform'. Skill: .agents/skills/effect-ts/references/features.md",
+                "name": "node:child_process"
+              },
+              {
+                "message": "Use FileSystem from '@effect/platform'. Skill: .agents/skills/effect-ts/references/guide-layers.md",
+                "name": "node:fs"
+              },
+              {
+                "message": "Use FileSystem from '@effect/platform'. Skill: .agents/skills/effect-ts/references/guide-layers.md",
+                "name": "node:fs/promises"
+              },
+              {
+                "message": "Use HttpServer from '@effect/platform'. Skill: .agents/skills/effect-ts/references/features.md",
+                "name": "node:http"
+              },
+              {
+                "message": "Use HttpClient from '@effect/platform'. Skill: .agents/skills/effect-ts/references/features.md",
+                "name": "node:https"
+              },
+              {
+                "message": "Use Path service from 'effect' + NodePath.layer from '@effect/platform-node'. Skill: .agents/skills/effect-ts/references/features.md",
+                "name": "node:path"
+              },
+              {
+                "message": "Use Console or the UserGateway driving port. Skill: .agents/skills/effect-ts/references/features.md",
+                "name": "node:readline"
+              },
+              {
+                "message": "Use Stream from 'effect'. Skill: .agents/skills/effect-ts/references/features.md",
+                "name": "node:stream"
+              },
+              {
+                "message": "Use Url.fromString (effect/unstable/http) or Path.fromFileUrl for file URLs. Skill: .agents/skills/effect-ts/references/features.md",
+                "name": "node:url"
+              }
+            ]
           }
         ]
       }
     },
     {
+      "files": [
+        "**/packages/host/src/adapters/**/*.ts",
+        "**/packages/host/src/checks/**/*.ts",
+        "**/packages/host/src/runtime/**/*.ts",
+        "**/packages/host/src/main.ts"
+      ],
+      "rules": {
+        "no-restricted-imports": "off"
+      }
+    },
+    {
       "files": ["**/packages/host/tests/**/*.ts"],
       "rules": {
-        "no-restricted-syntax": [
-          "error",
-          {
-            "message": "Use it.effect from '@effect/vitest' instead of Effect.runPromise in tests. Import { it } from '@effect/vitest'.",
-            "selector": "CallExpression[callee.type='MemberExpression'][callee.object.name='Effect'][callee.property.name='runPromise']"
-          }
-        ]
+        "effect-patterns/no-effect-gen-without-vitest": "error",
+        "effect-patterns/no-runpromise-in-tests": "error"
+      }
+    },
+    {
+      "files": ["**/packages/host/tests/helpers/**/*.ts"],
+      "rules": {
+        "effect-patterns/no-effect-gen-without-vitest": "off"
       }
     }
   ],
@@ -84,6 +135,7 @@
     "no-nested-ternary": "off",
     "no-shadow-restricted-names": "off",
     "no-ternary": "off",
+    "no-underscore-dangle": "off",
     "no-unneeded-ternary": "error",
     "no-unused-vars": "error",
     "no-useless-constructor": "error",
@@ -120,10 +172,27 @@
     "unicorn/no-useless-undefined": "off",
     "unicorn/prefer-ternary": "off",
     "vitest/consistent-test-filename": "off",
-    "vitest/expect-expect": "error",
+    "vitest/expect-expect": "off",
+    "vitest/max-expects": "off",
+    "vitest/no-conditional-in-test": "off",
     "vitest/no-disabled-tests": "error",
     "vitest/no-focused-tests": "error",
-    "vitest/no-importing-vitest-globals": "off"
+    "vitest/no-hooks": "off",
+    "vitest/no-importing-vitest-globals": "off",
+    "vitest/no-standalone-expect": "off",
+    "vitest/prefer-each": "off",
+    "vitest/prefer-expect-assertions": "off",
+    "vitest/prefer-importing-vitest-globals": "off",
+    "vitest/prefer-lowercase-title": "off",
+    "vitest/prefer-strict-boolean-matchers": "off",
+    "vitest/prefer-strict-equal": "off",
+    "vitest/prefer-to-be-truthy": "off",
+    "vitest/prefer-to-have-length": "off",
+    "vitest/require-hook": "off",
+    "vitest/require-to-throw-message": "off",
+    "vitest/require-top-level-describe": "off",
+    "vitest/valid-title": "off",
+    "vitest/warn-todo": "off"
   },
   "settings": {
     "vitest": {

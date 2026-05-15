@@ -17,7 +17,7 @@ const findTestFiles = (dir: string): string[] => {
         continue
       }
       results.push(...findTestFiles(fullPath))
-    } else if (/\.test\.tsx?$/.test(entry.name)) {
+    } else if (/\.test\.tsx?$/u.test(entry.name)) {
       results.push(fullPath)
     }
   }

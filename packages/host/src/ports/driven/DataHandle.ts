@@ -59,4 +59,4 @@ export class DataHandleRegistry extends Context.Service<
     readonly get: (id: string) => Effect.Effect<DataHandle, HandleRevoked>
     readonly register: (handle: DataHandle) => Effect.Effect<void>
   }
->()('@app/host/DataHandleRegistry') {}
+>()('@app/host/ports/driven/DataHandle/DataHandleRegistry') {}

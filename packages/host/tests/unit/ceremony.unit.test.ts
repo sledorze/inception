@@ -1,10 +1,13 @@
 /**
  * Unit tests for External Witness ceremony domain (L0.2, L0.5, §6).
  *
- * Tests cover key generation, sign/verify, and quorum checking.
- * No I/O — all key operations use in-memory PEM strings.
+ * Tests cover key generation, sign/verify, quorum checking, and key-store I/O.
  */
-import { describe, expect, it } from 'vitest'
+import { mkdtemp, rm } from 'node:fs/promises'
+import { tmpdir } from 'node:os'
+import { join } from 'node:path'
+import { Effect } from 'effect'
+import { afterEach, beforeEach, describe, expect, it } from '@effect/vitest'
 import {
   checkQuorum,
   generateKeypair,
@@ -13,6 +16,7 @@ import {
   verifySignature,
 } from '../../src/domain/ceremony.ts'
 import type { AmendmentSignatures, Keypair, SignerRole } from '../../src/domain/ceremony.ts'
+import { readPrivateKey, readPublicKey, writeKeypair } from '../../src/adapters/driven/CeremonyKeyStore.ts'
 
 // Returns a fully-typed record so indexing never needs !.
 const makeKeypairs = (): Record<SignerRole, Keypair> => ({
@@ -66,7 +70,7 @@ describe('Ceremony — sign and verify', () => {
     const kp = generateKeypair('claude')
     const hash = hashAmendment(CONTENT)
     const sig = signAmendment(hash, kp.privateKeyPem)
-    expect(sig).toMatch(/^[0-9a-f]+$/)
+    expect(sig).toMatch(/^[0-9a-f]+$/u)
     expect(sig.length).toBeGreaterThan(0)
   })
 
@@ -190,4 +194,34 @@ describe('Ceremony — quorum checking (L0.2, §6)', () => {
     expect(result.met).toBeFalsy()
     expect(result.witnessCount).toBe(1)
   })
+})
+
+describe('Ceremony — key-store I/O', () => {
+  let keyStoreDir: string
+
+  beforeEach(async () => {
+    keyStoreDir = await mkdtemp(join(tmpdir(), 'ceremony-test-'))
+  })
+
+  afterEach(async () => {
+    await rm(keyStoreDir, { recursive: true })
+  })
+
+  it.effect('writeKeypair + readPublicKey round-trips the public key', () =>
+    Effect.gen(function* () {
+      const kp = generateKeypair('claude')
+      yield* writeKeypair(keyStoreDir, kp)
+      const recovered = yield* readPublicKey(keyStoreDir, 'claude')
+      expect(recovered).toBe(kp.publicKeyPem)
+    }),
+  )
+
+  it.effect('writeKeypair + readPrivateKey round-trips the private key', () =>
+    Effect.gen(function* () {
+      const kp = generateKeypair('witness1')
+      yield* writeKeypair(keyStoreDir, kp)
+      const recovered = yield* readPrivateKey(keyStoreDir, 'witness1')
+      expect(recovered).toBe(kp.privateKeyPem)
+    }),
+  )
 })

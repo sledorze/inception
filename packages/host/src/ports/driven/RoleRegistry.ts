@@ -21,4 +21,4 @@ export class RoleRegistry extends Context.Service<
     readonly getRole: (name: string) => Effect.Effect<RoleDescriptor, RoleNotFound>
     readonly listRoles: () => Effect.Effect<readonly RoleDescriptor[]>
   }
->()('@app/host/RoleRegistry') {}
+>()('@app/host/ports/driven/RoleRegistry') {}

@@ -1,5 +1,4 @@
-import { randomUUID } from 'node:crypto'
-import { Effect, Layer, Ref } from 'effect'
+import { Effect, Layer, Random, Ref } from 'effect'
 import { computeContentHash, EventStore } from '../../ports/driven/EventStore.ts'
 import type { NewEvent, StoredEvent } from '../../ports/driven/EventStore.ts'
 
@@ -14,9 +13,13 @@ export const InMemoryEventStore = {
           Effect.gen(function* () {
             const events = yield* Ref.get(store)
             const contentHash = computeContentHash(event)
+            const existing = events.find(e => e.contentHash === contentHash)
+            if (existing !== undefined) {
+              return existing
+            }
             const sessionEvents = events.filter(e => e.sessionId === event.sessionId)
             const prevHash = sessionEvents.length > 0 ? (sessionEvents.at(-1)?.contentHash ?? 'genesis') : 'genesis'
-            const id = randomUUID()
+            const id = yield* Random.nextUUIDv4
             const stored: StoredEvent = { ...event, contentHash, id, prevHash }
             yield* Ref.update(store, es => [...es, stored])
             return stored

@@ -5,7 +5,7 @@
  */
 import { randomUUID } from 'node:crypto'
 import { Effect, Layer, ManagedRuntime } from 'effect'
-import { afterAll, beforeAll, describe, expect, it } from 'vitest'
+import { afterAll, beforeAll, describe, expect, it } from '@effect/vitest'
 import { InMemoryEventStore } from '../../src/adapters/driven/InMemoryEventStore.ts'
 import { InProcessSupervisor } from '../../src/adapters/driven/InProcessSupervisor.ts'
 import { EventStore } from '../../src/ports/driven/EventStore.ts'

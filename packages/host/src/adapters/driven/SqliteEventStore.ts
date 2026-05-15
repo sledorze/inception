@@ -1,6 +1,5 @@
-import { randomUUID } from 'node:crypto'
 import Database from 'better-sqlite3'
-import { Effect, Layer } from 'effect'
+import { Effect, Layer, Random } from 'effect'
 import { computeContentHash, EventStore, EventStoreError } from '../../ports/driven/EventStore.ts'
 import type { NewEvent, StoredEvent } from '../../ports/driven/EventStore.ts'
 
@@ -24,7 +23,7 @@ const DDL = `
 `
 
 const INSERT = `
-  INSERT INTO events
+  INSERT OR IGNORE INTO events
     (id, kind, actor, story_ref, session_id, correlation_id, content_hash, prev_hash, schema_v, occurred_at, payload)
   VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
 `
@@ -58,33 +57,43 @@ export const SqliteEventStore = {
 
           return EventStore.of({
             append: (event: NewEvent) =>
-              Effect.try({
-                catch: cause => new EventStoreError({ cause }),
-                try: () => {
-                  const contentHash = computeContentHash(event)
-                  const lastRow = db
-                    .prepare('SELECT content_hash FROM events WHERE session_id = ? ORDER BY rowid DESC LIMIT 1')
-                    .get(event.sessionId) as { content_hash: string } | undefined
-                  const prevHash = lastRow?.content_hash ?? 'genesis'
-                  const id = randomUUID()
+              Effect.gen(function* () {
+                const id = yield* Random.nextUUIDv4
+                return yield* Effect.try({
+                  catch: cause => new EventStoreError({ cause }),
+                  try: () => {
+                    const contentHash = computeContentHash(event)
+                    const lastRow = db
+                      .prepare('SELECT content_hash FROM events WHERE session_id = ? ORDER BY rowid DESC LIMIT 1')
+                      .get(event.sessionId) as { content_hash: string } | undefined
+                    const prevHash = lastRow?.content_hash ?? 'genesis'
 
-                  db.prepare(INSERT).run(
-                    id,
-                    event.kind,
-                    event.actor,
-                    event.storyRef,
-                    event.sessionId,
-                    event.correlationId,
-                    contentHash,
-                    prevHash,
-                    event.schemaV,
-                    event.occurredAt,
-                    // @effect-diagnostics-next-line preferSchemaOverJson:off
-                    JSON.stringify(event.payload),
-                  )
+                    const info = db.prepare(INSERT).run(
+                      id,
+                      event.kind,
+                      event.actor,
+                      event.storyRef,
+                      event.sessionId,
+                      event.correlationId,
+                      contentHash,
+                      prevHash,
+                      event.schemaV,
+                      event.occurredAt,
+                      // @effect-diagnostics-next-line preferSchemaOverJson:off
+                      JSON.stringify(event.payload),
+                    )
 
-                  return { ...event, contentHash, id, prevHash } satisfies StoredEvent
-                },
+                    if (info.changes === 0) {
+                      // Duplicate content hash — return the already-stored event (idempotent)
+                      const existing = db
+                        .prepare('SELECT * FROM events WHERE content_hash = ?')
+                        .get(contentHash) as Record<string, unknown>
+                      return rowToStoredEvent(existing)
+                    }
+
+                    return { ...event, contentHash, id, prevHash } satisfies StoredEvent
+                  },
+                })
               }),
 
             query: filter =>
@@ -102,7 +111,7 @@ export const SqliteEventStore = {
                     params.push(filter.sessionId)
                   }
                   const where = conds.length > 0 ? `WHERE ${conds.join(' AND ')}` : ''
-                  const limit = filter.limit !== undefined ? `LIMIT ${Number(filter.limit)}` : ''
+                  const limit = filter.limit === undefined ? '' : `LIMIT ${Number(filter.limit)}`
                   const rows = db
                     .prepare(`SELECT * FROM events ${where} ORDER BY rowid ${limit}`)
                     .all(...params) as Record<string, unknown>[]
@@ -118,7 +127,7 @@ export const SqliteEventStore = {
                     const anchor = db.prepare('SELECT rowid FROM events WHERE id = ?').get(fromId) as
                       | { rowid: number }
                       | undefined
-                    if (!anchor) {
+                    if (anchor === undefined) {
                       return []
                     }
                     return db

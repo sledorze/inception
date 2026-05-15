@@ -57,4 +57,4 @@ export class BudgetLedger extends Context.Service<
     // Reset the running total for the given scope back to zero.
     readonly reset: (scope: BudgetScope) => Effect.Effect<void, BudgetLedgerError>
   }
->()('@app/host/BudgetLedger') {}
+>()('@app/host/ports/driven/BudgetLedger') {}

@@ -13,8 +13,8 @@ export class UserGatewayError extends Schema.TaggedErrorClass<UserGatewayError>(
 export class UserGateway extends Context.Service<
   UserGateway,
   {
-    readonly listen: (
-      onGoal: (submission: GoalSubmission) => Effect.Effect<void>,
-    ) => Effect.Effect<void, UserGatewayError>
+    readonly listen: <R>(
+      onGoal: (submission: GoalSubmission) => Effect.Effect<void, never, R>,
+    ) => Effect.Effect<void, UserGatewayError, R>
   }
->()('@app/host/UserGateway') {}
+>()('@app/host/ports/driving/UserGateway') {}

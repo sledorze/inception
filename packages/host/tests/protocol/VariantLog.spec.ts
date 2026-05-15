@@ -5,7 +5,7 @@
  */
 import { randomUUID } from 'node:crypto'
 import { Effect, ManagedRuntime } from 'effect'
-import { afterAll, beforeAll, describe, expect, it } from 'vitest'
+import { afterAll, beforeAll, describe, expect, it } from '@effect/vitest'
 import { InMemoryVariantLog } from '../../src/adapters/driven/InMemoryVariantLog.ts'
 import { VariantLog } from '../../src/ports/driven/VariantLog.ts'
 import type { VariantEntry } from '../../src/ports/driven/VariantLog.ts'

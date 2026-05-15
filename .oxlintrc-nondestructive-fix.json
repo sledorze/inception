@@ -1,0 +1,14 @@
+{
+  "$schema": "./node_modules/oxlint/configuration_schema.json",
+  "categories": {
+    "correctness": "off",
+    "pedantic": "off",
+    "perf": "off",
+    "style": "off",
+    "suspicious": "off"
+  },
+  "ignorePatterns": ["node_modules", "dist", ".astro", "coverage", ".stryker-tmp", "vendor"],
+  "rules": {
+    "sort-keys": "error"
+  }
+}

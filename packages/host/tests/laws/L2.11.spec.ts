@@ -11,7 +11,7 @@
  * type boundary; entries missing fields are rejected by Schema.decodeUnknown.
  */
 import { Effect, Schema } from 'effect'
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it } from '@effect/vitest'
 import { VariantEntrySchema } from '../../src/ports/driven/VariantLog.ts'
 
 const validEntry = {
@@ -29,49 +29,50 @@ const validEntry = {
   workflowHash: 'ghi789',
 }
 
-const decode = (raw: unknown) => Effect.runPromise(Schema.decodeUnknownEffect(VariantEntrySchema)(raw))
+// Schema.decodeUnknownEffect is synchronous — runSync avoids a Promise in test helpers.
+const decode = (raw: unknown) => Effect.runSync(Schema.decodeUnknownEffect(VariantEntrySchema)(raw))
 
 describe('L2.11 — Variant Provenance', () => {
-  it('accepts a fully-specified valid variant entry', async () => {
-    const entry = await decode(validEntry)
+  it('accepts a fully-specified valid variant entry', () => {
+    const entry = decode(validEntry)
     expect(entry.variantId).toBe('var-1')
     expect(entry.roleVersionHash).toBe('0.1.0')
     expect(entry.promptHash).toBe('def456')
     expect(entry.modelId).toBe('test-model')
   })
 
-  it('rejects a variant missing roleVersionHash (L2.11)', async () => {
+  it('rejects a variant missing roleVersionHash (L2.11)', () => {
     const { roleVersionHash: _, ...missing } = validEntry
-    await expect(decode(missing)).rejects.toBeDefined()
+    expect(() => decode(missing)).toThrow()
   })
 
-  it('rejects a variant missing promptHash (L2.11)', async () => {
+  it('rejects a variant missing promptHash (L2.11)', () => {
     const { promptHash: _, ...missing } = validEntry
-    await expect(decode(missing)).rejects.toBeDefined()
+    expect(() => decode(missing)).toThrow()
   })
 
-  it('rejects a variant missing modelId (L2.11)', async () => {
+  it('rejects a variant missing modelId (L2.11)', () => {
     const { modelId: _, ...missing } = validEntry
-    await expect(decode(missing)).rejects.toBeDefined()
+    expect(() => decode(missing)).toThrow()
   })
 
-  it('rejects a variant missing budgetConsumed (L2.11)', async () => {
+  it('rejects a variant missing budgetConsumed (L2.11)', () => {
     const { budgetConsumed: _, ...missing } = validEntry
-    await expect(decode(missing)).rejects.toBeDefined()
+    expect(() => decode(missing)).toThrow()
   })
 
-  it('rejects a variant missing fitnessVector (L2.11)', async () => {
+  it('rejects a variant missing fitnessVector (L2.11)', () => {
     const { fitnessVector: _, ...missing } = validEntry
-    await expect(decode(missing)).rejects.toBeDefined()
+    expect(() => decode(missing)).toThrow()
   })
 
-  it('accepts a variant with optional seed omitted', async () => {
-    const entry = await decode(validEntry)
+  it('accepts a variant with optional seed omitted', () => {
+    const entry = decode(validEntry)
     expect(entry.seed).toBeUndefined()
   })
 
-  it('accepts a variant with optional seed present', async () => {
-    const entry = await decode({ ...validEntry, seed: '42' })
+  it('accepts a variant with optional seed present', () => {
+    const entry = decode({ ...validEntry, seed: '42' })
     expect(entry.seed).toBe('42')
   })
 })

@@ -1,13 +1,7 @@
 import { createHash } from 'node:crypto'
-import { execFile } from 'node:child_process'
-import { mkdtemp, writeFile } from 'node:fs/promises'
-import { tmpdir } from 'node:os'
-import { join } from 'node:path'
-import { promisify } from 'node:util'
 import { Effect, Ref } from 'effect'
 import { DataHandleError, HandleExhausted, HandleRevoked } from '../../ports/driven/DataHandle.ts'
-
-const execFileAsync = promisify(execFile)
+import { runScriptInTempDir } from '../runScriptInTempDir.ts'
 
 export interface FileBackedHandleOptions {
   readonly id: string
@@ -27,17 +21,6 @@ const DEFAULT_INFO_BIT_LIMIT = 80_000
 
 // Handle state distinguishes the close reason so callers get the right typed error.
 type HandleState = 'alive' | 'revoked' | 'exhausted'
-
-const runScriptInProcess = async (script: string, filePath: string) => {
-  const dir = await mkdtemp(join(tmpdir(), 'handle-script-'))
-  const scriptPath = join(dir, 'script.js')
-  await writeFile(scriptPath, script, 'utf8')
-  const { stdout } = await execFileAsync(process.execPath, [scriptPath], {
-    env: { ...process.env, DATA_FILE: filePath },
-    timeout: 30_000,
-  })
-  return stdout
-}
 
 export const FileBackedHandle = {
   create: (opts: FileBackedHandleOptions) =>
@@ -71,7 +54,12 @@ export const FileBackedHandle = {
             }
             const stdout = yield* Effect.tryPromise({
               catch: cause => new DataHandleError({ cause }),
-              try: () => runScriptInProcess(script, opts.filePath),
+              try: () =>
+                runScriptInTempDir({
+                  code: script,
+                  env: { ...process.env, DATA_FILE: opts.filePath },
+                  prefix: 'handle-script-',
+                }),
             })
             const bitsConsumed = estimateBits(stdout)
             const newTotal = accumulated + bitsConsumed
