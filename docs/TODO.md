@@ -118,7 +118,11 @@ Advances S6 (parked P.2) and S8 (placeholder) to _demonstrated_. Exit: determini
 
 - [done] **6.0** Capture breakdown-strategy working method into prescriptive files + feedback loop: `CLAUDE.md` Working Practices (breakdown-strategy bullet + Phase 6 entry), `.claude/patterns/breakdown-strategy.md`, `docs/META-LOOPS.md` L7, `feedback_*` auto-memory. Process commit, not feature.
 - [done] **6.1** SPEC §5: promote S6 to MVP story (Exchange = minimal turn protocol); author S8 (clarify-question); both carry assessment frames; update TODO ordering. SPEC/TODO-only commit.
-- [todo] **6.2** Spike 1a (offline): pin `generateText` request/response shape + `requestHash` seam from `vendor/effect-smol` + `OpenAiCompatLlmProvider`. Findings only; no prod code.
+- [done] **6.2** Spike 1a (offline): pin `generateText` request/response shape + `requestHash` seam from `vendor/effect-smol` + `OpenAiCompatLlmProvider`. Findings only; no prod code.
+  - Seam: `LanguageModel.LanguageModel` layer substitution in `runtime/bind.ts` (`LLM_MODE` env, mirrors `SANDBOX_SEED` precedent). `LlmProvider.spec.ts:79` `runContract(name, makeLayer)` already parametrises — RecordReplay = a third call.
+  - Hash inputs (stable): `sha256({ model, messages:[{role,content:string}], tools:sorted_schemas })`. Volatile exclusions: message IDs, `tool_call_id`, timestamps, `reasoning_content`, `correlationId`.
+  - Cassette format: one JSON per hash at `tests/fixtures/llm-cassettes/<sha256>.json`.
+  - Spike 1b (6.3, human-gated) still required for LMStudio variance + seed pinning decision → gates 6.6.
 - [blocked] **6.3** Spike 1b (human-gated, same gate as 4.3 — needs LMStudio): measure output variance; decide temp/seed pinning + replay viability. Gates 6.6.
 - [todo] **6.4** Spike 2: `sessionId` / `UserGateway`-return blast-radius map + refactor recommendation. Decision gates whether 6.8/6.9 are broken down or deferred. Map only; no prod code.
 - [todo] **6.5** (conditional on 6.4 recommendation) Strategic refactor R1 (session threading) / R2 (`submitGoal → Correlation`) — separate refactor commit(s), no behavior change. "Prepares 6.6."
