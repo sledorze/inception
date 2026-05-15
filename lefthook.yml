@@ -119,6 +119,14 @@ pre-push:
       fail_text: |
         Test file naming convention violated. Run the check locally for details:
         node --import tsx packages/host/src/checks/check-test-conventions.ts
+    # File-structure check — catches uber-files (>1 component per TSX file).
+    file-structure:
+      priority: 3
+      run: node --import tsx packages/host/src/checks/check-file-structure.ts
+      fail_text: |
+        File structure violation: multiple components in one TSX file.
+        Split into one component per file under src/components/app/
+        node --import tsx packages/host/src/checks/check-file-structure.ts
     e2e:
       priority: 4
       run: pnpm test:e2e

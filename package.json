@@ -6,6 +6,7 @@
   "scripts": {
     "bench": "vitest bench",
     "build:frontend": "cd packages/frontend && vite build",
+    "check:file-structure": "node --import tsx packages/host/src/checks/check-file-structure.ts",
     "check:test-conventions": "node --import tsx packages/host/src/checks/check-test-conventions.ts",
     "deps:check": "depcruise --validate .dependency-cruiser.cjs packages/host/src/ packages/frontend/src/",
     "dev": "tsx watch packages/host/src/main.ts",
@@ -16,8 +17,8 @@
     "postinstall": "effect-tsgo patch",
     "knip": "knip",
     "knip:ci": "knip --no-config-hints",
-    "lint": "oxlint packages/ e2e/ && node --import tsx packages/host/src/checks/check-test-conventions.ts",
-    "lint:ci": "oxlint packages/ e2e/ --quiet && node --import tsx packages/host/src/checks/check-test-conventions.ts",
+    "lint": "oxlint packages/ e2e/ && node --import tsx packages/host/src/checks/check-test-conventions.ts && node --import tsx packages/host/src/checks/check-file-structure.ts",
+    "lint:ci": "oxlint packages/ e2e/ --quiet && node --import tsx packages/host/src/checks/check-test-conventions.ts && node --import tsx packages/host/src/checks/check-file-structure.ts",
     "lint:fix": "oxlint --fix packages/ e2e/",
     "loop:health": "bash scripts/loop-health.sh",
     "prepare": "test -d .git && lefthook install || echo Skipping lefthook in CI",

@@ -35,7 +35,7 @@ const program = Effect.gen(function* () {
   const fs = yield* FileSystem.FileSystem
   const path = yield* Path.Path
 
-  const rootDir = path.resolve(import.meta.dirname ?? '.', '../../..')
+  const rootDir = path.resolve(import.meta.dirname ?? '.', '../../../..')
   const backendTests = yield* findTestFiles(path.join(rootDir, 'packages/host/src'))
   const frontendTests = yield* findTestFiles(path.join(rootDir, 'packages/frontend/src'))
   const testFiles = [...backendTests, ...frontendTests]
