@@ -6,6 +6,7 @@
  * + release cycles are handled correctly via ordering by event insertion order.
  */
 import { Effect, Schema } from 'effect'
+import { EventKind } from '../domain/events.ts'
 import { EventStore } from '../ports/driven/EventStore.ts'
 
 export class SessionQuarantinedError extends Schema.TaggedErrorClass<SessionQuarantinedError>()(
@@ -18,12 +19,14 @@ export class SessionQuarantinedError extends Schema.TaggedErrorClass<SessionQuar
 export const checkQuarantine = Effect.fn('quarantine.checkQuarantine')(function* (sessionId: string) {
   const store = yield* EventStore
   const events = yield* store.query({ sessionId })
-  const quarantineEvents = events.filter(e => e.kind === 'SessionQuarantined' || e.kind === 'QuarantineReleased')
+  const quarantineEvents = events.filter(
+    e => e.kind === EventKind.SessionQuarantined || e.kind === EventKind.QuarantineReleased,
+  )
   if (quarantineEvents.length === 0) {
     return
   }
   const last = quarantineEvents.at(-1)
-  if (last?.kind === 'SessionQuarantined') {
+  if (last?.kind === EventKind.SessionQuarantined) {
     return yield* new SessionQuarantinedError({ sessionId })
   }
 })

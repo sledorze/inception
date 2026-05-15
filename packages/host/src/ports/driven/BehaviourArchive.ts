@@ -57,27 +57,29 @@ export class BehaviourArchiveError extends Schema.TaggedErrorClass<BehaviourArch
   },
 ) {}
 
+// ─── narrow interfaces (ISP) ──────────────────────────────────────────────────
+// Callers that only read should depend on BehaviourArchiveReader; callers that
+// only write should depend on BehaviourArchiveWriter. Both are satisfied by the
+// full BehaviourArchive service so no adapter changes are required.
+
+export interface BehaviourArchiveReader {
+  readonly sample: () => Effect.Effect<ArchiveCell | null, BehaviourArchiveError>
+  readonly query: (
+    filter?: Partial<BehaviourDescriptor>,
+  ) => Effect.Effect<readonly ArchiveCell[], BehaviourArchiveError>
+  readonly size: () => Effect.Effect<number, BehaviourArchiveError>
+}
+
+export interface BehaviourArchiveWriter {
+  readonly insert: (
+    descriptor: BehaviourDescriptor,
+    entry: VariantEntry,
+  ) => Effect.Effect<boolean, BehaviourArchiveError>
+}
+
 // ─── port ─────────────────────────────────────────────────────────────────────
 
 export class BehaviourArchive extends Context.Service<
   BehaviourArchive,
-  {
-    // Insert a variant into the archive. Returns true if the cell was updated
-    // (either new cell or incumbent replaced by fitter variant).
-    readonly insert: (
-      descriptor: BehaviourDescriptor,
-      entry: VariantEntry,
-    ) => Effect.Effect<boolean, BehaviourArchiveError>
-
-    // Sample a uniformly random cell from the archive, or null if empty.
-    readonly sample: () => Effect.Effect<ArchiveCell | null, BehaviourArchiveError>
-
-    // Return all cells matching the partial descriptor filter (all if omitted).
-    readonly query: (
-      filter?: Partial<BehaviourDescriptor>,
-    ) => Effect.Effect<readonly ArchiveCell[], BehaviourArchiveError>
-
-    // Current number of occupied cells.
-    readonly size: () => Effect.Effect<number, BehaviourArchiveError>
-  }
+  BehaviourArchiveReader & BehaviourArchiveWriter
 >()('@app/host/ports/driven/BehaviourArchive') {}

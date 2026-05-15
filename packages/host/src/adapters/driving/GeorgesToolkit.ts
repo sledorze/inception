@@ -5,7 +5,7 @@
  * Laws: L1.1 (mediation), L1.3 (code-over-data), L1.5 (policy gate — deny by default),
  *       L2.1 (self-description), L2.2 (role-scoped mutability), L2.6 (single promoter per scope).
  */
-import { Data, DateTime, Effect, FileSystem, Path, Schema } from 'effect'
+import { DateTime, Effect, FileSystem, Path, Schema } from 'effect'
 import { ChildProcessSpawner } from 'effect/unstable/process/ChildProcessSpawner'
 import { Tool, Toolkit } from 'effect/unstable/ai'
 import { CapabilityRegistry } from '../../ports/driven/CapabilityRegistry.ts'
@@ -14,10 +14,13 @@ import { EventStore } from '../../ports/driven/EventStore.ts'
 import { PolicyGate } from '../../ports/driven/PolicyGate.ts'
 import { ToolRegistry } from '../../ports/driven/ToolRegistry.ts'
 import { WorkspaceMount } from '../../ports/driven/WorkspaceMount.ts'
+import { EventKind } from '../../domain/events.ts'
 import { CurrentCorrelationId } from '../../domain/tracing.ts'
 import { runScriptInTempDir } from '../runScriptInTempDir.ts'
 
-class CapabilityRunError extends Data.TaggedError('@app/host/CapabilityRunError')<{ cause: unknown }> {}
+class CapabilityRunError extends Schema.TaggedErrorClass<CapabilityRunError>()('@app/host/CapabilityRunError', {
+  cause: Schema.Defect,
+}) {}
 
 const ToolDescriptorSchema = Schema.Struct({
   description: Schema.String,
@@ -154,7 +157,7 @@ export const GeorgesToolkitLive = GeorgesToolkit.toLayer(
           .append({
             actor: 'host',
             correlationId,
-            kind: 'ToolResultObserved',
+            kind: EventKind.ToolResultObserved,
             occurredAt: DateTime.formatIso(yield* DateTime.now),
             payload: { ...payload, toolName },
             schemaV: 1,
@@ -250,13 +253,13 @@ export const GeorgesToolkitLive = GeorgesToolkit.toLayer(
           .append({
             actor: 'georges',
             correlationId,
-            kind: 'CapabilityProposed',
+            kind: EventKind.CapabilityProposed,
             occurredAt: DateTime.formatIso(yield* DateTime.now),
             payload: {
               code,
               description: manifest.description,
               name: manifest.name,
-              scope: manifest.scope,
+              scope: [manifest.scope],
               tests,
               version: manifest.version,
             },
@@ -289,7 +292,7 @@ export const GeorgesToolkitLive = GeorgesToolkit.toLayer(
           .append({
             actor: 'georges',
             correlationId,
-            kind: 'ClarifyRequested',
+            kind: EventKind.ClarifyRequested,
             occurredAt: DateTime.formatIso(yield* DateTime.now),
             payload: { question },
             schemaV: 1,

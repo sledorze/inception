@@ -11,13 +11,14 @@ import { Effect, ManagedRuntime } from 'effect'
 import { afterEach, beforeEach, describe, expect, it } from '@effect/vitest'
 import { InMemoryEventStore } from '../../src/adapters/driven/InMemoryEventStore.ts'
 import { SqliteEventStore } from '../../src/adapters/driven/SqliteEventStore.ts'
+import { EventKind } from '../../src/domain/events.ts'
 import { computeContentHash, EventStore } from '../../src/ports/driven/EventStore.ts'
 import type { NewEvent } from '../../src/ports/driven/EventStore.ts'
 
 const baseEvent = (): NewEvent => ({
   actor: 'user',
   correlationId: randomUUID(),
-  kind: 'GoalSubmitted',
+  kind: EventKind.GoalSubmitted,
   occurredAt: new Date().toISOString(),
   payload: { goal: 'test goal' },
   schemaV: 1,

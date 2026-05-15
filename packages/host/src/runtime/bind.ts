@@ -58,6 +58,7 @@ const BOOTSTRAP_TOOLS = [
   'list-tools',
   'propose-capability',
   'read-workspace',
+  'request-clarification',
   'run-script',
   'write-workspace',
 ]
@@ -102,12 +103,12 @@ export const appLayer = Layer.mergeAll(toolkitLayer, eventStoreLayer, capability
   Layer.provide(NodeServices.layer),
 )
 
-// LLM_MODE=record|replay → RecordReplayLlmProvider; otherwise → OpenAiCompatLlmProvider (default).
+// LLM_MODE=record|replay|fake → RecordReplayLlmProvider; otherwise → OpenAiCompatLlmProvider (default).
 // RecordReplayLlmProvider needs no EventStore; OpenAiCompatLlmProvider needs it for P10 shape alerts.
 const llmLayer = Layer.unwrap(
   Effect.gen(function* () {
     const mode = yield* Config.string('LLM_MODE').pipe(Config.withDefault(''))
-    if (mode === 'record' || mode === 'replay') {
+    if (mode === 'record' || mode === 'replay' || mode === 'fake') {
       return RecordReplayLlmProvider.layer({ cassetteDir: CASSETTE_DIR, mode: mode as RecordReplayMode })
     }
     return OpenAiCompatLlmProvider.layer().pipe(Layer.provide(eventStoreLayer))

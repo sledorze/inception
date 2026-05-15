@@ -8,6 +8,7 @@
 import { Config, DateTime, Effect, Layer, Option, Schema } from 'effect'
 import { OpenAiClient, OpenAiLanguageModel } from '@effect/ai-openai-compat'
 import { FetchHttpClient } from 'effect/unstable/http'
+import { EventKind } from '../../domain/events.ts'
 import { EventStore } from '../../ports/driven/EventStore.ts'
 
 const LLM_BASE_URL = Config.string('LLM_BASE_URL').pipe(Config.withDefault('http://192.168.0.15:1235/v1'))
@@ -82,7 +83,7 @@ export const OpenAiCompatLlmProvider = {
                 .append({
                   actor: 'host',
                   correlationId: 'untraced',
-                  kind: 'UnknownShapeObserved',
+                  kind: EventKind.UnknownShapeObserved,
                   occurredAt: DateTime.formatIso(yield* DateTime.now),
                   payload: { message: msg },
                   schemaV: 1,

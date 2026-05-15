@@ -9,8 +9,10 @@
  */
 import { expect, test } from '@playwright/test'
 
-// Skip until cassette is recorded (see docs/TODO.md 6.6 human-gated step).
-test.skip(process.env['LLM_MODE'] !== 'replay', 'Requires LLM_MODE=replay — record cassette first (see TODO 6.6)')
+// Runs with LLM_MODE=fake (default) or LLM_MODE=replay (cassette).
+// Skip only when neither is set (e.g. LLM_MODE=record — capturing a real cassette).
+const hasLlm = ['replay', 'fake'].includes(process.env['LLM_MODE'] ?? '')
+test.skip(!hasLlm, 'Requires LLM_MODE=fake or LLM_MODE=replay')
 
 test('conversation: send a goal and receive a non-empty reply', async ({ page }) => {
   await page.goto('/')
@@ -44,7 +46,7 @@ test('conversation: send a goal and receive a non-empty reply', async ({ page })
  * Record: LLM_MODE=record LLM_MODEL=qwopus3.6-35b-a3b-v1 pnpm e2e
  * Replay: LLM_MODE=replay pnpm e2e
  */
-test.skip(process.env['LLM_MODE'] !== 'replay', 'Requires LLM_MODE=replay — record cassette first (see TODO 6.9)')
+test.skip(!hasLlm, 'Requires LLM_MODE=fake or LLM_MODE=replay')
 
 test('conversation: Georges asks for clarification, User answers, final reply appears', async ({ page }) => {
   await page.goto('/')

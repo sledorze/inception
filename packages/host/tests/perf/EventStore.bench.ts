@@ -11,13 +11,14 @@ import { Effect, ManagedRuntime } from 'effect'
 import { bench, describe } from '@effect/vitest'
 import { InMemoryEventStore } from '../../src/adapters/driven/InMemoryEventStore.ts'
 import { SqliteEventStore } from '../../src/adapters/driven/SqliteEventStore.ts'
+import { EventKind } from '../../src/domain/events.ts'
 import { EventStore } from '../../src/ports/driven/EventStore.ts'
 import type { NewEvent } from '../../src/ports/driven/EventStore.ts'
 
 const newEvent = (sessionId: string): NewEvent => ({
   actor: 'host',
   correlationId: randomUUID(),
-  kind: 'GoalSubmitted',
+  kind: EventKind.GoalSubmitted,
   occurredAt: new Date().toISOString(),
   payload: { goal: 'benchmark' },
   schemaV: 1,

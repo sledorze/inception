@@ -11,6 +11,7 @@ import { afterEach, beforeEach, describe, expect, it } from '@effect/vitest'
 import { EventStoreObservabilityGateway } from '../../src/adapters/driving/EventStoreObservabilityGateway.ts'
 import { InMemoryEventStore } from '../../src/adapters/driven/InMemoryEventStore.ts'
 import { SqliteEventStore } from '../../src/adapters/driven/SqliteEventStore.ts'
+import { EventKind } from '../../src/domain/events.ts'
 import { EventStore } from '../../src/ports/driven/EventStore.ts'
 import type { NewEvent } from '../../src/ports/driven/EventStore.ts'
 import { ObservabilityGateway } from '../../src/ports/driving/ObservabilityGateway.ts'
@@ -19,7 +20,7 @@ import type { ObservedEvent, TraceQuery } from '../../src/ports/driving/Observab
 const baseEvent = (): NewEvent => ({
   actor: 'user',
   correlationId: randomUUID(),
-  kind: 'GoalSubmitted',
+  kind: EventKind.GoalSubmitted,
   occurredAt: new Date().toISOString(),
   payload: { goal: 'test goal' },
   schemaV: 1,

@@ -10,7 +10,17 @@
  */
 // @effect-diagnostics-next-line nodeBuiltinImport:off
 import { createServer } from 'node:http'
-import { Config, Effect, FileSystem, ManagedRuntime, Option, Random, Stream } from 'effect'
+import { Config, Effect, FileSystem, ManagedRuntime, Option, Random, Result, Schema, Stream } from 'effect'
+import {
+  ClarifyAnsweredPayload,
+  ClarifyRequestedPayload,
+  EventKind,
+  GoalCompletedPayload,
+  GoalSubmittedPayload,
+  RejectGoalBody,
+  RespondBody,
+  SubmitGoalBody,
+} from './domain/events.ts'
 import { makeSubmitGoal } from './application/submitGoal.ts'
 import { makeRespondToGoal } from './application/respondToGoal.ts'
 import { recordRejection } from './application/rejectionPattern.ts'
@@ -68,43 +78,40 @@ const server = createServer((req, res) => {
       body += chunk.toString()
     })
     req.on('end', () => {
-      let parsed: unknown
+      let rawParsed: unknown
       try {
-        parsed = JSON.parse(body) as unknown
+        rawParsed = JSON.parse(body) as unknown
       } catch {
         res.writeHead(400).end('invalid json')
         return
       }
-      if (typeof parsed !== 'object' || parsed === null || !('goal' in parsed) || !('handleId' in parsed)) {
-        res.writeHead(422).end('missing goal or handleId')
+      const bodyResult = Schema.decodeUnknownResult(SubmitGoalBody)(rawParsed)
+      if (Result.isFailure(bodyResult)) {
+        res.writeHead(422).end('missing or invalid goal/handleId')
         return
       }
-      const {
-        goal,
-        handleId,
-        sessionId: reqSessionId,
-      } = parsed as {
-        goal: string
-        handleId: string
-        sessionId?: string
-      }
+      const { goal, handleId, sessionId: reqSessionId } = bodyResult.success
       rt.runPromise(
         Effect.gen(function* () {
           const toolkit = yield* GeorgesToolkit
           const sessionId = reqSessionId ?? (yield* Random.nextUUIDv4)
           const { correlationId } = yield* makeSubmitGoal(toolkit)({ goal, handleId, sessionId })
           const store = yield* EventStore
-          const events = yield* store.query({ correlationId, sessionId })
-          const clarifyEvent = events.findLast(e => e.kind === 'ClarifyRequested')
+          // Query by correlationId only: ClarifyRequested uses sessionId='bootstrap' (toolkit context).
+          const events = yield* store.query({ correlationId })
+          const clarifyEvent = events.findLast(e => e.kind === EventKind.ClarifyRequested)
           if (clarifyEvent !== undefined) {
-            const { question } = clarifyEvent.payload as { question: string }
+            const { question } = yield* Schema.decodeUnknownEffect(ClarifyRequestedPayload)(clarifyEvent.payload).pipe(
+              Effect.orDie,
+            )
             return { clarifyQuestion: question, correlationId, sessionId }
           }
-          return {
-            correlationId,
-            sessionId,
-            ...(events.findLast(e => e.kind === 'GoalCompleted')?.payload as Record<string, unknown> | undefined),
-          }
+          const completedEvent = events.findLast(e => e.kind === EventKind.GoalCompleted)
+          const completedPayload =
+            completedEvent !== undefined ?
+              yield* Schema.decodeUnknownEffect(GoalCompletedPayload)(completedEvent.payload).pipe(Effect.orDie)
+            : undefined
+          return { correlationId, sessionId, ...completedPayload }
         }),
       )
         .then(payload => {
@@ -125,16 +132,16 @@ const server = createServer((req, res) => {
       body += chunk.toString()
     })
     req.on('end', () => {
-      let parsed: unknown
+      let rawParsed: unknown
       try {
-        parsed = JSON.parse(body) as unknown
+        rawParsed = JSON.parse(body) as unknown
       } catch {
         res.writeHead(400).end('invalid json')
         return
       }
-      const parsedObj = typeof parsed === 'object' && parsed !== null ? (parsed as Record<string, unknown>) : {}
-      const reason = typeof parsedObj['reason'] === 'string' ? parsedObj['reason'] : 'no reason given'
-      const sessionId = typeof parsedObj['sessionId'] === 'string' ? parsedObj['sessionId'] : 'bootstrap'
+      const rejectBody = Schema.decodeUnknownResult(RejectGoalBody)(rawParsed)
+      const { reason = 'no reason given', sessionId = 'bootstrap' } =
+        Result.isSuccess(rejectBody) ? rejectBody.success : {}
       rt.runPromise(
         recordRejection({
           correlationId,
@@ -195,19 +202,26 @@ const server = createServer((req, res) => {
         const clarifyAnswers = new Map<string, string>()
         const order: string[] = []
         for (const e of events) {
-          if (e.kind === 'GoalSubmitted') {
-            const p = e.payload as { goal: string }
+          if (e.kind === EventKind.GoalSubmitted) {
+            const p = yield* Schema.decodeUnknownEffect(GoalSubmittedPayload)(e.payload).pipe(Effect.orDie)
             goals.set(e.correlationId, p.goal)
             order.push(e.correlationId)
-          } else if (e.kind === 'GoalCompleted') {
-            const p = e.payload as { text: string }
-            replies.set(e.correlationId, p.text ?? '')
-          } else if (e.kind === 'ClarifyRequested') {
-            const p = e.payload as { question: string }
-            clarifyQuestions.set(e.correlationId, p.question)
-          } else if (e.kind === 'ClarifyAnswered') {
-            const p = e.payload as { answer: string }
+          } else if (e.kind === EventKind.GoalCompleted) {
+            const p = yield* Schema.decodeUnknownEffect(GoalCompletedPayload)(e.payload).pipe(Effect.orDie)
+            replies.set(e.correlationId, p.text)
+          } else if (e.kind === EventKind.ClarifyAnswered) {
+            const p = yield* Schema.decodeUnknownEffect(ClarifyAnsweredPayload)(e.payload).pipe(Effect.orDie)
             clarifyAnswers.set(e.correlationId, p.answer)
+          }
+        }
+        // ClarifyRequested is stored with sessionId='bootstrap' by the toolkit handler
+        // (sessionId not yet propagated into tool context). Supplement per-correlationId.
+        for (const cid of order) {
+          const cidEvents = yield* store.query({ correlationId: cid })
+          const ce = cidEvents.findLast(e => e.kind === EventKind.ClarifyRequested)
+          if (ce !== undefined) {
+            const p = yield* Schema.decodeUnknownEffect(ClarifyRequestedPayload)(ce.payload).pipe(Effect.orDie)
+            clarifyQuestions.set(cid, p.question)
           }
         }
         let idx = 0
@@ -252,33 +266,32 @@ const server = createServer((req, res) => {
       body += chunk.toString()
     })
     req.on('end', () => {
-      let parsed: unknown
+      let rawParsed: unknown
       try {
-        parsed = JSON.parse(body) as unknown
+        rawParsed = JSON.parse(body) as unknown
       } catch {
         res.writeHead(400).end('invalid json')
         return
       }
-      const obj = typeof parsed === 'object' && parsed !== null ? (parsed as Record<string, unknown>) : {}
-      const correlationId = typeof obj['correlationId'] === 'string' ? obj['correlationId'] : ''
-      const answer = typeof obj['answer'] === 'string' ? obj['answer'] : ''
-      if (!correlationId || !answer) {
+      const respondResult = Schema.decodeUnknownResult(RespondBody)(rawParsed)
+      if (Result.isFailure(respondResult)) {
         res.writeHead(422).end('missing correlationId or answer')
         return
       }
+      const { correlationId, answer } = respondResult.success
       rt.runPromise(
         Effect.gen(function* () {
           const toolkit = yield* GeorgesToolkit
           return yield* makeRespondToGoal(toolkit)(correlationId, answer, sessionId)
-        }).pipe(
-          Effect.catchTag('@app/host/ClarifyNotFoundError', () => Effect.fail(new Error('no pending clarification'))),
-        ),
+        }),
       )
         .then(result => {
           res.writeHead(200, { 'Content-Type': 'application/json' }).end(JSON.stringify(result))
         })
         .catch((error: unknown) => {
-          if (String(error).includes('no pending clarification')) {
+          const tag =
+            typeof error === 'object' && error !== null ? (error as Record<string, unknown>)['_tag'] : undefined
+          if (tag === '@app/host/ClarifyNotFoundError') {
             res.writeHead(404).end('no pending clarification for this correlationId')
           } else {
             res.writeHead(500).end(String(error))

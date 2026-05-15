@@ -20,6 +20,7 @@ import { expect, layer } from '@effect/vitest'
 import { InMemoryEventStore } from '../../src/adapters/driven/InMemoryEventStore.ts'
 import { InProcessSupervisor } from '../../src/adapters/driven/InProcessSupervisor.ts'
 import { checkSupervisorDivergence } from '../../src/application/supervisorDivergence.ts'
+import { EventKind } from '../../src/domain/events.ts'
 import { EventStore } from '../../src/ports/driven/EventStore.ts'
 import type { NewEvent } from '../../src/ports/driven/EventStore.ts'
 import { Supervisor } from '../../src/ports/driven/Supervisor.ts'
@@ -51,7 +52,7 @@ layer(testLayer)('L3.7 — Continuous Risk Supervision', it => {
       yield* store.append({
         actor: 'host',
         correlationId: randomUUID(),
-        kind: 'HandleExhausted',
+        kind: EventKind.HandleExhausted,
         occurredAt: new Date().toISOString(),
         payload: { bitsConsumed: 80_001, handleId: 'h1' },
         schemaV: 1,
@@ -70,7 +71,7 @@ layer(testLayer)('L3.7 — Continuous Risk Supervision', it => {
       const sessionId = randomUUID()
       const store = yield* EventStore
       const pairedId = randomUUID()
-      yield* store.append(makeEvent(sessionId, 'host', pairedId, 'ToolResultObserved'))
+      yield* store.append(makeEvent(sessionId, 'host', pairedId, EventKind.ToolResultObserved))
       yield* store.append(makeEvent(sessionId, 'georges', pairedId, 'ScriptSucceeded'))
       for (let i = 0; i < 19; i++) {
         yield* store.append(makeEvent(sessionId, 'georges', randomUUID(), 'ScriptSucceeded'))
@@ -103,7 +104,7 @@ layer(testLayer)('L3.7 — Continuous Risk Supervision', it => {
     Effect.gen(function* () {
       const sessionId = randomUUID()
       const store = yield* EventStore
-      yield* store.append(makeEvent(sessionId, 'host', randomUUID(), 'SandboxEscapeAttempt'))
+      yield* store.append(makeEvent(sessionId, 'host', randomUUID(), EventKind.SandboxEscapeAttempt))
       const supervisor = yield* Supervisor
       const results = yield* supervisor.evaluate(sessionId)
       const r5 = results.find(r => r.riskId === 'R5')
@@ -116,11 +117,11 @@ layer(testLayer)('L3.7 — Continuous Risk Supervision', it => {
     Effect.gen(function* () {
       const sessionId = randomUUID()
       const store = yield* EventStore
-      yield* store.append(makeEvent(sessionId, 'host', randomUUID(), 'SandboxEscapeAttempt'))
+      yield* store.append(makeEvent(sessionId, 'host', randomUUID(), EventKind.SandboxEscapeAttempt))
       const supervisor = yield* Supervisor
       yield* supervisor.evaluate(sessionId)
       const events = yield* store.query({ sessionId })
-      const trips = events.filter(e => e.kind === 'SupervisorTrip' && e.actor === 'supervisor')
+      const trips = events.filter(e => e.kind === EventKind.SupervisorTrip && e.actor === 'supervisor')
       expect(trips.length).toBeGreaterThan(0)
     }),
   )
@@ -149,7 +150,7 @@ layer(testLayer)('L3.7 — Continuous Risk Supervision', it => {
       )
       yield* checkSupervisorDivergence(sessionId, supervisorResults, monitorResults)
       const events = yield* store.query({ sessionId })
-      expect(events.some(e => e.kind === 'SupervisorDivergence' && e.actor === 'monitor')).toBeTruthy()
+      expect(events.some(e => e.kind === EventKind.SupervisorDivergence && e.actor === 'monitor')).toBeTruthy()
     }),
   )
 })

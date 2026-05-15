@@ -1,6 +1,7 @@
 import { DateTime, Effect, Random } from 'effect'
 import { LanguageModel } from 'effect/unstable/ai'
 import type { LanguageModel as LanguageModelNS, Tool } from 'effect/unstable/ai'
+import { EventKind } from '../domain/events.ts'
 import { CurrentCorrelationId } from '../domain/tracing.ts'
 import { EventStore } from '../ports/driven/EventStore.ts'
 import type { GoalSubmission } from '../ports/driving/UserGateway.ts'
@@ -23,7 +24,7 @@ export const makeSubmitGoal = <Tools extends Record<string, Tool.Any>>(
     yield* store.append({
       actor: 'user',
       correlationId,
-      kind: 'GoalSubmitted',
+      kind: EventKind.GoalSubmitted,
       occurredAt: DateTime.formatIso(yield* DateTime.now),
       payload: { goal: s.goal, handleId: s.handleId },
       schemaV: 1,
@@ -44,14 +45,18 @@ export const makeSubmitGoal = <Tools extends Record<string, Tool.Any>>(
       correlationId,
     )
 
-    const events = yield* store.query({ correlationId, sessionId })
-    const clarifyPending = events.some(e => e.kind === 'ClarifyRequested')
+    // Query by correlationId only: ClarifyRequested events are emitted with
+    // sessionId='bootstrap' by the toolkit handler (sessionId not yet propagated
+    // into tool context). Querying by correlationId is safe — each correlationId
+    // is unique per goal submission.
+    const events = yield* store.query({ correlationId })
+    const clarifyPending = events.some(e => e.kind === EventKind.ClarifyRequested)
 
     if (!clarifyPending) {
       yield* store.append({
         actor: 'host',
         correlationId,
-        kind: 'GoalCompleted',
+        kind: EventKind.GoalCompleted,
         occurredAt: DateTime.formatIso(yield* DateTime.now),
         payload: { text: response.text },
         schemaV: 1,
