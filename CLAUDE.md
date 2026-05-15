@@ -29,7 +29,7 @@ Plus Host-side tracing identities: **Supervisor** (in-process risk monitor) and 
 If you are picking up from a compacted summary, do this BEFORE the first action:
 
 1. Read `docs/SPEC-nav.md` (~1 min) — law IDs, SPEC line numbers, paired test paths.
-2. Check `docs/TODO.md` — active phase + lowest-numbered `[todo]`.
+2. Check `docs/TODO.md` — active phase + lowest-numbered `[todo]` or `[in-progress]`.
 3. Scan `docs/PAIN.md` — any P1 (blocks work) items relevant to the current task?
 4. Skip full SPEC §3 / §A re-read unless the current task touches a law or port directly.
 
@@ -37,7 +37,7 @@ If you are picking up from a compacted summary, do this BEFORE the first action:
 
 1. Read `docs/SPEC-nav.md` — laws quick index. Jump to the SPEC.md section it references only if the current task touches a law or port directly. (Skip full §A + §3 otherwise — same rule as "Resuming after auto-compaction".)
 2. Read `docs/TODO.md` top to bottom — current phase + items.
-3. Pick the lowest-numbered `[todo]` in the active phase.
+3. Pick the lowest-numbered `[todo]` or `[in-progress]` in the active phase.
 
 ## Per-task ritual (every cycle, per L3.9)
 

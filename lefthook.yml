@@ -111,6 +111,14 @@ pre-push:
         Build/test/typecheck failed. Check errors above.
         Recurring pattern? → docs/PAIN.md (P1/P2 + candidate fix)
         Pattern ref → .claude/patterns/
+    # Test-naming convention check (0.4 s) — catches *.test.ts vs *.unit.test.ts
+    # violations at push time rather than CI-only (detection-stage drift fix, hunt 2026-05-15).
+    conventions:
+      priority: 3
+      run: node --import tsx packages/host/src/checks/check-test-conventions.ts
+      fail_text: |
+        Test file naming convention violated. Run the check locally for details:
+        node --import tsx packages/host/src/checks/check-test-conventions.ts
     e2e:
       priority: 4
       run: pnpm test:e2e
