@@ -7,6 +7,7 @@ import { afterAll, beforeAll, describe, expect, it } from '@effect/vitest'
 const REPO_ROOT = join(import.meta.dirname, '..', '..', '..', '..')
 const OXLINT_BIN = join(REPO_ROOT, 'node_modules', '.bin', 'oxlint')
 const HOST_CONFIG = join(REPO_ROOT, 'packages', 'host', '.oxlintrc.json')
+const FRONTEND_CONFIG = join(REPO_ROOT, 'packages', 'frontend', '.oxlintrc.json')
 
 let FIXTURE_DIR: string
 
@@ -15,16 +16,17 @@ beforeAll(() => {
   mkdirSync(join(FIXTURE_DIR, 'packages', 'host', 'src', 'adapters', 'driven'), { recursive: true })
   mkdirSync(join(FIXTURE_DIR, 'packages', 'host', 'src', 'application'), { recursive: true })
   mkdirSync(join(FIXTURE_DIR, 'packages', 'host', 'tests', 'unit'), { recursive: true })
+  mkdirSync(join(FIXTURE_DIR, 'packages', 'frontend', 'src', 'components', 'ui'), { recursive: true })
 })
 
 afterAll(() => {
   rmSync(FIXTURE_DIR, { force: true, recursive: true })
 })
 
-function lint(relPath: string, src: string): { exitCode: number; stdout: string } {
+function lint(relPath: string, src: string, config: string = HOST_CONFIG): { exitCode: number; stdout: string } {
   const absPath = join(FIXTURE_DIR, relPath)
   writeFileSync(absPath, src)
-  const result = spawnSync(OXLINT_BIN, ['--config', HOST_CONFIG, relPath], {
+  const result = spawnSync(OXLINT_BIN, ['--config', config, relPath], {
     cwd: FIXTURE_DIR,
     encoding: 'utf8',
   })
@@ -354,5 +356,58 @@ describe('P20 — process.env access banned in packages/host/src/ (acceptance)',
       { encoding: 'utf8' },
     )
     expect(result.stdout.trim()).toBe('')
+  })
+})
+
+// ── design-system/no-raw-interactive-element — matrix ────────────────────────
+
+const RULE = 'no-raw-interactive-element'
+
+const designSystemCases: { desc: string; expectError: boolean; path: string; src: string }[] = [
+  {
+    desc: 'raw <button> in src/ → error',
+    expectError: true,
+    path: 'packages/frontend/src/Probe.tsx',
+    src: `export const Probe = () => <button type="button">x</button>\n`,
+  },
+  {
+    desc: 'raw <textarea> in src/ → error',
+    expectError: true,
+    path: 'packages/frontend/src/ProbeTa.tsx',
+    src: `export const ProbeTa = () => <textarea />\n`,
+  },
+  {
+    desc: 'shadcn <Button> component in src/ → allowed',
+    expectError: false,
+    path: 'packages/frontend/src/ProbeOk.tsx',
+    src: `import { Button } from '@/components/ui/button'\nexport const ProbeOk = () => <Button>x</Button>\n`,
+  },
+  {
+    desc: 'raw <button> in src/components/ui/ → allowed (shadcn wraps raw elements)',
+    expectError: false,
+    path: 'packages/frontend/src/components/ui/probe-ui.tsx',
+    src: `export const ProbeUi = () => <button type="button">x</button>\n`,
+  },
+]
+
+describe('design-system/no-raw-interactive-element — raw HTML vs shadcn/ui', () => {
+  it.each(designSystemCases)('$desc', ({ path, src, expectError }) => {
+    const { stdout } = lint(path, src, FRONTEND_CONFIG)
+    if (expectError) {
+      expect(stdout).toContain(RULE)
+    } else {
+      expect(stdout).not.toContain(RULE)
+    }
+  })
+
+  it('the diagnostic invites the shadcn component + install command', () => {
+    const { stdout } = lint(
+      'packages/frontend/src/ProbeMsg.tsx',
+      `export const ProbeMsg = () => <button type="button">x</button>\n`,
+      FRONTEND_CONFIG,
+    )
+    expect(stdout).toContain('<Button>')
+    expect(stdout).toContain('@/components/ui/button')
+    expect(stdout).toContain('npx shadcn add button')
   })
 })
