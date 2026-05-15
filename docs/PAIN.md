@@ -9,6 +9,22 @@ in the same commit as the fix. This file holds OPEN items only, severity-sorted.
 
 ---
 
+<!-- Hunt log 2026-05-15 (second pass)
+Triggers that fired: explicit /hunt invocation
+Hunt start time: 17:20
+
+Candidates:
+  1. Target: loop-health.sh — grep -c double-output arithmetic errors + [in-progress] blind spot
+     | Heuristic: #9 meta-loop + #6 stale | Output channel: scripts/loop-health.sh (fixed inline)
+  2. Target: CLAUDE.md rituals reference [todo] only — misses in-progress item 4.3
+     | Heuristic: #6 stale doc + #8 priming | Output channel: CLAUDE.md (2 lines updated)
+  3. Target: check-test-conventions.ts runs only in CI — test naming violation invisible until PR
+     | Heuristic: #1 detection-stage drift | Output channel: lefthook.yml (conventions step at pre-push)
+
+Stopped because: 3 candidates surfaced and mechanized.
+All resolved in commit 24a1c979. No open PAIN items added.
+-->
+
 <!-- Hunt log 2026-05-15
 Triggers that fired: explicit /hunt invocation
 Hunt start time: 17:10
