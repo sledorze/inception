@@ -2,7 +2,6 @@
   "$schema": "https://json.schemastore.org/tsconfig",
   "compilerOptions": {
     "allowImportingTsExtensions": true,
-    "baseUrl": ".",
     "exactOptionalPropertyTypes": true,
     "isolatedModules": true,
     "jsx": "react-jsx",
@@ -13,7 +12,7 @@
     "noEmit": true,
     "noUncheckedIndexedAccess": true,
     "paths": {
-      "@/*": ["src/*"]
+      "@/*": ["./src/*"]
     },
     "plugins": [
       {
