@@ -50,6 +50,7 @@ rt.runFork(
 const TOOL_ROUTE = /^\/api\/tools\/([^/?]+)/u
 const PROMOTE_ROUTE = /^\/api\/proposals\/([^/?]+)\/promote$/u
 const REJECT_GOAL_ROUTE = /^\/api\/goals\/([^/?]+)\/reject$/u
+const SESSION_TURNS_ROUTE = /^\/api\/sessions\/([^/?]+)\/turns$/u
 
 const server = createServer((req, res) => {
   const url = req.url ?? '/'
@@ -167,6 +168,46 @@ const server = createServer((req, res) => {
     )
       .then(version => {
         res.writeHead(200, { 'Content-Type': 'application/json' }).end(JSON.stringify({ version }))
+      })
+      .catch((error: unknown) => {
+        res.writeHead(500).end(String(error))
+      })
+    return
+  }
+
+  const sessionTurnsMatch = SESSION_TURNS_ROUTE.exec(url)
+  if (sessionTurnsMatch !== null && req.method === 'GET') {
+    const sessionId = decodeURIComponent(sessionTurnsMatch[1] ?? '')
+    rt.runPromise(
+      Effect.gen(function* () {
+        const store = yield* EventStore
+        const events = yield* store.query({ sessionId })
+        // Collect submitted goals and completed replies keyed by correlationId.
+        const goals = new Map<string, string>()
+        const replies = new Map<string, string>()
+        const order: string[] = []
+        for (const e of events) {
+          if (e.kind === 'GoalSubmitted') {
+            const p = e.payload as { goal: string }
+            goals.set(e.correlationId, p.goal)
+            order.push(e.correlationId)
+          } else if (e.kind === 'GoalCompleted') {
+            const p = e.payload as { text: string }
+            replies.set(e.correlationId, p.text ?? '')
+          }
+        }
+        return order
+          .filter(cid => replies.has(cid))
+          .map((cid, i) => ({
+            correlationId: cid,
+            goal: goals.get(cid) ?? '',
+            reply: replies.get(cid) ?? '',
+            turnIndex: i,
+          }))
+      }),
+    )
+      .then(turns => {
+        res.writeHead(200, { 'Content-Type': 'application/json' }).end(JSON.stringify(turns))
       })
       .catch((error: unknown) => {
         res.writeHead(500).end(String(error))
