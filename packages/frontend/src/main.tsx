@@ -2,6 +2,7 @@ import React, { useState } from 'react'
 import ReactDOM from 'react-dom/client'
 import './index.css'
 import { Button } from '@/components/ui/button'
+import { Card } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
 import { Textarea } from '@/components/ui/textarea'
 import { callTool } from './api/toolkit.ts'
@@ -29,7 +30,7 @@ function ListTools() {
   const [result, setResult] = useState<HandlerResult | null>(null)
 
   return (
-    <section className="rounded border p-4 space-y-2">
+    <Card className="p-4 space-y-2">
       <h2 className="font-semibold">list-tools</h2>
       <div className="flex gap-2">
         <Input
@@ -51,7 +52,7 @@ function ListTools() {
       <div data-testid="lt-result">
         <ResultBox result={result} />
       </div>
-    </section>
+    </Card>
   )
 }
 
@@ -60,7 +61,7 @@ function ReadWorkspace() {
   const [result, setResult] = useState<HandlerResult | null>(null)
 
   return (
-    <section className="rounded border p-4 space-y-2">
+    <Card className="p-4 space-y-2">
       <h2 className="font-semibold">read-workspace</h2>
       <div className="flex gap-2">
         <Input
@@ -82,7 +83,7 @@ function ReadWorkspace() {
       <div data-testid="rw-result">
         <ResultBox result={result} />
       </div>
-    </section>
+    </Card>
   )
 }
 
@@ -93,7 +94,7 @@ function WriteWorkspace() {
   const [result, setResult] = useState<HandlerResult | null>(null)
 
   return (
-    <section className="rounded border p-4 space-y-2">
+    <Card className="p-4 space-y-2">
       <h2 className="font-semibold">write-workspace</h2>
       <div className="flex gap-2">
         <Input
@@ -129,7 +130,7 @@ function WriteWorkspace() {
       <div data-testid="ww-result">
         <ResultBox result={result} />
       </div>
-    </section>
+    </Card>
   )
 }
 
@@ -159,7 +160,7 @@ function SubmitGoal() {
   }
 
   return (
-    <section className="rounded border p-4 space-y-2">
+    <Card className="p-4 space-y-2">
       <h2 className="font-semibold">Submit Goal to Georges</h2>
       <Textarea
         data-testid="sg-goal"
@@ -190,7 +191,7 @@ function SubmitGoal() {
           {submitError}
         </pre>
       )}
-    </section>
+    </Card>
   )
 }
 
@@ -216,7 +217,7 @@ function Proposals() {
   }
 
   return (
-    <section className="rounded border p-4 space-y-2">
+    <Card className="p-4 space-y-2">
       <div className="flex items-center justify-between">
         <h2 className="font-semibold">Pending Proposals</h2>
         <Button data-testid="proposals-refresh" onClick={refresh} size="sm" type="button" variant="secondary">
@@ -227,7 +228,7 @@ function Proposals() {
         <p className="text-sm text-muted-foreground">No pending proposals. Submit a goal first.</p>
       )}
       {proposals.map(p => (
-        <div className="rounded border p-3 space-y-1 text-sm" key={p.contentHash}>
+        <Card className="p-3 space-y-1 text-sm" key={p.contentHash}>
           <div>
             <span className="font-medium">Name:</span> {p.payload.name ?? '(unknown)'}
           </div>
@@ -251,10 +252,10 @@ function Proposals() {
           >
             Promote
           </Button>
-        </div>
+        </Card>
       ))}
       {msg && <p className="text-sm text-muted-foreground">{msg}</p>}
-    </section>
+    </Card>
   )
 }
 
@@ -264,7 +265,7 @@ function CallCapability() {
   const [result, setResult] = useState<HandlerResult | null>(null)
 
   return (
-    <section className="rounded border p-4 space-y-2">
+    <Card className="p-4 space-y-2">
       <h2 className="font-semibold">call-capability</h2>
       <div className="flex gap-2">
         <Input
@@ -293,7 +294,7 @@ function CallCapability() {
       <div data-testid="cc-result">
         <ResultBox result={result} />
       </div>
-    </section>
+    </Card>
   )
 }
 

@@ -503,3 +503,27 @@ describe('design-system/no-inline-style — style={{}} bypass', () => {
     expect(stdout).not.toContain(STYLE_RULE)
   })
 })
+
+// ── design-system/no-raw-interactive-element — <section> → Card ──────────────
+
+describe('design-system/no-raw-interactive-element — <section> invitation', () => {
+  it('raw <section> in src/ → error with Card invite', () => {
+    const { stdout } = lint(
+      'packages/frontend/src/ProbeSection.tsx',
+      `export const X = () => <section className="p-4"><h2>Title</h2></section>\n`,
+      FRONTEND_CONFIG,
+    )
+    expect(stdout).toContain('no-raw-interactive-element')
+    expect(stdout).toContain('<Card>')
+    expect(stdout).toContain('npx shadcn add card')
+  })
+
+  it('shadcn <Card> in src/ → allowed', () => {
+    const { stdout } = lint(
+      'packages/frontend/src/ProbeSectionOk.tsx',
+      `import { Card } from '@/components/ui/card'\nexport const X = () => <Card className="p-4"><h2>Title</h2></Card>\n`,
+      FRONTEND_CONFIG,
+    )
+    expect(stdout).not.toContain('no-raw-interactive-element')
+  })
+})

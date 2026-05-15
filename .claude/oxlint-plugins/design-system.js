@@ -20,12 +20,13 @@
 
 // ── Rule: no-raw-interactive-element ──────────────────────────────────────────
 
-// element → { component, importPath } — also the `npx shadcn add <element>` slug
+// element → { component, from, install (shadcn add slug) }
 const COMPONENT_MAP = {
-  button: { component: 'Button', from: '@/components/ui/button' },
-  input: { component: 'Input', from: '@/components/ui/input' },
-  select: { component: 'Select', from: '@/components/ui/select' },
-  textarea: { component: 'Textarea', from: '@/components/ui/textarea' },
+  button: { component: 'Button', from: '@/components/ui/button', install: 'button' },
+  input: { component: 'Input', from: '@/components/ui/input', install: 'input' },
+  section: { component: 'Card', from: '@/components/ui/card', install: 'card' },
+  select: { component: 'Select', from: '@/components/ui/select', install: 'select' },
+  textarea: { component: 'Textarea', from: '@/components/ui/textarea', install: 'textarea' },
 }
 
 /** @type {import('eslint').Rule.RuleModule} */
@@ -48,7 +49,7 @@ const noRawInteractiveElement = {
           message:
             `Raw <${tag}> bypasses the design system. ` +
             `Use <${mapping.component}> from '${mapping.from}' (shadcn/ui). ` +
-            `If it is not installed yet: npx shadcn add ${tag}. ` +
+            `If it is not installed yet: npx shadcn add ${mapping.install}. ` +
             `Rule rationale: .claude/rules/frontend.md.`,
           node,
         })
