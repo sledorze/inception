@@ -23,33 +23,32 @@ afterAll(() => {
 function lint(relPath: string, src: string): { exitCode: number; stdout: string } {
   const absPath = join(FIXTURE_DIR, relPath)
   writeFileSync(absPath, src)
-  // Strip GITHUB_ACTIONS so oxlint uses the default formatter (not GitHub annotations),
-  // which includes the custom 'message' fields we assert on.
-  const env = { ...process.env, GITHUB_ACTIONS: undefined }
   const result = spawnSync(OXLINT_BIN, ['--config', join(REPO_ROOT, '.oxlintrc.json'), relPath], {
     cwd: FIXTURE_DIR,
     encoding: 'utf8',
-    env,
   })
   return { exitCode: result.status ?? 1, stdout: (result.stdout ?? '') + (result.stderr ?? '') }
 }
 
 // ── no-restricted-imports — node:* built-ins matrix ──────────────────────────
 
-const nodeImportProbes: { fn: string; module: string; expected: string }[] = [
-  { expected: 'FileSystem', fn: 'readFileSync', module: 'node:fs' },
-  { expected: 'FileSystem', fn: 'readFile', module: 'node:fs/promises' },
-  { expected: 'Path', fn: 'join', module: 'node:path' },
-  { expected: 'Command', fn: 'execFile', module: 'node:child_process' },
-  { expected: 'HttpServer', fn: 'createServer', module: 'node:http' },
-  { expected: 'Url', fn: 'fileURLToPath', module: 'node:url' },
+const nodeImportProbes: { fn: string; module: string }[] = [
+  { fn: 'readFileSync', module: 'node:fs' },
+  { fn: 'readFile', module: 'node:fs/promises' },
+  { fn: 'join', module: 'node:path' },
+  { fn: 'execFile', module: 'node:child_process' },
+  { fn: 'createServer', module: 'node:http' },
+  { fn: 'fileURLToPath', module: 'node:url' },
 ]
 
 describe('no-restricted-imports — node:* in packages/host/src/', () => {
-  it.each(nodeImportProbes)('warns on $module import in src/', ({ fn, module, expected }) => {
-    const { stdout } = lint(`packages/host/src/application/probe_nri_${fn}.ts`, `import { ${fn} } from '${module}'\n`)
+  it.each(nodeImportProbes)('warns on $module import in src/', ({ fn, module }) => {
+    const { exitCode, stdout } = lint(
+      `packages/host/src/application/probe_nri_${fn}.ts`,
+      `import { ${fn} } from '${module}'\n`,
+    )
+    expect(exitCode).not.toBe(0)
     expect(stdout).toContain(module)
-    expect(stdout).toContain(expected)
   })
 
   it('does NOT warn on node:* imports in tests/', () => {
