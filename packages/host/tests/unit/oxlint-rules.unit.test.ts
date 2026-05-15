@@ -234,7 +234,7 @@ describe("P12 — bare 'vitest' imports in integration test files (acceptance)",
 // ── P13 — node:* built-in imports in integration tests ───────────────────────
 
 describe('P13 — node:os / node:path / node:crypto imports in integration tests (acceptance)', () => {
-  it.fails('RED: no integration test file should import from node:os, node:path, or node:crypto', () => {
+  it('no integration test file imports from node:os, node:path, or node:crypto', () => {
     const result = spawnSync(
       'grep',
       [
@@ -251,8 +251,6 @@ describe('P13 — node:os / node:path / node:crypto imports in integration tests
       ],
       { encoding: 'utf8' },
     )
-    // RED: observeBin and p7ReasoningContent tests import node:* directly.
-    // After fix (use Effect / @effect/platform equivalents): stdout is empty.
     expect(result.stdout.trim()).toBe('')
   })
 })

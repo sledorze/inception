@@ -9,8 +9,6 @@
  * The emit command (SqliteEventStore) is covered by SqliteEventStore protocol tests.
  */
 import { mkdtemp, rm, writeFile } from 'node:fs/promises'
-import { tmpdir } from 'node:os'
-import { join } from 'node:path'
 import { Effect } from 'effect'
 import { afterEach, beforeEach, describe, expect, it } from '@effect/vitest'
 import { readPublicKey, writeKeypair } from '../../src/adapters/driven/CeremonyKeyStore.ts'
@@ -27,8 +25,8 @@ let keyStoreDir: string
 let amendmentFile: string
 
 beforeEach(async () => {
-  keyStoreDir = await mkdtemp(join(tmpdir(), 'ceremony-bin-test-'))
-  amendmentFile = join(keyStoreDir, 'amendment.json')
+  keyStoreDir = await mkdtemp('/tmp/ceremony-bin-test-')
+  amendmentFile = `${keyStoreDir}/amendment.json`
 })
 
 afterEach(async () => {

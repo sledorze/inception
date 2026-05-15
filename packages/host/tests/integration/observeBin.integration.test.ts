@@ -10,9 +10,6 @@
  * stdio MCP process — the MCP transport is provided by @effect/ai and is out of
  * scope for acceptance testing here.
  */
-import { tmpdir } from 'node:os'
-import { join } from 'node:path'
-import { randomUUID } from 'node:crypto'
 import { Effect, Layer, ManagedRuntime } from 'effect'
 import { afterEach, beforeEach, describe, expect, it } from '@effect/vitest'
 import { SqliteEventStore } from '../../src/adapters/driven/SqliteEventStore.ts'
@@ -24,12 +21,12 @@ import type { ObservedEvent } from '../../src/ports/driving/ObservabilityGateway
 
 const baseEvent = (): NewEvent => ({
   actor: 'user',
-  correlationId: randomUUID(),
+  correlationId: globalThis.crypto.randomUUID(),
   kind: 'GoalSubmitted',
   occurredAt: new Date().toISOString(),
   payload: { goal: 'test', handleId: 'h1' },
   schemaV: 1,
-  sessionId: randomUUID(),
+  sessionId: globalThis.crypto.randomUUID(),
   storyRef: 'S1',
 })
 
@@ -40,12 +37,12 @@ describe('observeBin — outer MCP layer wiring (bin/observe.ts)', () => {
   let session: string
 
   beforeEach(() => {
-    const dbPath = join(tmpdir(), `observe-bin-test-${randomUUID()}.db`)
+    const dbPath = `/tmp/observe-bin-test-${globalThis.crypto.randomUUID()}.db`
     const storeLayer = SqliteEventStore.layer(dbPath)
     const gwLayer = EventStoreObservabilityGateway.layer
     const testLayer = gwLayer.pipe(Layer.provideMerge(storeLayer)) as Layer.Layer<TestServices, never, never>
     rt = ManagedRuntime.make(testLayer)
-    session = randomUUID()
+    session = globalThis.crypto.randomUUID()
   })
 
   afterEach(() => rt.dispose())

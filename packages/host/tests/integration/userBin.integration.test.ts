@@ -9,13 +9,12 @@
  */
 import { createServer } from 'node:http'
 import type { AddressInfo, Server } from 'node:net'
-import { join } from 'node:path'
 import { spawn } from 'node:child_process'
 import { afterEach, beforeEach, describe, expect, it } from '@effect/vitest'
 
-const REPO_ROOT = join(import.meta.dirname, '..', '..', '..', '..')
-const TSX = join(REPO_ROOT, 'node_modules', '.bin', 'tsx')
-const BIN = join(import.meta.dirname, '..', '..', 'bin', 'user.ts')
+const REPO_ROOT = new URL('../../../../', import.meta.url).pathname
+const TSX = `${REPO_ROOT}node_modules/.bin/tsx`
+const BIN = new URL('../../bin/user.ts', import.meta.url).pathname
 
 function runBin(port: number, args: string[]): Promise<{ exitCode: number; stdout: string; stderr: string }> {
   return new Promise(resolve => {

@@ -71,18 +71,6 @@ commit is cited. P24 is closed when all five are "error".
 
 ---
 
-## P19 — `.oxlintrc.json` overrides as a `no-restricted-imports` escape hatch (severity: annoys)
-
-**Symptom.** When a file in `packages/host/src/` needs a restricted import (e.g., `node:fs/promises`), the temptation is to add the file path to the `no-restricted-imports: "off"` override list in `.oxlintrc.json`. This defeats the purpose of the restriction: every exempted file is a gap in the Effect platform discipline.
-
-**Encountered in.** `session.ts` — attempted to add it to the `adapters/runtime/` override to suppress the `no-restricted-imports` error when importing `readFile` from `node:fs/promises`.
-
-**Acceptance test.** The `no-restricted-imports` oxlint rule itself: CI fails when `session.ts` imports from `node:fs/promises` without a proper Effect alternative.
-
-**Candidate fix.** Migrate to `FileSystem.FileSystem` from `@effect/platform` (already done for `session.ts`). Never add application-layer files to the `no-restricted-imports: "off"` override — that list is for adapters, runtime, and entry-points only.
-
----
-
 ## P21 — Frontend state management: no Atom pattern, logic in UI components (severity: annoys)
 
 **Symptom.** Frontend components (e.g., `GoalPanel`, `ProposalsPanel`) hold fetched data and async logic directly in local `useState` + `useEffect`. This violates the single-responsibility principle: UI components should be pure render functions; async orchestration and derived state should live in atoms or stores.
@@ -147,23 +135,3 @@ Proves 0 `UnknownShapeObserved` events reach `EventStore` on current code.
 `EventStore`. Requires bridging the fetch intercept (Promise territory) back to the Effect runtime
 — probably done via a shared `Queue` injected at boot, similar to how `CliUserGateway` bridges
 HTTP callbacks.
-
----
-
-## P13 — Node.js built-in imports in test files instead of Effect alternatives (severity: annoys)
-
-**Symptom.** Integration-test helpers and test files import `tmpdir` from `'node:os'`,
-`join` from `'node:path'`, and `randomUUID` from `'node:crypto'` — the three built-ins that
-have direct Effect / `@effect/platform` equivalents (`FileSystem.tempDirectory`, `Path.join`,
-`Random`). Using Node.js APIs directly in tests that already depend on the Effect runtime is
-inconsistent and blocks `TestClock`-style determinism for path/random operations.
-
-**Encountered in.** `tests/integration/observeBin.integration.test.ts`, `fakeLmstudioServer.ts`
-helper, `correlationIdPropagation.integration.test.ts`.
-
-**Acceptance test.** `packages/host/tests/unit/oxlint-rules.unit.test.ts` — "P13" describe block.
-RED: grep finds integration test files importing from `node:os`, `node:path`, or `node:crypto`.
-
-**Candidate fix.** Replace with `@effect/platform`'s `FileSystem` / `Path` services and
-Effect's `Random` module where tests already have an Effect runtime in scope. Refactor
-`fakeLmstudioServer.ts` to accept a pre-resolved path string (keeping node:path out of helpers).
