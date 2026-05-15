@@ -121,6 +121,17 @@ function runContract(name: string, factory: HarnessFactory) {
       expect(received.at(0)?.goal).toBe('summarise results')
       expect(received.at(0)?.handleId).toBe('hx')
     })
+
+    it('respond completes without error (S8 stub — CLI wiring deferred)', async () => {
+      await withHarness([], async (_harness, run) => {
+        await run(
+          Effect.gen(function* () {
+            const gw = yield* UserGateway
+            yield* gw.respond('cid-1', 'the answer', 'session-1')
+          }),
+        )
+      })
+    })
   })
 }
 

@@ -3,16 +3,27 @@ import { Button } from '@/components/ui/button'
 import { Card } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
 import { Textarea } from '@/components/ui/textarea'
-import { sendMessage } from '../../api/chat.ts'
+import { respondToGoal, sendMessage } from '../../api/chat.ts'
 import type { Turn } from '../../api/chat.ts'
+
+interface PendingClarify {
+  correlationId: string
+  question: string
+}
+
+interface TurnWithClarify extends Turn {
+  pendingAnswer?: string
+}
 
 export function Conversation() {
   const [sessionId] = useState(() => crypto.randomUUID())
   const [goal, setGoal] = useState('')
   const [handleId, setHandleId] = useState('synthetic-001')
-  const [turns, setTurns] = useState<Turn[]>([])
+  const [turns, setTurns] = useState<TurnWithClarify[]>([])
   const [busy, setBusy] = useState(false)
   const [convError, setConvError] = useState<string | null>(null)
+  const [pendingClarify, setPendingClarify] = useState<PendingClarify | null>(null)
+  const [clarifyAnswer, setClarifyAnswer] = useState('')
 
   const handleSend = () => {
     if (!goal.trim()) {
@@ -23,17 +34,64 @@ export function Conversation() {
     setConvError(null)
     sendMessage(sessionId, pendingGoal, handleId)
       .then(result => {
-        setTurns(prev => [
-          ...prev,
-          {
-            correlationId: result.correlationId,
-            goal: pendingGoal,
-            reply: result.text ?? '',
-            turnIndex: prev.length,
-          },
-        ])
+        if (result.clarifyQuestion !== undefined) {
+          const q = result.clarifyQuestion
+          setTurns(prev => [
+            ...prev,
+            {
+              clarifyQuestion: q,
+              correlationId: result.correlationId,
+              goal: pendingGoal,
+              turnIndex: prev.length,
+            },
+          ])
+          setPendingClarify({ correlationId: result.correlationId, question: q })
+        } else {
+          setTurns(prev => [
+            ...prev,
+            {
+              correlationId: result.correlationId,
+              goal: pendingGoal,
+              reply: result.text ?? '',
+              turnIndex: prev.length,
+            },
+          ])
+        }
         setGoal('')
         setBusy(false)
+      })
+      .catch((err: unknown) => {
+        setConvError(String(err))
+        setBusy(false)
+      })
+  }
+
+  const handleClarifySubmit = () => {
+    if (!pendingClarify || !clarifyAnswer.trim()) {
+      return
+    }
+    const { correlationId } = pendingClarify
+    const submittedAnswer = clarifyAnswer
+    setBusy(true)
+    setConvError(null)
+    respondToGoal(sessionId, correlationId, submittedAnswer)
+      .then(() => {
+        setTurns(prev =>
+          prev.map(t => {
+            if (t.correlationId !== correlationId) {
+              return t
+            }
+            const { pendingAnswer: _removed, ...rest } = t
+            return { ...rest, clarifyAnswer: submittedAnswer }
+          }),
+        )
+        setPendingClarify(null)
+        setClarifyAnswer('')
+        setBusy(false)
+        return fetch(`/api/sessions/${encodeURIComponent(sessionId)}/turns`).then(r => r.json() as Promise<Turn[]>)
+      })
+      .then((updatedTurns: Turn[]) => {
+        setTurns(updatedTurns.map(t => ({ ...t })))
       })
       .catch((err: unknown) => {
         setConvError(String(err))
@@ -54,32 +112,65 @@ export function Conversation() {
         {turns.map(t => (
           <div className="space-y-1" key={t.correlationId}>
             <p className="text-right text-sm font-medium text-primary">{t.goal}</p>
-            <p className="text-left text-sm" data-testid={`conv-reply-${t.turnIndex}`}>
-              {t.reply}
-            </p>
+            {t.reply !== undefined && (
+              <p className="text-left text-sm" data-testid={`conv-reply-${t.turnIndex}`}>
+                {t.reply}
+              </p>
+            )}
+            {t.clarifyQuestion !== undefined && t.reply === undefined && (
+              <p className="text-left text-sm italic text-muted-foreground" data-testid={`conv-clarify-${t.turnIndex}`}>
+                Georges asks: {t.clarifyQuestion}
+              </p>
+            )}
+            {t.clarifyAnswer !== undefined && (
+              <p className="text-right text-xs text-muted-foreground">You answered: {t.clarifyAnswer}</p>
+            )}
           </div>
         ))}
       </div>
-      <div className="flex items-start gap-2">
-        <Input
-          className="w-36 shrink-0"
-          data-testid="conv-handle"
-          onChange={e => setHandleId(e.target.value)}
-          placeholder="handleId"
-          value={handleId}
-        />
-        <Textarea
-          className="flex-1"
-          data-testid="conv-goal"
-          onChange={e => setGoal(e.target.value)}
-          placeholder="Ask Georges anything…"
-          rows={2}
-          value={goal}
-        />
-        <Button data-testid="conv-send" disabled={busy} onClick={handleSend} size="sm" type="button">
-          {busy ? 'Thinking…' : 'Send'}
-        </Button>
-      </div>
+      {pendingClarify && (
+        <div className="flex items-start gap-2" data-testid="conv-clarify-input-area">
+          <Textarea
+            className="flex-1"
+            data-testid="conv-clarify-answer"
+            onChange={e => setClarifyAnswer(e.target.value)}
+            placeholder={`Answer: ${pendingClarify.question}`}
+            rows={2}
+            value={clarifyAnswer}
+          />
+          <Button
+            data-testid="conv-clarify-submit"
+            disabled={busy}
+            onClick={handleClarifySubmit}
+            size="sm"
+            type="button"
+          >
+            {busy ? 'Thinking…' : 'Answer'}
+          </Button>
+        </div>
+      )}
+      {!pendingClarify && (
+        <div className="flex items-start gap-2">
+          <Input
+            className="w-36 shrink-0"
+            data-testid="conv-handle"
+            onChange={e => setHandleId(e.target.value)}
+            placeholder="handleId"
+            value={handleId}
+          />
+          <Textarea
+            className="flex-1"
+            data-testid="conv-goal"
+            onChange={e => setGoal(e.target.value)}
+            placeholder="Ask Georges anything…"
+            rows={2}
+            value={goal}
+          />
+          <Button data-testid="conv-send" disabled={busy} onClick={handleSend} size="sm" type="button">
+            {busy ? 'Thinking…' : 'Send'}
+          </Button>
+        </div>
+      )}
       {convError && <pre className="rounded bg-destructive/10 p-2 text-xs text-destructive">{convError}</pre>}
     </Card>
   )

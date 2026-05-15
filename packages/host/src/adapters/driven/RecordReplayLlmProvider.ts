@@ -11,13 +11,12 @@
  * timestamps, reasoning_content, correlationId.
  *
  * Used by: runtime/bind.ts (LLM_MODE=record|replay env); LlmProvider.spec.ts.
+ * FileSystem is used for cassette I/O (no node:fs import — Effect-clean).
  */
-import { Config, Effect, Layer } from 'effect'
+import { Config, Effect, FileSystem, Layer } from 'effect'
 import { OpenAiClient, OpenAiLanguageModel } from '@effect/ai-openai-compat'
 import { FetchHttpClient } from 'effect/unstable/http'
 import { createHash } from 'node:crypto'
-// @effect-diagnostics-next-line nodeBuiltinImport:off
-import { mkdirSync, readFileSync, writeFileSync } from 'node:fs'
 
 const LLM_BASE_URL = Config.string('LLM_BASE_URL').pipe(Config.withDefault('http://host.docker.internal:1235/v1'))
 const LLM_MODEL = Config.string('LLM_MODEL').pipe(Config.withDefault('local-model'))
@@ -45,10 +44,13 @@ function computeRequestHash(body: Record<string, unknown>): string {
 }
 
 // Promise chaining is intentional — FetchHttpClient.Fetch must satisfy typeof globalThis.fetch.
+// `fs` is the concrete FileSystem instance yielded from the layer build; its methods return
+// Effect<A, E, never> (no context requirement) so Effect.runPromise runs them without a full runtime.
 function makeRecordReplayFetch(
   baseFetch: typeof globalThis.fetch,
   mode: RecordReplayMode,
   cassetteDir: string,
+  fs: FileSystem.FileSystem,
 ): typeof globalThis.fetch {
   return (input, init) => {
     const rawBody = typeof init?.body === 'string' ? init.body : '{}'
@@ -57,21 +59,22 @@ function makeRecordReplayFetch(
     const cassettePath = `${cassetteDir}/${hash}.json`
 
     if (mode === 'replay') {
-      // Wrap in Promise.resolve().then() so synchronous throws reject the Promise.
-      return Promise.resolve().then(() => {
-        const stored = JSON.parse(readFileSync(cassettePath, 'utf8'))
-        return Response.json(stored, { status: 200 })
-      })
+      return Effect.runPromise(fs.readFileString(cassettePath).pipe(Effect.orDie)).then(
+        content => new Response(content, { headers: { 'Content-Type': 'application/json' }, status: 200 }),
+      )
     }
 
-    // record: force temperature=0 + seed=42 for determinism
+    // record: force temperature=0 + seed=42 for determinism; write raw response text to cassette.
     const deterministicBody = { ...body, seed: 42, temperature: 0 }
     return baseFetch(input, { ...init, body: JSON.stringify(deterministicBody) }).then(response =>
-      response.json().then((responseBody: unknown) => {
-        mkdirSync(cassetteDir, { recursive: true })
-        writeFileSync(cassettePath, JSON.stringify(responseBody, null, 2))
-        return Response.json(responseBody, { status: response.status })
-      }),
+      response.text().then(text =>
+        Effect.runPromise(
+          fs.makeDirectory(cassetteDir, { recursive: true }).pipe(
+            Effect.flatMap(() => fs.writeFileString(cassettePath, text)),
+            Effect.orDie,
+          ),
+        ).then(() => new Response(text, { headers: { 'Content-Type': 'application/json' }, status: response.status })),
+      ),
     )
   }
 }
@@ -83,7 +86,8 @@ export const RecordReplayLlmProvider = {
         const baseUrl = opts.baseUrl ?? (yield* LLM_BASE_URL)
         const model = opts.model ?? (yield* LLM_MODEL)
         const baseFetch = yield* FetchHttpClient.Fetch
-        const fetch = makeRecordReplayFetch(baseFetch, opts.mode, opts.cassetteDir)
+        const fs = yield* FileSystem.FileSystem
+        const fetch = makeRecordReplayFetch(baseFetch, opts.mode, opts.cassetteDir, fs)
         return OpenAiLanguageModel.layer({ model }).pipe(
           Layer.provide(OpenAiClient.layer({ apiUrl: baseUrl })),
           Layer.provide(FetchHttpClient.layer),

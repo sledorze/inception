@@ -98,3 +98,19 @@ tools:
         - path
         - content
       additionalProperties: false
+
+  - name: request-clarification
+    description: >
+      Ask the User a clarifying question before proceeding with a goal.
+      Use this when the goal is ambiguous and you need more information to
+      complete it correctly. The session pauses until the User answers.
+    roles: []
+    inputSchema:
+      type: object
+      properties:
+        question:
+          type: string
+          description: The specific question to ask the User.
+      required:
+        - question
+      additionalProperties: false

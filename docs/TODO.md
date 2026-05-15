@@ -136,9 +136,12 @@ Advances S6 (parked P.2) and S8 (placeholder) to _demonstrated_. Exit: determini
   - 6.8/6.9 remain parked — correct; shape of Slice 1's Conversation component must exist before breaking down Slice 2/3.
 - [done] **6.5** R1/R2 collapsed into 6.6 refactor-commits-first (small blast radius per Spike 2). No separate strategic refactor needed.
 - [in-progress] **6.6** Vertical Slice 1 (MVP kernel): all code shipped (RecordReplayLlmProvider, bind.ts LLM_MODE gate, LlmProvider.spec.ts 3rd runContract, GET /api/sessions/:sessionId/turns, api/chat.ts, Conversation.tsx, App.tsx, e2e/conversation.spec.ts RED). Remaining: **human-gated cassette capture** (`LLM_MODE=record LLM_MODEL=qwopus3.6-35b-a3b-v1 pnpm e2e` with LMStudio running → commit cassettes) then **replay lock** (`LLM_MODE=replay pnpm e2e` → green → mark done).
-- [todo] **6.7** North-star checkpoint: re-evaluate against goal condition; self-refine 6.1–6.6 or spawn follow-ups until satisfied.
-- [parked] **6.8** Vertical Slice 2 (bounded multi-turn recall) — deferred until 6.6 + 6.4 land.
-- [parked] **6.9** Slice 3 (tool-activity surface / S8 `respond(clarify)`) — deferred until Slice 1 settles.
+- [done] **6.7** North-star checkpoint (2026-05-15): exit condition = "deterministic Playwright e2e of project-scoped multi-turn conversation; S6 + S8 demonstrated."
+  - S6 kernel code-complete; e2e RED pending human-gated cassette (LMStudio required). Cassette recording unblocks the S6 demo claim.
+  - S8 (`respond(clarify)`, `ClarifyRequested/ClarifyAnswered`, `UserGateway.respond`) not started — unparking 6.9. Conversation component now exists (6.6 prerequisite met), so 6.9 can proceed in parallel with cassette recording.
+  - Phase 6 is not yet "done" (no live demo). Self-refine: unpark 6.9 as next slice; 6.6 demo claimed once cassette committed + `LLM_MODE=replay pnpm e2e` passes.
+- [parked] **6.8** Vertical Slice 2 (bounded multi-turn recall, L3.5 last-N) — deferred until 6.9 + cassette land.
+- [in-progress] **6.9** Slice 3 — S8 `respond(clarify)`: all code shipped (`request-clarification` tool, `ClarifyRequested`/`ClarifyAnswered` events, `respondToGoal.ts` application service, `UserGateway.respond` stub, POST /sessions/:id/respond, Conversation.tsx inline clarify flow, e2e RED). Remaining: **human-gated cassette capture** (`LLM_MODE=record LLM_MODEL=qwopus3.6-35b-a3b-v1 pnpm e2e` with LMStudio + vague goal → commit cassette) then **replay lock** (`LLM_MODE=replay pnpm e2e` → green → mark done).
 
 ---
 

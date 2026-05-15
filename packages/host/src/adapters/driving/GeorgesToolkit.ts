@@ -104,12 +104,21 @@ export const RunScriptTool = Tool.make('run-script', {
   }),
 })
 
+export const RequestClarificationTool = Tool.make('request-clarification', {
+  description: 'Asks the User a clarifying question before proceeding. Use when the goal is ambiguous.',
+  failure: WorkspaceFailureSchema,
+  failureMode: 'return',
+  parameters: Schema.Struct({ question: Schema.String }),
+  success: Schema.Struct({ status: Schema.Literal('pending') }),
+})
+
 export const GeorgesToolkit = Toolkit.make(
   CallCapabilityTool,
   FetchHandleShapeTool,
   ListToolsTool,
   ProposeCapabilityTool,
   ReadWorkspaceTool,
+  RequestClarificationTool,
   RunScriptTool,
   WriteWorkspaceTool,
 )
@@ -267,6 +276,29 @@ export const GeorgesToolkitLive = GeorgesToolkit.toLayer(
           .pipe(Effect.mapError(e => ({ message: `read failed: ${e.path} — ${String(e.cause)}` })))
         yield* emitCorroborator('read-workspace', { path: wsPath })
         return { content }
+      }),
+
+      'request-clarification': Effect.fn('GeorgesToolkit.requestClarification')(function* ({
+        question,
+      }: {
+        question: string
+      }) {
+        yield* checkPolicy('request-clarification')
+        const correlationId = yield* CurrentCorrelationId
+        yield* store
+          .append({
+            actor: 'georges',
+            correlationId,
+            kind: 'ClarifyRequested',
+            occurredAt: DateTime.formatIso(yield* DateTime.now),
+            payload: { question },
+            schemaV: 1,
+            sessionId: 'bootstrap',
+            storyRef: 'S8',
+          })
+          .pipe(Effect.orDie)
+        yield* emitCorroborator('request-clarification', { question })
+        return { status: 'pending' as const }
       }),
 
       'run-script': Effect.fn('GeorgesToolkit.runScript')(function* ({

@@ -88,6 +88,7 @@ export const CliUserGateway = {
           Effect.succeed(
             UserGateway.of({
               listen: onGoal => makeListenEffect(resolvedPort, onGoal),
+              respond: (_correlationId, _text, _sessionId) => Effect.void,
             }),
           ),
         )

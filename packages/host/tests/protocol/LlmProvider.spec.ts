@@ -15,6 +15,7 @@ import { Effect, Layer } from 'effect'
 import { LanguageModel } from 'effect/unstable/ai'
 import { OpenAiClient, OpenAiLanguageModel } from '@effect/ai-openai-compat'
 import { FetchHttpClient } from 'effect/unstable/http'
+import { layer as NodeFileSystemLayer } from '@effect/platform-node/NodeFileSystem'
 import { afterAll, beforeAll, describe, expect, it } from '@effect/vitest'
 import { RecordReplayLlmProvider } from '../../src/adapters/driven/RecordReplayLlmProvider.ts'
 
@@ -145,5 +146,5 @@ runContract('RecordReplayLlmProvider (record mode)', () =>
     cassetteDir: cassetteTmpDir,
     mode: 'record',
     model: STUB_MODEL,
-  }).pipe(Layer.provide(FetchHttpClient.layer)),
+  }).pipe(Layer.provide(FetchHttpClient.layer), Layer.provide(NodeFileSystemLayer)),
 )

@@ -17,5 +17,6 @@ export class UserGateway extends Context.Service<
     readonly listen: <R>(
       onGoal: (submission: GoalSubmission) => Effect.Effect<void, never, R>,
     ) => Effect.Effect<void, UserGatewayError, R>
+    readonly respond: (correlationId: string, text: string, sessionId: string) => Effect.Effect<void, UserGatewayError>
   }
 >()('@app/host/ports/driving/UserGateway') {}

@@ -12,6 +12,7 @@
 import { createServer } from 'node:http'
 import { Config, Effect, FileSystem, ManagedRuntime, Option, Random, Stream } from 'effect'
 import { makeSubmitGoal } from './application/submitGoal.ts'
+import { ClarifyNotFoundError, makeRespondToGoal } from './application/respondToGoal.ts'
 import { recordRejection } from './application/rejectionPattern.ts'
 import { registerCapability } from './application/registerCapability.ts'
 import { listPendingProposals, promoteProposal } from './application/reviewProposals.ts'
@@ -51,6 +52,7 @@ const TOOL_ROUTE = /^\/api\/tools\/([^/?]+)/u
 const PROMOTE_ROUTE = /^\/api\/proposals\/([^/?]+)\/promote$/u
 const REJECT_GOAL_ROUTE = /^\/api\/goals\/([^/?]+)\/reject$/u
 const SESSION_TURNS_ROUTE = /^\/api\/sessions\/([^/?]+)\/turns$/u
+const SESSION_RESPOND_ROUTE = /^\/api\/sessions\/([^/?]+)\/respond$/u
 
 const server = createServer((req, res) => {
   const url = req.url ?? '/'
@@ -93,6 +95,11 @@ const server = createServer((req, res) => {
           const { correlationId } = yield* makeSubmitGoal(toolkit)({ goal, handleId, sessionId })
           const store = yield* EventStore
           const events = yield* store.query({ correlationId, sessionId })
+          const clarifyEvent = events.findLast(e => e.kind === 'ClarifyRequested')
+          if (clarifyEvent !== undefined) {
+            const { question } = clarifyEvent.payload as { question: string }
+            return { clarifyQuestion: question, correlationId, sessionId }
+          }
           return {
             correlationId,
             sessionId,
@@ -182,9 +189,10 @@ const server = createServer((req, res) => {
       Effect.gen(function* () {
         const store = yield* EventStore
         const events = yield* store.query({ sessionId })
-        // Collect submitted goals and completed replies keyed by correlationId.
         const goals = new Map<string, string>()
         const replies = new Map<string, string>()
+        const clarifyQuestions = new Map<string, string>()
+        const clarifyAnswers = new Map<string, string>()
         const order: string[] = []
         for (const e of events) {
           if (e.kind === 'GoalSubmitted') {
@@ -194,16 +202,37 @@ const server = createServer((req, res) => {
           } else if (e.kind === 'GoalCompleted') {
             const p = e.payload as { text: string }
             replies.set(e.correlationId, p.text ?? '')
+          } else if (e.kind === 'ClarifyRequested') {
+            const p = e.payload as { question: string }
+            clarifyQuestions.set(e.correlationId, p.question)
+          } else if (e.kind === 'ClarifyAnswered') {
+            const p = e.payload as { answer: string }
+            clarifyAnswers.set(e.correlationId, p.answer)
           }
         }
+        let idx = 0
         return order
-          .filter(cid => replies.has(cid))
-          .map((cid, i) => ({
-            correlationId: cid,
-            goal: goals.get(cid) ?? '',
-            reply: replies.get(cid) ?? '',
-            turnIndex: i,
-          }))
+          .filter(cid => replies.has(cid) || clarifyQuestions.has(cid))
+          .map(cid => {
+            const turn: Record<string, unknown> = {
+              correlationId: cid,
+              goal: goals.get(cid) ?? '',
+              turnIndex: idx++,
+            }
+            const reply = replies.get(cid)
+            const clarifyQuestion = clarifyQuestions.get(cid)
+            const clarifyAnswer = clarifyAnswers.get(cid)
+            if (reply !== undefined) {
+              turn['reply'] = reply
+            }
+            if (clarifyQuestion !== undefined) {
+              turn['clarifyQuestion'] = clarifyQuestion
+            }
+            if (clarifyAnswer !== undefined) {
+              turn['clarifyAnswer'] = clarifyAnswer
+            }
+            return turn
+          })
       }),
     )
       .then(turns => {
@@ -212,6 +241,50 @@ const server = createServer((req, res) => {
       .catch((error: unknown) => {
         res.writeHead(500).end(String(error))
       })
+    return
+  }
+
+  const sessionRespondMatch = SESSION_RESPOND_ROUTE.exec(url)
+  if (sessionRespondMatch !== null && req.method === 'POST') {
+    const sessionId = decodeURIComponent(sessionRespondMatch[1] ?? '')
+    let body = ''
+    req.on('data', (chunk: Buffer) => {
+      body += chunk.toString()
+    })
+    req.on('end', () => {
+      let parsed: unknown
+      try {
+        parsed = JSON.parse(body) as unknown
+      } catch {
+        res.writeHead(400).end('invalid json')
+        return
+      }
+      const obj = typeof parsed === 'object' && parsed !== null ? (parsed as Record<string, unknown>) : {}
+      const correlationId = typeof obj['correlationId'] === 'string' ? obj['correlationId'] : ''
+      const answer = typeof obj['answer'] === 'string' ? obj['answer'] : ''
+      if (!correlationId || !answer) {
+        res.writeHead(422).end('missing correlationId or answer')
+        return
+      }
+      rt.runPromise(
+        Effect.gen(function* () {
+          const toolkit = yield* GeorgesToolkit
+          return yield* makeRespondToGoal(toolkit)(correlationId, answer, sessionId)
+        }).pipe(
+          Effect.catchTag('@app/host/ClarifyNotFoundError', () => Effect.fail(new Error('no pending clarification'))),
+        ),
+      )
+        .then(result => {
+          res.writeHead(200, { 'Content-Type': 'application/json' }).end(JSON.stringify(result))
+        })
+        .catch((error: unknown) => {
+          if (String(error).includes('no pending clarification')) {
+            res.writeHead(404).end('no pending clarification for this correlationId')
+          } else {
+            res.writeHead(500).end(String(error))
+          }
+        })
+    })
     return
   }
 

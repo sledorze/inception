@@ -14,6 +14,7 @@ export const InMemoryUserGateway = {
                 yield* onGoal(goal)
               }
             }),
+          respond: (_correlationId, _text, _sessionId) => Effect.void,
         }),
       ),
     ),

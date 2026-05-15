@@ -44,16 +44,21 @@ export const makeSubmitGoal = <Tools extends Record<string, Tool.Any>>(
       correlationId,
     )
 
-    yield* store.append({
-      actor: 'host',
-      correlationId,
-      kind: 'GoalCompleted',
-      occurredAt: DateTime.formatIso(yield* DateTime.now),
-      payload: { text: response.text },
-      schemaV: 1,
-      sessionId,
-      storyRef: 'S1',
-    })
+    const events = yield* store.query({ correlationId, sessionId })
+    const clarifyPending = events.some(e => e.kind === 'ClarifyRequested')
+
+    if (!clarifyPending) {
+      yield* store.append({
+        actor: 'host',
+        correlationId,
+        kind: 'GoalCompleted',
+        occurredAt: DateTime.formatIso(yield* DateTime.now),
+        payload: { text: response.text },
+        schemaV: 1,
+        sessionId,
+        storyRef: 'S1',
+      })
+    }
 
     return { correlationId, sessionId }
   })
