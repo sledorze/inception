@@ -5,12 +5,16 @@
     {
       "files": ["**/src/**/*.tsx"],
       "rules": {
+        "design-system/no-inline-style": "error",
+        "design-system/no-raw-color-utility": "error",
         "design-system/no-raw-interactive-element": "error"
       }
     },
     {
       "files": ["**/src/components/ui/**/*.tsx"],
       "rules": {
+        "design-system/no-inline-style": "off",
+        "design-system/no-raw-color-utility": "off",
         "design-system/no-raw-interactive-element": "off"
       }
     }

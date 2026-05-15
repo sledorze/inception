@@ -17,7 +17,7 @@ function ResultBox({ result }: { result: HandlerResult | null }) {
   }
   return (
     <pre
-      className={`mt-2 rounded p-3 text-sm whitespace-pre-wrap break-all ${result.isFailure ? 'bg-red-50 text-red-800' : 'bg-green-50 text-green-800'}`}
+      className={`mt-2 rounded p-3 text-sm whitespace-pre-wrap break-all ${result.isFailure ? 'bg-destructive/10 text-destructive' : 'bg-success/10 text-success'}`}
     >
       {JSON.stringify(result.result, null, 2)}
     </pre>
@@ -181,12 +181,12 @@ function SubmitGoal() {
         </Button>
       </div>
       {result && (
-        <pre className="mt-2 rounded bg-green-50 p-3 text-sm whitespace-pre-wrap break-all text-green-800">
+        <pre className="mt-2 rounded bg-success/10 p-3 text-sm whitespace-pre-wrap break-all text-success">
           {typeof result.text === 'string' ? result.text : JSON.stringify(result, null, 2)}
         </pre>
       )}
       {submitError && (
-        <pre className="mt-2 rounded bg-red-50 p-3 text-sm whitespace-pre-wrap break-all text-red-800">
+        <pre className="mt-2 rounded bg-destructive/10 p-3 text-sm whitespace-pre-wrap break-all text-destructive">
           {submitError}
         </pre>
       )}
@@ -223,7 +223,9 @@ function Proposals() {
           Refresh
         </Button>
       </div>
-      {proposals.length === 0 && <p className="text-sm text-gray-500">No pending proposals. Submit a goal first.</p>}
+      {proposals.length === 0 && (
+        <p className="text-sm text-muted-foreground">No pending proposals. Submit a goal first.</p>
+      )}
       {proposals.map(p => (
         <div className="rounded border p-3 space-y-1 text-sm" key={p.contentHash}>
           <div>
@@ -251,7 +253,7 @@ function Proposals() {
           </Button>
         </div>
       ))}
-      {msg && <p className="text-sm text-indigo-700">{msg}</p>}
+      {msg && <p className="text-sm text-muted-foreground">{msg}</p>}
     </section>
   )
 }
