@@ -112,6 +112,23 @@ These items make Phase 1's traces _honest_ and _bounded_: per-handle info budget
 
 ---
 
+## Phase 6 — Conversational MVP (S6 + S8)
+
+Advances S6 (parked P.2) and S8 (placeholder) to _demonstrated_. Exit: deterministic Playwright e2e of project-scoped multi-turn conversation; S6 + S8 demonstrated.
+
+- [done] **6.0** Capture breakdown-strategy working method into prescriptive files + feedback loop: `CLAUDE.md` Working Practices (breakdown-strategy bullet + Phase 6 entry), `.claude/patterns/breakdown-strategy.md`, `docs/META-LOOPS.md` L7, `feedback_*` auto-memory. Process commit, not feature.
+- [todo] **6.1** SPEC §5: promote S6 to MVP story (Exchange = minimal turn protocol); author S8 (clarify-question); both carry assessment frames; update TODO ordering. SPEC/TODO-only commit.
+- [todo] **6.2** Spike 1a (offline): pin `generateText` request/response shape + `requestHash` seam from `vendor/effect-smol` + `OpenAiCompatLlmProvider`. Findings only; no prod code.
+- [blocked] **6.3** Spike 1b (human-gated, same gate as 4.3 — needs LMStudio): measure output variance; decide temp/seed pinning + replay viability. Gates 6.6.
+- [todo] **6.4** Spike 2: `sessionId` / `UserGateway`-return blast-radius map + refactor recommendation. Decision gates whether 6.8/6.9 are broken down or deferred. Map only; no prod code.
+- [todo] **6.5** (conditional on 6.4 recommendation) Strategic refactor R1 (session threading) / R2 (`submitGoal → Correlation`) — separate refactor commit(s), no behavior change. "Prepares 6.6."
+- [todo] **6.6** Vertical Slice 1 (MVP kernel): RecordReplay adapter + bind + parametrised protocol/integration tests; `submitGoal` returns `correlationId`; `main.ts` race fix + real `sessionId`; `chat.ts` + `Conversation.tsx` + shadcn; RED→GREEN `e2e/conversation.spec.ts`; human-gated cassette capture + replay lock.
+- [todo] **6.7** North-star checkpoint: re-evaluate against goal condition; self-refine 6.1–6.6 or spawn follow-ups until satisfied.
+- [parked] **6.8** Vertical Slice 2 (bounded multi-turn recall) — deferred until 6.6 + 6.4 land.
+- [parked] **6.9** Slice 3 (tool-activity surface / S8 `respond(clarify)`) — deferred until Slice 1 settles.
+
+---
+
 ## Parked / later
 
 - [parked] **P.1** S5 hard code-over-data wall implementation (waits on a clear sensitive-data fixture).

@@ -72,6 +72,7 @@ Implement. Pair every Law you touch with a test in `packages/host/tests/laws/<la
 - **Phase 3** — End-to-end S1 demo.
 - **Phase 4** — Capability proposals (S2).
 - **Phase 5** — Outer observability + substrate refinement.
+- **Phase 6** — Conversational MVP (S6 + S8): project-scoped multi-turn chat with Georges, TDD-e2e via LLM record-replay.
 
 **Do not ship Phase 1 without Phase 1.5.** Phase 1 alone is _aspirational safety_; AL.5 (Trust by absence) forbids shipping safety claims without enforcement.
 
@@ -175,6 +176,7 @@ Do **not** rely on web search or your training-data knowledge of Effect v3 APIs 
 - **Consolidate before you commit.** After implementing a feature, scan the diff for duplicated structure. If the same layer composition, error tag string, or import block appears in two or more files, extract it before the commit lands. One extra minute of consolidation prevents one hour of divergence debugging.
 - **Strategic refactors.** Only valid as preparation for an upcoming slice; state what it prepares; never merge refactors and new behaviour in the same commit.
 - **Spikes for unknowns.** Time-boxed; produce findings + recommendation; no production code.
+- **Breakdown strategy (`.claude/patterns/breakdown-strategy.md`).** Slice into _vertical_ slices; secure each with a spike before breaking it down; map blast radius before any refactor commit (large radius → named strategic refactor committed first → defer downstream breakdown). Persist the numbered breakdown to `docs/TODO.md` so `/goal` can unroll and self-refine to the north star. When a planning method proves itself, capture it immediately: CLAUDE.md Working Practices + `.claude/patterns/` + `docs/META-LOOPS.md` (same _process_ commit, separate from feature).
 - **Witness the automation.** Run `pnpm test`, `pnpm typecheck`, `pnpm lint` locally before pushing.
 - **Never lower coverage thresholds** (L2.4 ratchet; bootstrap-loosening exception only for `bootstrap=true` calibrations on first L3.8 promotion).
 - **Minimize dependency fan-out.** Hubs (>10 importers) need to be split by domain boundary or kept stable.
@@ -220,14 +222,15 @@ Mutation report runs nightly (`mutation-report.yml`), not on PRs.
 
 Annotated code patterns for the codebase's recurring constructs. Check here **before** writing code that touches hex boundaries, test structure, or layer wiring — violations are caught at commit time by lefthook and cost a cycle to fix.
 
-| File                        | When to read                                                                                    |
-| --------------------------- | ----------------------------------------------------------------------------------------------- |
-| `dep-boundary.md`           | Importing anything across `domain/`, `application/`, `ports/`, `adapters/`, `runtime/`          |
-| `application-vs-domain.md`  | Deciding where a new function or module lives                                                   |
-| `composition-root.md`       | Adding an adapter or changing the Layer wiring                                                  |
-| `effect-test-pattern.md`    | Writing or modifying any test under `packages/host/tests/`                                      |
-| `cycle-hunt.md`             | End of slice/phase, or when friction repeats — proactive scan for cycle-time + token-cost waste |
-| `frontend-design-system.md` | Adding a new design-system oxlint rule or migrating a violation in `packages/frontend/`         |
+| File                        | When to read                                                                                               |
+| --------------------------- | ---------------------------------------------------------------------------------------------------------- |
+| `dep-boundary.md`           | Importing anything across `domain/`, `application/`, `ports/`, `adapters/`, `runtime/`                     |
+| `application-vs-domain.md`  | Deciding where a new function or module lives                                                              |
+| `composition-root.md`       | Adding an adapter or changing the Layer wiring                                                             |
+| `effect-test-pattern.md`    | Writing or modifying any test under `packages/host/tests/`                                                 |
+| `cycle-hunt.md`             | End of slice/phase, or when friction repeats — proactive scan for cycle-time + token-cost waste            |
+| `frontend-design-system.md` | Adding a new design-system oxlint rule or migrating a violation in `packages/frontend/`                    |
+| `breakdown-strategy.md`     | Planning a multi-slice task — when to spike, how to map blast radius, when to trigger a strategic refactor |
 
 ## When in doubt
 
@@ -241,7 +244,7 @@ Annotated code patterns for the codebase's recurring constructs. Check here **be
 - "What code pattern should I follow here?" → `.claude/patterns/` (hex boundaries, test structure, composition root).
 - "Is there waste I'm not seeing?" → `.claude/patterns/cycle-hunt.md`
 - "Where do Georges' behavioral instructions live?" → `packages/host/src/bootstrap/agent.md` (never in `.claude/`)
-- "Are the self-improving loops healthy?" → `docs/META-LOOPS.md` (metrics + degradation signals for L1–L6)
+- "Are the self-improving loops healthy?" → `docs/META-LOOPS.md` (metrics + degradation signals for L1–L7)
 
 ## Feedback
 
