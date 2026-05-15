@@ -23,9 +23,13 @@ afterAll(() => {
 function lint(relPath: string, src: string): { exitCode: number; stdout: string } {
   const absPath = join(FIXTURE_DIR, relPath)
   writeFileSync(absPath, src)
+  // Strip GITHUB_ACTIONS so oxlint uses the default formatter (not GitHub annotations),
+  // which includes the custom 'message' fields we assert on.
+  const env = { ...process.env, GITHUB_ACTIONS: undefined }
   const result = spawnSync(OXLINT_BIN, ['--config', join(REPO_ROOT, '.oxlintrc.json'), relPath], {
     cwd: FIXTURE_DIR,
     encoding: 'utf8',
+    env,
   })
   return { exitCode: result.status ?? 1, stdout: (result.stdout ?? '') + (result.stderr ?? '') }
 }
