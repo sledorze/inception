@@ -12,6 +12,7 @@
 import { createServer } from 'node:http'
 import { Config, Effect, FileSystem, ManagedRuntime, Option, Stream } from 'effect'
 import { makeSubmitGoal } from './application/submitGoal.ts'
+import { recordRejection } from './application/rejectionPattern.ts'
 import { registerCapability } from './application/registerCapability.ts'
 import { listPendingProposals, promoteProposal } from './application/reviewProposals.ts'
 import { EventStore } from './ports/driven/EventStore.ts'
@@ -48,6 +49,7 @@ rt.runFork(
 
 const TOOL_ROUTE = /^\/api\/tools\/([^/?]+)/u
 const PROMOTE_ROUTE = /^\/api\/proposals\/([^/?]+)\/promote$/u
+const REJECT_GOAL_ROUTE = /^\/api\/goals\/([^/?]+)\/reject$/u
 
 const server = createServer((req, res) => {
   const url = req.url ?? '/'
@@ -86,6 +88,43 @@ const server = createServer((req, res) => {
       )
         .then(payload => {
           res.writeHead(200, { 'Content-Type': 'application/json' }).end(JSON.stringify(payload))
+        })
+        .catch((error: unknown) => {
+          res.writeHead(500).end(String(error))
+        })
+    })
+    return
+  }
+
+  const rejectMatch = REJECT_GOAL_ROUTE.exec(url)
+  if (rejectMatch !== null && req.method === 'POST') {
+    const correlationId = decodeURIComponent(rejectMatch[1] ?? '')
+    let body = ''
+    req.on('data', (chunk: Buffer) => {
+      body += chunk.toString()
+    })
+    req.on('end', () => {
+      let parsed: unknown
+      try {
+        parsed = JSON.parse(body) as unknown
+      } catch {
+        res.writeHead(400).end('invalid json')
+        return
+      }
+      const reason =
+        typeof parsed === 'object' && parsed !== null && 'reason' in parsed && typeof parsed.reason === 'string' ?
+          parsed.reason
+        : 'no reason given'
+      rt.runPromise(
+        recordRejection({
+          correlationId,
+          reason,
+          sessionId: 'bootstrap',
+          storyRef: 'S3',
+        }),
+      )
+        .then(() => {
+          res.writeHead(204).end()
         })
         .catch((error: unknown) => {
           res.writeHead(500).end(String(error))
