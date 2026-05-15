@@ -350,3 +350,7 @@ twice in the default (bootstrap) correlation context. After the P8 `correlationI
 **Fix.** Changed `INSERT INTO` → `INSERT OR IGNORE INTO` in `SqliteEventStore.ts`. If no row is
 inserted (duplicate), query and return the already-stored event. Applied same idempotency to
 `InMemoryEventStore`. `append` is now a true idempotent upsert.
+
+## P26 — `bin/ceremony.ts` and `bin/user.ts` have no integration tests
+
+FIXED 2026-05-15 in 34b865a3 — test: packages/host/tests/integration/ceremonyBin.integration.test.ts (setup + sign + verify pipeline via CeremonyKeyStore + domain; 4 tests), packages/host/tests/integration/userBin.integration.test.ts (HTTP client wiring via async spawn + in-process stub; 3 tests). Note: spawnSync blocks the event loop — HTTP stub requires async spawn.

@@ -9,38 +9,6 @@ in the same commit as the fix. This file holds OPEN items only, severity-sorted.
 
 ---
 
-## P26 — `bin/ceremony.ts` and `bin/user.ts` have no integration tests (severity: annoys)
-
-**Symptom.** CLAUDE.md mandates "Every new `bin/<name>.ts` entry-point script →
-`tests/integration/<name>Bin.integration.test.ts`". Four bin scripts exist:
-
-| Script            | Integration test                    |
-| ----------------- | ----------------------------------- |
-| `bin/observe.ts`  | `observeBin.integration.test.ts` ✅ |
-| `bin/review.ts`   | `reviewBin.integration.test.ts` ✅  |
-| `bin/ceremony.ts` | missing ❌                          |
-| `bin/user.ts`     | missing ❌                          |
-
-`ceremony.ts` runs the External Witness key-generation + signing flow (L0.5). `user.ts` is the
-thin HTTP client that submits goals to the UserGateway. Both have observable side-effects
-worth guarding.
-
-**Encountered in.** Hunt scan against CLAUDE.md bin mandate (2026-05-15).
-
-**Acceptance test.** The tests themselves — once they exist and are green, P26 is closed.
-
-**Candidate fix.**
-
-- `ceremonyBin.integration.test.ts`: spawn `bin/ceremony.ts setup` against a temp keystore dir;
-  assert the expected `.pem` files are created. Spawn `bin/ceremony.ts sign` and assert a valid
-  hex signature is written. Use `Effect.runPromise` + `spawnSync` (bin scripts are Node entry
-  points, not Effect layers).
-- `userBin.integration.test.ts`: start an in-process HTTP stub listening on a random port; spawn
-  `bin/user.ts <goal> <handleId>` with `USER_GATEWAY_PORT` set; assert the stub received a POST
-  with the correct body.
-
----
-
 ## P25 — Root `.oxlintrc.json` uses path-glob overrides instead of per-package nested configs (severity: annoys)
 
 **Symptom.** All package-specific lint rules live in the root `.oxlintrc.json` behind `files` globs
