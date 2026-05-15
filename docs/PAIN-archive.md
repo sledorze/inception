@@ -5,6 +5,18 @@ Convention: fix → move (cut from PAIN.md, paste here in the same commit as the
 
 ---
 
+## P25 — Root `.oxlintrc.json` uses path-glob overrides instead of per-package nested configs (severity: annoys)
+
+**Symptom.** All package-specific lint rules live in the root `.oxlintrc.json` behind `files` globs
+like `**/packages/host/src/**/*.ts`. Adding a new package or extending rules to `monitor` or
+`frontend` means editing the root file and widening globs — the coupling grows linearly.
+
+**Acceptance test.** `packages/host/tests/unit/oxlint-rules.unit.test.ts` — P23 section: host override count is exactly 4; root override count is exactly 1.
+
+**FIXED 2026-05-15 — test: `packages/host/tests/unit/oxlint-rules.unit.test.ts` (P23 describe block, 5 tests, now checks host config). Created `packages/host/.oxlintrc.json` with the 4 host-specific override blocks (using `**/src/**/\*.ts`globs, compatible with both nested-config traversal and explicit`--config`in tests). Root config reduced to 1 universal override.`oxlint-rules.unit.test.ts`switched to`HOST_CONFIG`.**
+
+---
+
 ## P19 — `.oxlintrc.json` overrides as a `no-restricted-imports` escape hatch (severity: annoys)
 
 **Symptom.** When a file in `packages/host/src/` needs a restricted import (e.g., `node:fs/promises`), the temptation is to add the file path to the `no-restricted-imports: "off"` override list in `.oxlintrc.json`. This defeats the purpose of the restriction: every exempted file is a gap in the Effect platform discipline.

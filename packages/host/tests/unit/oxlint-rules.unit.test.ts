@@ -6,6 +6,7 @@ import { afterAll, beforeAll, describe, expect, it } from '@effect/vitest'
 
 const REPO_ROOT = join(import.meta.dirname, '..', '..', '..', '..')
 const OXLINT_BIN = join(REPO_ROOT, 'node_modules', '.bin', 'oxlint')
+const HOST_CONFIG = join(REPO_ROOT, 'packages', 'host', '.oxlintrc.json')
 
 let FIXTURE_DIR: string
 
@@ -23,7 +24,7 @@ afterAll(() => {
 function lint(relPath: string, src: string): { exitCode: number; stdout: string } {
   const absPath = join(FIXTURE_DIR, relPath)
   writeFileSync(absPath, src)
-  const result = spawnSync(OXLINT_BIN, ['--config', join(REPO_ROOT, '.oxlintrc.json'), relPath], {
+  const result = spawnSync(OXLINT_BIN, ['--config', HOST_CONFIG, relPath], {
     cwd: FIXTURE_DIR,
     encoding: 'utf8',
   })
@@ -258,23 +259,31 @@ describe('P13 — node:os / node:path / node:crypto imports in integration tests
 // ── P23 — no-restricted-imports "off" override is a closed allow-list ─────────
 
 const ALLOWED_OFF_PATHS = [
-  '**/packages/host/src/adapters/**/*.ts',
-  '**/packages/host/src/checks/**/*.ts',
-  '**/packages/host/src/runtime/**/*.ts',
-  '**/packages/host/src/main.ts',
+  '**/src/adapters/**/*.ts',
+  '**/src/checks/**/*.ts',
+  '**/src/runtime/**/*.ts',
+  '**/src/main.ts',
 ] as const
 
 describe('P23 — oxlint overrides are a closed list (acceptance)', () => {
-  it('override count is exactly 5 — any new block must update this test', () => {
+  it('root config override count is exactly 1 — any new block must update this test', () => {
     const raw = readFileSync(join(REPO_ROOT, '.oxlintrc.json'), 'utf8')
     const config = JSON.parse(raw) as {
       overrides: { files: string[]; rules: Record<string, unknown> }[]
     }
-    expect(config.overrides.length).toBe(5)
+    expect(config.overrides.length).toBe(1)
+  })
+
+  it('host config override count is exactly 4 — any new block must update this test', () => {
+    const raw = readFileSync(HOST_CONFIG, 'utf8')
+    const config = JSON.parse(raw) as {
+      overrides: { files: string[]; rules: Record<string, unknown> }[]
+    }
+    expect(config.overrides.length).toBe(4)
   })
 
   it('the no-restricted-imports "off" override allow-list contains exactly the sanctioned paths', () => {
-    const raw = readFileSync(join(REPO_ROOT, '.oxlintrc.json'), 'utf8')
+    const raw = readFileSync(HOST_CONFIG, 'utf8')
     const config = JSON.parse(raw) as {
       overrides: { files: string[]; rules: Record<string, unknown> }[]
     }
@@ -283,52 +292,47 @@ describe('P23 — oxlint overrides are a closed list (acceptance)', () => {
     expect([...(offOverrides[0]?.files ?? [])].toSorted()).toEqual([...ALLOWED_OFF_PATHS].toSorted())
   })
 
-  it('every override block has exactly the expected rule names and severities — no silent "off" can be added', () => {
-    const raw = readFileSync(join(REPO_ROOT, '.oxlintrc.json'), 'utf8')
+  it('every host override block has exactly the expected rule names and severities — no silent "off" can be added', () => {
+    const raw = readFileSync(HOST_CONFIG, 'utf8')
     const config = JSON.parse(raw) as {
       overrides: { files: string[]; rules: Record<string, unknown> }[]
     }
     const { overrides } = config
     const sev = (v: unknown): string => (Array.isArray(v) ? String(v[0]) : String(v))
 
-    // Block 0: test/spec/config/host files — only node import relaxation
+    // Block 0: **/src/**/*.ts — effect-patterns + no-restricted-imports enforced
     const b0 = overrides[0]?.rules ?? {}
-    expect(Object.keys(b0).toSorted()).toEqual(['import/no-nodejs-modules'])
-    expect(sev(b0['import/no-nodejs-modules'])).toBe('off')
-
-    // Block 1: src/**/*.ts — effect-patterns + no-restricted-imports enforced
-    const b1 = overrides[1]?.rules ?? {}
-    expect(Object.keys(b1).toSorted()).toEqual([
+    expect(Object.keys(b0).toSorted()).toEqual([
       'effect-patterns/no-date-clock',
       'effect-patterns/no-inline-correlation-id',
       'no-restricted-imports',
     ])
-    expect(sev(b1['effect-patterns/no-date-clock'])).toBe('error')
-    expect(sev(b1['effect-patterns/no-inline-correlation-id'])).toBe('error')
-    expect(sev(b1['no-restricted-imports'])).toBe('error')
+    expect(sev(b0['effect-patterns/no-date-clock'])).toBe('error')
+    expect(sev(b0['effect-patterns/no-inline-correlation-id'])).toBe('error')
+    expect(sev(b0['no-restricted-imports'])).toBe('error')
 
-    // Block 2: adapters/checks/runtime/main — no-restricted-imports off (sanctioned escape hatch, files locked above)
+    // Block 1: adapters/checks/runtime/main — no-restricted-imports off (sanctioned escape hatch, files locked above)
+    const b1 = overrides[1]?.rules ?? {}
+    expect(Object.keys(b1).toSorted()).toEqual(['no-restricted-imports'])
+    expect(sev(b1['no-restricted-imports'])).toBe('off')
+
+    // Block 2: **/tests/**/*.ts — Effect test-discipline rules enforced
     const b2 = overrides[2]?.rules ?? {}
-    expect(Object.keys(b2).toSorted()).toEqual(['no-restricted-imports'])
-    expect(sev(b2['no-restricted-imports'])).toBe('off')
-
-    // Block 3: tests/**/*.ts — Effect test-discipline rules enforced
-    const b3 = overrides[3]?.rules ?? {}
-    expect(Object.keys(b3).toSorted()).toEqual([
+    expect(Object.keys(b2).toSorted()).toEqual([
       'effect-patterns/no-effect-gen-without-vitest',
       'effect-patterns/no-runpromise-in-tests',
     ])
-    expect(sev(b3['effect-patterns/no-effect-gen-without-vitest'])).toBe('error')
-    expect(sev(b3['effect-patterns/no-runpromise-in-tests'])).toBe('error')
+    expect(sev(b2['effect-patterns/no-effect-gen-without-vitest'])).toBe('error')
+    expect(sev(b2['effect-patterns/no-runpromise-in-tests'])).toBe('error')
 
-    // Block 4: tests/helpers/**/*.ts — one rule relaxed for helper authors writing Effect-native helpers
-    const b4 = overrides[4]?.rules ?? {}
-    expect(Object.keys(b4).toSorted()).toEqual(['effect-patterns/no-effect-gen-without-vitest'])
-    expect(sev(b4['effect-patterns/no-effect-gen-without-vitest'])).toBe('off')
+    // Block 3: **/tests/helpers/**/*.ts — one rule relaxed for helper authors writing Effect-native helpers
+    const b3 = overrides[3]?.rules ?? {}
+    expect(Object.keys(b3).toSorted()).toEqual(['effect-patterns/no-effect-gen-without-vitest'])
+    expect(sev(b3['effect-patterns/no-effect-gen-without-vitest'])).toBe('off')
   })
 
-  it('the effect-gen "off" override applies only to tests/helpers/**', () => {
-    const raw = readFileSync(join(REPO_ROOT, '.oxlintrc.json'), 'utf8')
+  it('the effect-gen "off" override applies only to **/tests/helpers/**', () => {
+    const raw = readFileSync(HOST_CONFIG, 'utf8')
     const config = JSON.parse(raw) as {
       overrides: { files: string[]; rules: Record<string, unknown> }[]
     }
@@ -336,7 +340,7 @@ describe('P23 — oxlint overrides are a closed list (acceptance)', () => {
       o => o.rules['effect-patterns/no-effect-gen-without-vitest'] === 'off',
     )
     expect(helperOverrides.length).toBe(1)
-    expect([...(helperOverrides[0]?.files ?? [])].toSorted()).toEqual(['**/packages/host/tests/helpers/**/*.ts'])
+    expect([...(helperOverrides[0]?.files ?? [])].toSorted()).toEqual(['**/tests/helpers/**/*.ts'])
   })
 })
 
