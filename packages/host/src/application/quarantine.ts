@@ -19,9 +19,11 @@ export const checkQuarantine = Effect.fn('quarantine.checkQuarantine')(function*
   const store = yield* EventStore
   const events = yield* store.query({ sessionId })
   const quarantineEvents = events.filter(e => e.kind === 'SessionQuarantined' || e.kind === 'QuarantineReleased')
-  if (quarantineEvents.length === 0) return
+  if (quarantineEvents.length === 0) {
+    return
+  }
   const last = quarantineEvents.at(-1)
   if (last?.kind === 'SessionQuarantined') {
-    yield* Effect.fail(new SessionQuarantinedError({ sessionId }))
+    return yield* new SessionQuarantinedError({ sessionId })
   }
 })
