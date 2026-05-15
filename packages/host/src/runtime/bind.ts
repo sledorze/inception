@@ -9,6 +9,8 @@ import { InMemoryDataHandleRegistry } from '../adapters/driven/InMemoryDataHandl
 import { InMemoryPolicyGate } from '../adapters/driven/InMemoryPolicyGate.ts'
 import { InMemoryWorkspaceMount } from '../adapters/driven/InMemoryWorkspaceMount.ts'
 import { OpenAiCompatLlmProvider } from '../adapters/driven/OpenAiCompatLlmProvider.ts'
+import { RecordReplayLlmProvider } from '../adapters/driven/RecordReplayLlmProvider.ts'
+import type { RecordReplayMode } from '../adapters/driven/RecordReplayLlmProvider.ts'
 import { SqliteEventStore } from '../adapters/driven/SqliteEventStore.ts'
 import { CliUserGateway } from '../adapters/driving/CliUserGateway.ts'
 import { GeorgesToolkit, GeorgesToolkitLive } from '../adapters/driving/GeorgesToolkit.ts'
@@ -16,6 +18,7 @@ import { GeorgesToolkit, GeorgesToolkitLive } from '../adapters/driving/GeorgesT
 export { GeorgesToolkit }
 
 // URL-based path resolution avoids node:path imports (P24).
+const CASSETTE_DIR = new URL('../../tests/fixtures/llm-cassettes', import.meta.url).pathname
 const TOOLS_YAML = new URL('../bootstrap/tools.yaml', import.meta.url).pathname
 const AGENT_MD_PATH = new URL('../bootstrap/agent.md', import.meta.url).pathname
 const FIXTURE_PATH = new URL('../bootstrap/fixtures/synthetic-001.csv', import.meta.url).pathname
@@ -99,15 +102,25 @@ export const appLayer = Layer.mergeAll(toolkitLayer, eventStoreLayer, capability
   Layer.provide(NodeServices.layer),
 )
 
+// LLM_MODE=record|replay → RecordReplayLlmProvider; otherwise → OpenAiCompatLlmProvider (default).
+// RecordReplayLlmProvider needs no EventStore; OpenAiCompatLlmProvider needs it for P10 shape alerts.
+const llmLayer = Layer.unwrap(
+  Effect.gen(function* () {
+    const mode = yield* Config.string('LLM_MODE').pipe(Config.withDefault(''))
+    if (mode === 'record' || mode === 'replay') {
+      return RecordReplayLlmProvider.layer({ cassetteDir: CASSETTE_DIR, mode: mode as RecordReplayMode })
+    }
+    return OpenAiCompatLlmProvider.layer().pipe(Layer.provide(eventStoreLayer))
+  }),
+)
+
 // Full runtime layer: toolkit + LLM + User gateway (used by main.ts)
 // ConfigProvider.layer is provided last so all sub-layers can read env config.
-// OpenAiCompatLlmProvider requires EventStore for UnknownShapeObserved events (P10).
 // Layer.provideMerge(NodeServices) here satisfies FileSystem needs from eventStoreLayer
 // and exposes FileSystem so main.ts can use it in rt.runPromise.
-export const fullLayer = Layer.mergeAll(
-  appLayer,
-  OpenAiCompatLlmProvider.layer().pipe(Layer.provide(eventStoreLayer)),
-  CliUserGateway.layer(),
-).pipe(Layer.provideMerge(NodeServices.layer), Layer.provide(ConfigProvider.layer(ConfigProvider.fromEnv())))
+export const fullLayer = Layer.mergeAll(appLayer, llmLayer, CliUserGateway.layer()).pipe(
+  Layer.provideMerge(NodeServices.layer),
+  Layer.provide(ConfigProvider.layer(ConfigProvider.fromEnv())),
+)
 
 export type AppServices = Layer.Success<typeof appLayer>
