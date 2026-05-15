@@ -63,7 +63,7 @@ layer(TestLayer)(
       Effect.gen(function* () {
         const toolkit = yield* GeorgesToolkit
         const gw = yield* UserGateway
-        yield* gw.listen(submission => makeSubmitGoal(toolkit)(submission).pipe(Effect.orDie))
+        yield* gw.listen(submission => makeSubmitGoal(toolkit)(submission).pipe(Effect.asVoid, Effect.orDie))
 
         const store = yield* EventStore
         const events = yield* store.query({})

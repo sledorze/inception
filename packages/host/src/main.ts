@@ -10,7 +10,7 @@
  */
 // @effect-diagnostics-next-line nodeBuiltinImport:off
 import { createServer } from 'node:http'
-import { Config, Effect, FileSystem, ManagedRuntime, Option, Stream } from 'effect'
+import { Config, Effect, FileSystem, ManagedRuntime, Option, Random, Stream } from 'effect'
 import { makeSubmitGoal } from './application/submitGoal.ts'
 import { recordRejection } from './application/rejectionPattern.ts'
 import { registerCapability } from './application/registerCapability.ts'
@@ -43,7 +43,7 @@ rt.runFork(
   Effect.gen(function* () {
     const gw = yield* UserGateway
     const toolkit = yield* GeorgesToolkit
-    yield* gw.listen(submission => makeSubmitGoal(toolkit)(submission).pipe(Effect.orDie))
+    yield* gw.listen(submission => makeSubmitGoal(toolkit)(submission).pipe(Effect.asVoid, Effect.orDie))
   }),
 )
 
@@ -76,14 +76,27 @@ const server = createServer((req, res) => {
         res.writeHead(422).end('missing goal or handleId')
         return
       }
-      const { goal, handleId } = parsed as { goal: string; handleId: string }
+      const {
+        goal,
+        handleId,
+        sessionId: reqSessionId,
+      } = parsed as {
+        goal: string
+        handleId: string
+        sessionId?: string
+      }
       rt.runPromise(
         Effect.gen(function* () {
           const toolkit = yield* GeorgesToolkit
-          yield* makeSubmitGoal(toolkit)({ goal, handleId })
+          const sessionId = reqSessionId ?? (yield* Random.nextUUIDv4)
+          const { correlationId } = yield* makeSubmitGoal(toolkit)({ goal, handleId, sessionId })
           const store = yield* EventStore
-          const events = yield* store.query({})
-          return events.findLast(e => e.kind === 'GoalCompleted')?.payload ?? {}
+          const events = yield* store.query({ correlationId, sessionId })
+          return {
+            correlationId,
+            sessionId,
+            ...(events.findLast(e => e.kind === 'GoalCompleted')?.payload as Record<string, unknown> | undefined),
+          }
         }),
       )
         .then(payload => {
@@ -111,15 +124,14 @@ const server = createServer((req, res) => {
         res.writeHead(400).end('invalid json')
         return
       }
-      const reason =
-        typeof parsed === 'object' && parsed !== null && 'reason' in parsed && typeof parsed.reason === 'string' ?
-          parsed.reason
-        : 'no reason given'
+      const parsedObj = typeof parsed === 'object' && parsed !== null ? (parsed as Record<string, unknown>) : {}
+      const reason = typeof parsedObj['reason'] === 'string' ? parsedObj['reason'] : 'no reason given'
+      const sessionId = typeof parsedObj['sessionId'] === 'string' ? parsedObj['sessionId'] : 'bootstrap'
       rt.runPromise(
         recordRejection({
           correlationId,
           reason,
-          sessionId: 'bootstrap',
+          sessionId,
           storyRef: 'S3',
         }),
       )

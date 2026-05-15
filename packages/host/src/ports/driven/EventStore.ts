@@ -25,6 +25,7 @@ export type NewEvent = Omit<StoredEvent, 'id' | 'contentHash' | 'prevHash'>
 export interface EventStoreQuery {
   readonly storyRef?: string
   readonly sessionId?: string
+  readonly correlationId?: string
   readonly limit?: number
 }
 

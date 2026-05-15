@@ -54,4 +54,6 @@ export const makeSubmitGoal = <Tools extends Record<string, Tool.Any>>(
       sessionId,
       storyRef: 'S1',
     })
+
+    return { correlationId, sessionId }
   })

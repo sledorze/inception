@@ -110,6 +110,10 @@ export const SqliteEventStore = {
                     conds.push('session_id = ?')
                     params.push(filter.sessionId)
                   }
+                  if (filter.correlationId !== undefined) {
+                    conds.push('correlation_id = ?')
+                    params.push(filter.correlationId)
+                  }
                   const where = conds.length > 0 ? `WHERE ${conds.join(' AND ')}` : ''
                   const limit = filter.limit === undefined ? '' : `LIMIT ${Number(filter.limit)}`
                   const rows = db

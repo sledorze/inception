@@ -35,6 +35,9 @@ export const InMemoryEventStore = {
             if (filter.sessionId !== undefined) {
               result = result.filter(e => e.sessionId === filter.sessionId)
             }
+            if (filter.correlationId !== undefined) {
+              result = result.filter(e => e.correlationId === filter.correlationId)
+            }
             if (filter.limit !== undefined) {
               result = result.slice(0, filter.limit)
             }

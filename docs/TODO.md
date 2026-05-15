@@ -123,7 +123,7 @@ Advances S6 (parked P.2) and S8 (placeholder) to _demonstrated_. Exit: determini
   - Hash inputs (stable): `sha256({ model, messages:[{role,content:string}], tools:sorted_schemas })`. Volatile exclusions: message IDs, `tool_call_id`, timestamps, `reasoning_content`, `correlationId`.
   - Cassette format: one JSON per hash at `tests/fixtures/llm-cassettes/<sha256>.json`.
   - Spike 1b (6.3, human-gated) still required for LMStudio variance + seed pinning decision → gates 6.6.
-- [done] **6.3** Spike 1b (LMStudio at host.docker.internal:1235, model: qwen3.5-9b-deepseek-v4-flash): measure output variance; decide temp/seed pinning + replay viability. Gates 6.6.
+- [done] **6.3** Spike 1b (LMStudio at host.docker.internal:1235, model: **qwopus3.6-35b-a3b-v1** — Georges' model per user): measure output variance; decide temp/seed pinning + replay viability. Gates 6.6.
   - Default temperature: HIGH variance — 3 different phrasings across 3 identical runs. Not cassette-safe.
   - temperature=0 + seed=42: DETERMINISTIC — identical content + identical reasoning_len=1246 across all 3 runs.
   - Decision: record with temperature=0 + seed=42; cassette captures post-reasoning content (reasoning_content is excluded — volatile at default temp, and not semantically meaningful to replay). requestHash is over the INPUT only (model + messages + tool schemas); temperature/seed are recording-time params, not part of the hash.
