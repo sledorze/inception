@@ -104,7 +104,7 @@ These items make Phase 1's traces _honest_ and _bounded_: per-handle info budget
 
 ## Phase 5 — Outer observability & substrate refinement
 
-- [todo] **5.1** Trace query/replay tool with `storyRef` filtering.
+- [done] **5.1** Trace query/replay tool with `storyRef` filtering.
 - [todo] **5.2** First prompt/policy refinement driven by an observed pattern (closes S3 loop).
 - [todo] **5.3** Quarantine/kill-switch ergonomics (Q8).
 

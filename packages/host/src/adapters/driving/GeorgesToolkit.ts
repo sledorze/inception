@@ -16,7 +16,6 @@ import { ToolRegistry } from '../../ports/driven/ToolRegistry.ts'
 import { WorkspaceMount } from '../../ports/driven/WorkspaceMount.ts'
 import { CurrentCorrelationId } from '../../domain/tracing.ts'
 import { runScriptInTempDir } from '../runScriptInTempDir.ts'
-import type { RunScriptError } from '../runScriptInTempDir.ts'
 
 class CapabilityRunError extends Data.TaggedError('@app/host/CapabilityRunError')<{ cause: unknown }> {}
 
