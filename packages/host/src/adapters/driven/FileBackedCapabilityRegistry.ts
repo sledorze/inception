@@ -1,5 +1,5 @@
 import { Effect, FileSystem, Layer, Schema } from 'effect'
-import { NodeFileSystem } from '@effect/platform-node'
+import * as NodeFileSystem from '@effect/platform-node/NodeFileSystem'
 import type { CapabilityEntry } from '../../ports/driven/CapabilityRegistry.ts'
 import { CapabilityRegistryError, CapabilityRegistry } from '../../ports/driven/CapabilityRegistry.ts'
 

@@ -24,7 +24,7 @@
  *   before fetch lets Node.js compute it exactly once from the body.
  */
 import { OpenAiClient, OpenAiLanguageModel } from '@effect/ai-openai-compat'
-import { NodeHttpServer } from '@effect/platform-node'
+import * as NodeHttpServer from '@effect/platform-node/NodeHttpServer'
 import { Context, Effect, Layer, Ref } from 'effect'
 import {
   FetchHttpClient,

@@ -14,7 +14,7 @@
  * guaranteed to be listening before OpenAiClient.layer is built.
  */
 import { Effect, Layer } from 'effect'
-import { NodeFileSystem } from '@effect/platform-node'
+import * as NodeFileSystem from '@effect/platform-node/NodeFileSystem'
 import { expect, layer } from '@effect/vitest'
 import { InMemoryUserGateway } from '../../src/adapters/driving/InMemoryUserGateway.ts'
 import { GeorgesToolkit } from '../../src/adapters/driving/GeorgesToolkit.ts'

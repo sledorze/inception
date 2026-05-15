@@ -66,7 +66,18 @@
       "files": ["**/tests/**/*.ts"],
       "rules": {
         "effect-patterns/no-effect-gen-without-vitest": "error",
-        "effect-patterns/no-runpromise-in-tests": "error"
+        "effect-patterns/no-runpromise-in-tests": "error",
+        "no-restricted-imports": [
+          "error",
+          {
+            "paths": [
+              {
+                "message": "Use subpath imports (e.g. '@effect/platform-node/NodeFileSystem'). The barrel import transitively runs Effect.runSync at module-load time, corrupting the @effect/vitest test scheduler.",
+                "name": "@effect/platform-node"
+              }
+            ]
+          }
+        ]
       }
     },
     {

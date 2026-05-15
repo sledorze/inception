@@ -10,7 +10,8 @@
  */
 import { mkdtemp, rm, writeFile } from 'node:fs/promises'
 import { Effect, Layer } from 'effect'
-import { NodeFileSystem, NodePath } from '@effect/platform-node'
+import * as NodeFileSystem from '@effect/platform-node/NodeFileSystem'
+import * as NodePath from '@effect/platform-node/NodePath'
 import { afterEach, beforeEach, describe, expect, it } from '@effect/vitest'
 import { readPublicKey, writeKeypair } from '../../src/adapters/driven/CeremonyKeyStore.ts'
 import {

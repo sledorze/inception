@@ -11,7 +11,8 @@
  */
 import { createHash } from 'node:crypto'
 import { Effect, FileSystem, Layer, Path } from 'effect'
-import { NodeFileSystem, NodePath } from '@effect/platform-node'
+import * as NodeFileSystem from '@effect/platform-node/NodeFileSystem'
+import * as NodePath from '@effect/platform-node/NodePath'
 import { ContentStoreError, ContentStore } from '../../ports/driven/ContentStore.ts'
 import type { ContentHash } from '../../ports/driven/ContentStore.ts'
 

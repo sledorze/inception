@@ -1,6 +1,7 @@
 /** @effect-diagnostics strictEffectProvide:off */
 import { Effect, FileSystem, Layer, Path } from 'effect'
-import { NodeFileSystem, NodePath } from '@effect/platform-node'
+import * as NodeFileSystem from '@effect/platform-node/NodeFileSystem'
+import * as NodePath from '@effect/platform-node/NodePath'
 
 // Matches top-level React component definitions by PascalCase function name.
 // Covers: function Foo(, export function Foo(, export default function Foo(

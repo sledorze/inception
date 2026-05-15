@@ -318,14 +318,16 @@ describe('P23 — oxlint overrides are a closed list (acceptance)', () => {
     expect(Object.keys(b1).toSorted()).toEqual(['no-restricted-imports'])
     expect(sev(b1['no-restricted-imports'])).toBe('off')
 
-    // Block 2: **/tests/**/*.ts — Effect test-discipline rules enforced
+    // Block 2: **/tests/**/*.ts — Effect test-discipline rules + barrel import ban enforced
     const b2 = overrides[2]?.rules ?? {}
     expect(Object.keys(b2).toSorted()).toEqual([
       'effect-patterns/no-effect-gen-without-vitest',
       'effect-patterns/no-runpromise-in-tests',
+      'no-restricted-imports',
     ])
     expect(sev(b2['effect-patterns/no-effect-gen-without-vitest'])).toBe('error')
     expect(sev(b2['effect-patterns/no-runpromise-in-tests'])).toBe('error')
+    expect(sev(b2['no-restricted-imports'])).toBe('error')
 
     // Block 3: **/tests/helpers/**/*.ts — one rule relaxed for helper authors writing Effect-native helpers
     const b3 = overrides[3]?.rules ?? {}

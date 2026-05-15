@@ -5,7 +5,7 @@
  */
 import { fileURLToPath } from 'node:url'
 import { Effect, Layer, ManagedRuntime } from 'effect'
-import { NodeFileSystem } from '@effect/platform-node'
+import * as NodeFileSystem from '@effect/platform-node/NodeFileSystem'
 import { afterAll, beforeAll, describe, expect, it } from '@effect/vitest'
 import { InMemoryToolRegistry } from '../../src/adapters/driven/InMemoryToolRegistry.ts'
 import type { ToolEntry } from '../../src/adapters/driven/InMemoryToolRegistry.ts'

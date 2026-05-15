@@ -1,6 +1,6 @@
 import { Effect, Layer, Schema } from 'effect'
 import { McpServer, Tool, Toolkit } from 'effect/unstable/ai'
-import { NodeStdio } from '@effect/platform-node'
+import * as NodeStdio from '@effect/platform-node/NodeStdio'
 import { ObservabilityGateway } from '../../ports/driving/ObservabilityGateway.ts'
 
 const ListEventsTool = Tool.make('list-events', {

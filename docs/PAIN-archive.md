@@ -5,6 +5,16 @@ Convention: fix → move (cut from PAIN.md, paste here in the same commit as the
 
 ---
 
+## P2 — `@effect/platform-node` full import silently corrupts `@effect/vitest` HTTP tests
+
+**Severity:** slows (one full session to diagnose)
+**Symptom:** All tests in a file that uses `@effect/vitest` HTTP (e.g., `FetchHttpClient`) fail with `TransportError: A network error occurred` — including tests whose adapter under test doesn't use Node FS at all. No other error message; looks like a networking issue.
+**Root cause:** `import ... from '@effect/platform-node'` (full barrel) transitively imports `@effect/cluster/MessageStorage`, which runs `Effect.runSync(make({...}))` at module-load time (`noop` export, line ~258). This executes a fiber synchronously during Vitest's module initialisation phase, leaving a stale entry in `~effect/Fiber/currentFiber` that corrupts the `@effect/vitest` test scheduler for all subsequent HTTP effects in the same process.
+**Fix:** Added `no-restricted-imports` rule for `@effect/platform-node` to the `**/tests/**/*.ts` override in `packages/host/.oxlintrc.json`. Converted all 13 affected files (test files + helpers + source adapters) to subpath imports (`import * as NodeFileSystem from '@effect/platform-node/NodeFileSystem'` etc.). Pattern documented in `.claude/rules/host-package.md`.
+FIXED 2026-05-15 in pending commit — test: `packages/host/tests/unit/oxlint-rules.unit.test.ts` (block-2 assertion now includes `no-restricted-imports`)
+
+---
+
 ## P24 — Four tsgo diagnostics remain `"off"` pending adapter-to-platform migration (severity: annoys)
 
 **Symptom.** The following `@effect/language-service` diagnostics were disabled in
