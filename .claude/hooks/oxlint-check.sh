@@ -54,4 +54,11 @@ fi
 "$oxlint" --fix --config "$repo_root/.oxlintrc-nondestructive-fix.json" "$file_path" >/dev/null 2>&1 || true
 
 # 2. Full lint — exits 1 on errors, 0 on warnings-only or clean.
-"$oxlint" --config "$repo_root/.oxlintrc.json" "$file_path"
+# Pick the tightest config that covers the file: packages/frontend/ has its own
+# config that loads the design-system jsPlugin. Forcing the root config here
+# silently bypasses that plugin (see hunt 2026-05-15).
+lint_config="$repo_root/.oxlintrc.json"
+case "$file_path" in
+  "$repo_root/packages/frontend/"*) lint_config="$repo_root/packages/frontend/.oxlintrc.json" ;;
+esac
+"$oxlint" --config "$lint_config" "$file_path"

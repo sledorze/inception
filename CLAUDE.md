@@ -220,13 +220,14 @@ Mutation report runs nightly (`mutation-report.yml`), not on PRs.
 
 Annotated code patterns for the codebase's recurring constructs. Check here **before** writing code that touches hex boundaries, test structure, or layer wiring — violations are caught at commit time by lefthook and cost a cycle to fix.
 
-| File                       | When to read                                                                                    |
-| -------------------------- | ----------------------------------------------------------------------------------------------- |
-| `dep-boundary.md`          | Importing anything across `domain/`, `application/`, `ports/`, `adapters/`, `runtime/`          |
-| `application-vs-domain.md` | Deciding where a new function or module lives                                                   |
-| `composition-root.md`      | Adding an adapter or changing the Layer wiring                                                  |
-| `effect-test-pattern.md`   | Writing or modifying any test under `packages/host/tests/`                                      |
-| `cycle-hunt.md`            | End of slice/phase, or when friction repeats — proactive scan for cycle-time + token-cost waste |
+| File                        | When to read                                                                                    |
+| --------------------------- | ----------------------------------------------------------------------------------------------- |
+| `dep-boundary.md`           | Importing anything across `domain/`, `application/`, `ports/`, `adapters/`, `runtime/`          |
+| `application-vs-domain.md`  | Deciding where a new function or module lives                                                   |
+| `composition-root.md`       | Adding an adapter or changing the Layer wiring                                                  |
+| `effect-test-pattern.md`    | Writing or modifying any test under `packages/host/tests/`                                      |
+| `cycle-hunt.md`             | End of slice/phase, or when friction repeats — proactive scan for cycle-time + token-cost waste |
+| `frontend-design-system.md` | Adding a new design-system oxlint rule or migrating a violation in `packages/frontend/`         |
 
 ## When in doubt
 

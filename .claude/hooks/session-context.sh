@@ -16,8 +16,8 @@ STATUS=""
 PAIN_TOP=$(grep -m1 "^## P[0-9]" docs/PAIN.md 2>/dev/null | sed 's/^## //')
 PAIN_COUNT=$(grep -c "^## P[0-9]" docs/PAIN.md 2>/dev/null || echo 0)
 
-# Next TODO item — first [todo] line in docs/TODO.md
-TODO_NEXT=$(grep -m1 "\[todo\]" docs/TODO.md 2>/dev/null | sed 's/.*\[todo\] *//' | cut -c1-80)
+# Next TODO/in-progress item — first [todo] or [in-progress] line in docs/TODO.md
+TODO_NEXT=$(grep -m1 "\[todo\]\|\[in-progress\]" docs/TODO.md 2>/dev/null | sed 's/.*\(\[todo\]\|\[in-progress\]\) *//' | cut -c1-80)
 
 CONTEXT="Session started: $DATE | Branch: $BRANCH | Status: $STATUS"
 [ -n "$PAIN_TOP" ] && CONTEXT="$CONTEXT | Top PAIN: $PAIN_TOP"
