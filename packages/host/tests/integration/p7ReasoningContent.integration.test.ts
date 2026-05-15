@@ -9,15 +9,14 @@
  * the test is deterministic and CI-runnable without a live LLM endpoint.
  * See docs/PAIN.md P7 for full background.
  */
-import { join } from 'node:path'
 import { describe, expect, it } from '@effect/vitest'
 import { Effect } from 'effect'
 import { LanguageModel } from 'effect/unstable/ai'
 import { OpenAiCompatLlmProvider } from '../../src/adapters/driven/OpenAiCompatLlmProvider.ts'
 import { startFakeLmstudio } from '../helpers/fakeLmstudioServer.ts'
 
-const FIXTURE_DIR = join(import.meta.dirname, '../fixtures/lmstudio')
-const fixture = (name: string) => join(FIXTURE_DIR, name)
+const FIXTURE_DIR = new URL('../fixtures/lmstudio', import.meta.url).pathname
+const fixture = (name: string) => `${FIXTURE_DIR}/${name}`
 
 const REASONING_ANSWER = 'The synthetic-001 fixture has two columns: id and value.'
 

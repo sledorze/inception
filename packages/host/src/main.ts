@@ -8,19 +8,19 @@
  * User goals are received on the UserGateway port (CliUserGateway adapter on
  * a separate HTTP server, default :3001 — see bin/user.ts).
  */
-import { readFile } from 'node:fs'
+// @effect-diagnostics-next-line nodeBuiltinImport:off
 import { createServer } from 'node:http'
-import { extname, join } from 'node:path'
-import { Config, Effect, ManagedRuntime, Option, Stream } from 'effect'
+import { Config, Effect, FileSystem, ManagedRuntime, Option, Stream } from 'effect'
 import { makeSubmitGoal } from './application/submitGoal.ts'
+import { recordRejection } from './application/rejectionPattern.ts'
 import { registerCapability } from './application/registerCapability.ts'
 import { listPendingProposals, promoteProposal } from './application/reviewProposals.ts'
 import { EventStore } from './ports/driven/EventStore.ts'
 import { GeorgesToolkit, fullLayer } from './runtime/bind.ts'
 import { UserGateway } from './ports/driving/UserGateway.ts'
 
-const __dir = import.meta.dirname
-const DIST = join(__dir, '../../frontend/dist')
+// URL-based path avoids node:path import (P24).
+const DIST = new URL('../../frontend/dist', import.meta.url).pathname
 
 const MIME: Record<string, string> = {
   '.css': 'text/css',
@@ -28,6 +28,11 @@ const MIME: Record<string, string> = {
   '.js': 'application/javascript',
   '.json': 'application/json',
   '.svg': 'image/svg+xml',
+}
+
+const extname = (filePath: string): string => {
+  const dot = filePath.lastIndexOf('.')
+  return dot > filePath.lastIndexOf('/') ? filePath.slice(dot) : ''
 }
 
 const rt = ManagedRuntime.make(fullLayer)
@@ -44,6 +49,7 @@ rt.runFork(
 
 const TOOL_ROUTE = /^\/api\/tools\/([^/?]+)/u
 const PROMOTE_ROUTE = /^\/api\/proposals\/([^/?]+)\/promote$/u
+const REJECT_GOAL_ROUTE = /^\/api\/goals\/([^/?]+)\/reject$/u
 
 const server = createServer((req, res) => {
   const url = req.url ?? '/'
@@ -82,6 +88,43 @@ const server = createServer((req, res) => {
       )
         .then(payload => {
           res.writeHead(200, { 'Content-Type': 'application/json' }).end(JSON.stringify(payload))
+        })
+        .catch((error: unknown) => {
+          res.writeHead(500).end(String(error))
+        })
+    })
+    return
+  }
+
+  const rejectMatch = REJECT_GOAL_ROUTE.exec(url)
+  if (rejectMatch !== null && req.method === 'POST') {
+    const correlationId = decodeURIComponent(rejectMatch[1] ?? '')
+    let body = ''
+    req.on('data', (chunk: Buffer) => {
+      body += chunk.toString()
+    })
+    req.on('end', () => {
+      let parsed: unknown
+      try {
+        parsed = JSON.parse(body) as unknown
+      } catch {
+        res.writeHead(400).end('invalid json')
+        return
+      }
+      const reason =
+        typeof parsed === 'object' && parsed !== null && 'reason' in parsed && typeof parsed.reason === 'string' ?
+          parsed.reason
+        : 'no reason given'
+      rt.runPromise(
+        recordRejection({
+          correlationId,
+          reason,
+          sessionId: 'bootstrap',
+          storyRef: 'S3',
+        }),
+      )
+        .then(() => {
+          res.writeHead(204).end()
         })
         .catch((error: unknown) => {
           res.writeHead(500).end(String(error))
@@ -169,27 +212,41 @@ const server = createServer((req, res) => {
 
   // Static files — SPA fallback to index.html
   const urlPath = url === '/' ? '/index.html' : (url.split('?')[0] ?? '/index.html')
-  const filePath = join(DIST, urlPath)
-  readFile(filePath, (error, data) => {
-    if (error !== null) {
-      readFile(join(DIST, 'index.html'), (error2, fallback) => {
-        if (error2 !== null) {
+  const filePath = `${DIST}${urlPath}`
+  void rt
+    .runPromise(
+      Effect.gen(function* () {
+        const fs = yield* FileSystem.FileSystem
+        return yield* fs.readFile(filePath).pipe(Effect.orDie)
+      }),
+    )
+    .then(data => {
+      res.writeHead(200, { 'Content-Type': MIME[extname(filePath)] ?? 'application/octet-stream' }).end(data)
+    })
+    .catch(() => {
+      void rt
+        .runPromise(
+          Effect.gen(function* () {
+            const fs = yield* FileSystem.FileSystem
+            return yield* fs.readFile(`${DIST}/index.html`).pipe(Effect.orDie)
+          }),
+        )
+        .then(fallback => {
+          res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8' }).end(fallback)
+        })
+        .catch(() => {
           res.writeHead(404).end('not found')
-          return
-        }
-        res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8' }).end(fallback)
-      })
-      return
-    }
-    res.writeHead(200, { 'Content-Type': MIME[extname(filePath)] ?? 'application/octet-stream' }).end(data)
-  })
+        })
+    })
 })
 
 server.listen(PORT, () => {
-  console.log(`host server on :${PORT}`)
+  process.stdout.write(`host server on :${String(PORT)}\n`)
 })
 
 process.on('SIGTERM', () => {
   server.close()
-  rt.dispose().catch(console.error)
+  rt.dispose().catch(() => {
+    /* ignore dispose errors on shutdown */
+  })
 })

@@ -1,6 +1,8 @@
 import { createHash } from 'node:crypto'
-import { Effect, Ref } from 'effect'
+import { Effect, FileSystem, Path, Ref } from 'effect'
+import { ChildProcessSpawner } from 'effect/unstable/process/ChildProcessSpawner'
 import { DataHandleError, HandleExhausted, HandleRevoked } from '../../ports/driven/DataHandle.ts'
+import type { DataHandle } from '../../ports/driven/DataHandle.ts'
 import { runScriptInTempDir } from '../runScriptInTempDir.ts'
 
 export interface FileBackedHandleOptions {
@@ -23,8 +25,13 @@ const DEFAULT_INFO_BIT_LIMIT = 80_000
 type HandleState = 'alive' | 'revoked' | 'exhausted'
 
 export const FileBackedHandle = {
-  create: (opts: FileBackedHandleOptions) =>
+  create: (
+    opts: FileBackedHandleOptions,
+  ): Effect.Effect<DataHandle, never, FileSystem.FileSystem | Path.Path | ChildProcessSpawner> =>
     Effect.gen(function* () {
+      const fs = yield* FileSystem.FileSystem
+      const path = yield* Path.Path
+      const spawner = yield* ChildProcessSpawner
       const state = yield* Ref.make<HandleState>('alive')
       const bitsAccumulated = yield* Ref.make(0)
       const limit = opts.infoBitLimit ?? DEFAULT_INFO_BIT_LIMIT
@@ -52,15 +59,16 @@ export const FileBackedHandle = {
             if (current === 'exhausted' || accumulated >= limit) {
               return yield* new HandleExhausted({ bitsConsumed: accumulated, handleId: opts.id })
             }
-            const stdout = yield* Effect.tryPromise({
-              catch: cause => new DataHandleError({ cause }),
-              try: () =>
-                runScriptInTempDir({
-                  code: script,
-                  env: { ...process.env, DATA_FILE: opts.filePath },
-                  prefix: 'handle-script-',
-                }),
-            })
+            const stdout = yield* runScriptInTempDir({
+              code: script,
+              env: { ...process.env, DATA_FILE: opts.filePath } as Record<string, string>,
+              prefix: 'handle-script-',
+            }).pipe(
+              Effect.mapError(cause => new DataHandleError({ cause })),
+              Effect.provideService(FileSystem.FileSystem, fs),
+              Effect.provideService(Path.Path, path),
+              Effect.provideService(ChildProcessSpawner, spawner),
+            )
             const bitsConsumed = estimateBits(stdout)
             const newTotal = accumulated + bitsConsumed
             yield* Ref.set(bitsAccumulated, newTotal)
@@ -75,6 +83,6 @@ export const FileBackedHandle = {
               summary: stdout.slice(0, 512),
             }
           }),
-      }
+      } satisfies DataHandle
     }),
 }

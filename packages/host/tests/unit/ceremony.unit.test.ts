@@ -6,7 +6,8 @@
 import { mkdtemp, rm } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
-import { Effect } from 'effect'
+import { Effect, Layer } from 'effect'
+import { NodeFileSystem, NodePath } from '@effect/platform-node'
 import { afterEach, beforeEach, describe, expect, it } from '@effect/vitest'
 import {
   checkQuorum,
@@ -207,13 +208,15 @@ describe('Ceremony — key-store I/O', () => {
     await rm(keyStoreDir, { recursive: true })
   })
 
+  const fsLayer = Layer.mergeAll(NodeFileSystem.layer, NodePath.layer)
+
   it.effect('writeKeypair + readPublicKey round-trips the public key', () =>
     Effect.gen(function* () {
       const kp = generateKeypair('claude')
       yield* writeKeypair(keyStoreDir, kp)
       const recovered = yield* readPublicKey(keyStoreDir, 'claude')
       expect(recovered).toBe(kp.publicKeyPem)
-    }),
+    }).pipe(Effect.provide(fsLayer)),
   )
 
   it.effect('writeKeypair + readPrivateKey round-trips the private key', () =>
@@ -222,6 +225,6 @@ describe('Ceremony — key-store I/O', () => {
       yield* writeKeypair(keyStoreDir, kp)
       const recovered = yield* readPrivateKey(keyStoreDir, 'witness1')
       expect(recovered).toBe(kp.privateKeyPem)
-    }),
+    }).pipe(Effect.provide(fsLayer)),
   )
 })

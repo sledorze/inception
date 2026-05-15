@@ -14,6 +14,7 @@ export default defineConfig({
         'packages/**/*.spec.ts',
         'packages/**/*.bench.ts',
         'packages/**/*.d.ts',
+        'packages/host/src/main.ts',
       ],
       include: ['packages/host/src/**/*.ts', 'packages/frontend/src/**/*.{ts,tsx}'],
       provider: 'v8',

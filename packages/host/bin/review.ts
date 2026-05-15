@@ -19,6 +19,7 @@ import { SqliteEventStore } from '../src/adapters/driven/SqliteEventStore.ts'
 import { registerCapability } from '../src/application/registerCapability.ts'
 import { listPendingProposals, promoteProposal, rejectProposal } from '../src/application/reviewProposals.ts'
 import { CapabilityRegistry } from '../src/ports/driven/CapabilityRegistry.ts'
+import { EventStore } from '../src/ports/driven/EventStore.ts'
 
 const __dir = import.meta.dirname
 const DB_PATH = process.env['EVENT_STORE_PATH'] ?? join(__dir, '..', 'data', 'events.db')
@@ -77,8 +78,51 @@ const program = Effect.gen(function* () {
     const registry = yield* CapabilityRegistry
     yield* registry.rollback(version).pipe(Effect.orDie)
     yield* Console.log(`Rolled back to registry v${version}`)
+  } else if (command === 'quarantine') {
+    const [sub, sessionIdArg] = args
+    if (sub === 'list') {
+      const store = yield* EventStore
+      const allEvents = yield* store.query({}).pipe(Effect.orDie)
+      const bySession = new Map<string, string>()
+      for (const e of allEvents) {
+        if (e.kind === 'SessionQuarantined' || e.kind === 'QuarantineReleased') {
+          bySession.set(e.sessionId, e.kind)
+        }
+      }
+      const quarantined = [...bySession.entries()].filter(([, kind]) => kind === 'SessionQuarantined')
+      if (quarantined.length === 0) {
+        yield* Console.log('No quarantined sessions.')
+      } else {
+        yield* Console.log(`${quarantined.length} quarantined session(s):`)
+        for (const [sid] of quarantined) {
+          yield* Console.log(`  ${sid}`)
+        }
+      }
+    } else if (sub === 'release') {
+      if (sessionIdArg === undefined) {
+        return yield* Effect.die('Usage: review quarantine release <sessionId>')
+      }
+      const store = yield* EventStore
+      yield* store
+        .append({
+          actor: 'claude',
+          correlationId: `quarantine-release-${sessionIdArg}`,
+          kind: 'QuarantineReleased',
+          occurredAt: new Date().toISOString(),
+          payload: { releasedBy: 'claude', sessionId: sessionIdArg },
+          schemaV: 1,
+          sessionId: sessionIdArg,
+          storyRef: 'supervision',
+        })
+        .pipe(Effect.orDie)
+      yield* Console.log(`Quarantine released for session: ${sessionIdArg}`)
+    } else {
+      return yield* Effect.die('Usage: review quarantine list | review quarantine release <sessionId>')
+    }
   } else {
-    return yield* Effect.die(`Unknown command: "${command ?? ''}". Use: list | promote | reject | rollback`)
+    return yield* Effect.die(
+      `Unknown command: "${command ?? ''}". Use: list | promote | reject | rollback | quarantine`,
+    )
   }
 })
 

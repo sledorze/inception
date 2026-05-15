@@ -9,7 +9,8 @@
  *   ε_per_query = 0.1, ε_max = 1.0, δ = 1e-5, max_sensitivity = 1.0
  */
 import { createHash } from 'node:crypto'
-import { Effect, Ref } from 'effect'
+import { Effect, FileSystem, Path, Ref } from 'effect'
+import { ChildProcessSpawner } from 'effect/unstable/process/ChildProcessSpawner'
 import {
   DEFAULT_DELTA,
   DEFAULT_EPSILON_MAX,
@@ -39,8 +40,13 @@ type HandleState = 'alive' | 'revoked' | 'exhausted'
 const DEFAULT_SENSITIVITY: QuerySensitivity = { norm: 'l1', value: 1 }
 
 export const DpFileBackedHandle = {
-  create: (opts: DpHandleOptions): Effect.Effect<DataHandle> =>
+  create: (
+    opts: DpHandleOptions,
+  ): Effect.Effect<DataHandle, never, FileSystem.FileSystem | Path.Path | ChildProcessSpawner> =>
     Effect.gen(function* () {
+      const fs = yield* FileSystem.FileSystem
+      const path = yield* Path.Path
+      const spawner = yield* ChildProcessSpawner
       const state = yield* Ref.make<HandleState>('alive')
       const epsilonAccumulated = yield* Ref.make(0)
       const bitsAccumulated = yield* Ref.make(0)
@@ -82,15 +88,16 @@ export const DpFileBackedHandle = {
               return yield* new SensitivityViolation({ declared: sens.value, max: maxSens, norm: sens.norm })
             }
 
-            const stdout = yield* Effect.tryPromise({
-              catch: cause => new DataHandleError({ cause }),
-              try: () =>
-                runScriptInTempDir({
-                  code: script,
-                  env: { ...process.env, DATA_FILE: opts.filePath },
-                  prefix: 'dp-handle-script-',
-                }),
-            })
+            const stdout = yield* runScriptInTempDir({
+              code: script,
+              env: { ...process.env, DATA_FILE: opts.filePath } as Record<string, string>,
+              prefix: 'dp-handle-script-',
+            }).pipe(
+              Effect.mapError(cause => new DataHandleError({ cause })),
+              Effect.provideService(FileSystem.FileSystem, fs),
+              Effect.provideService(Path.Path, path),
+              Effect.provideService(ChildProcessSpawner, spawner),
+            )
 
             const trueBits = stdout.length * 8
             const { noisyBits } = yield* dpBitsEstimate(trueBits, sens, epsilonPerQuery, delta)

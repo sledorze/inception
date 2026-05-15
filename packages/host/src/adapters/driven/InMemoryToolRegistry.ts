@@ -1,5 +1,4 @@
-import { readFile } from 'node:fs/promises'
-import { Effect, Layer, Schema } from 'effect'
+import { Effect, FileSystem, Layer, Schema } from 'effect'
 import { parse as parseYaml } from 'yaml'
 import { ToolNotFound, ToolRegistry } from '../../ports/driven/ToolRegistry.ts'
 import type { ToolDescriptor } from '../../ports/driven/ToolRegistry.ts'
@@ -63,12 +62,12 @@ export const makeRegistry = (entries: readonly ToolEntry[]) => {
 // ─── shared YAML loader ───────────────────────────────────────────────────────
 
 // Exported so CapabilityAwareToolRegistry can merge YAML tools with promoted capabilities.
-export const loadYamlTools = (filePath: string): Effect.Effect<readonly ToolEntry[]> =>
+export const loadYamlTools = (filePath: string): Effect.Effect<readonly ToolEntry[], never, FileSystem.FileSystem> =>
   Effect.gen(function* () {
-    const raw = yield* Effect.tryPromise({
-      catch: cause => new ToolsYamlError({ cause, message: `Cannot read ${filePath}` }),
-      try: () => readFile(filePath, 'utf8'),
-    })
+    const fs = yield* FileSystem.FileSystem
+    const raw = yield* fs
+      .readFileString(filePath)
+      .pipe(Effect.mapError(cause => new ToolsYamlError({ cause, message: `Cannot read ${filePath}` })))
     const parsed = yield* Effect.try({
       catch: cause => new ToolsYamlError({ cause, message: `Cannot parse YAML in ${filePath}` }),
       try: () => parseYaml(raw) as unknown,

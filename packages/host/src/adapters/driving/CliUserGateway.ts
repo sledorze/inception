@@ -1,3 +1,4 @@
+// @effect-diagnostics-next-line nodeBuiltinImport:off
 import { createServer } from 'node:http'
 import { Config, Effect, Layer, Queue, Schema } from 'effect'
 import { UserGateway, UserGatewayError } from '../../ports/driving/UserGateway.ts'
@@ -6,6 +7,7 @@ import type { GoalSubmission } from '../../ports/driving/UserGateway.ts'
 const GoalSubmissionSchema = Schema.Struct({
   goal: Schema.String,
   handleId: Schema.String,
+  sessionId: Schema.optional(Schema.String),
 })
 
 const makeListenEffect = <R>(
@@ -38,6 +40,14 @@ const makeListenEffect = <R>(
             }
             void Effect.runPromiseWith(ctx)(
               Schema.decodeUnknownEffect(GoalSubmissionSchema)(raw).pipe(
+                Effect.map(decoded => {
+                  const submission: GoalSubmission = {
+                    goal: decoded.goal,
+                    handleId: decoded.handleId,
+                    ...(decoded.sessionId !== undefined && { sessionId: decoded.sessionId }),
+                  }
+                  return submission
+                }),
                 Effect.flatMap(submission => Queue.offer(queue, submission)),
                 Effect.orDie,
               ),

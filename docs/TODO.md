@@ -104,9 +104,9 @@ These items make Phase 1's traces _honest_ and _bounded_: per-handle info budget
 
 ## Phase 5 — Outer observability & substrate refinement
 
-- [todo] **5.1** Trace query/replay tool with `storyRef` filtering.
-- [todo] **5.2** First prompt/policy refinement driven by an observed pattern (closes S3 loop).
-- [todo] **5.3** Quarantine/kill-switch ergonomics (Q8).
+- [done] **5.1** Trace query/replay tool with `storyRef` filtering.
+- [done] **5.2** First prompt/policy refinement driven by an observed pattern (closes S3 loop). UserRejected→RejectionPatternCandidate pipeline; agent.md refined: "always call fetch-handle-shape before run-script" (pattern: script failures from unknown columns). POST /api/goals/:id/reject endpoint wired.
+- [done] **5.3** Quarantine/kill-switch ergonomics (Q8). Per-session: SessionQuarantined/QuarantineReleased events; checkQuarantine blocks submitGoal (L2.3); Supervisor auto-quarantines on R5 trip; `bin/review.ts quarantine list|release`.
 
 **Exit:** Outer feedback loop has demonstrably changed Georges' behaviour at least once based on traces.
 

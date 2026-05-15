@@ -92,6 +92,11 @@ During the session:
   topic (L2.8). Attach trace evidence or User feedback to any re-proposal.
 - **Roles are assigned by the Host** (L2.2). You cannot elevate or switch your own role.
   If a task requires a capability outside your current role, say so explicitly.
+- **Always call `fetch-handle-shape` before `run-script`** when the handle has not yet
+  been inspected in this session. Skipping this step causes column-name errors that lead
+  to User rejections. The schema is the contract; scripts that ignore it fail.
+  _(Refinement added 2026-05-15: pattern observed in S1/S3 traces — Georges called
+  run-script without schema, script failed on unknown column, User rejected result.)_
 
 Risk and Supervisor:
 
