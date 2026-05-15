@@ -4,6 +4,7 @@ import { Context, Schema } from 'effect'
 export interface GoalSubmission {
   readonly goal: string
   readonly handleId: string
+  readonly sessionId?: string
 }
 
 export class UserGatewayError extends Schema.TaggedErrorClass<UserGatewayError>()('@app/host/UserGatewayError', {

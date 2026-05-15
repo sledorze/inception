@@ -37,7 +37,7 @@ For ports/stories/calibrations: grep SPEC.md directly (they change faster than l
 | ----- | ------------------------------- | --------- | ---------------------------------------------------------------- |
 | L2.1  | Self-Description                | 145       | `packages/host/tests/laws/L2.1.spec.ts`                          |
 | L2.2  | Bounded Mutability              | 147       | _(tested inline in L1.3, L1.5 specs; no dedicated test)_         |
-| L2.3  | Quarantine                      | 149       | _(no dedicated test)_                                            |
+| L2.3  | Quarantine                      | 149       | `packages/host/tests/laws/L2.3.spec.ts`                          |
 | L2.4  | Ratcheting                      | 151       | _(no dedicated test; coverage thresholds enforced in CI config)_ |
 | L2.5  | Story-Tagging                   | 153       | _(no dedicated test)_                                            |
 | L2.6  | Single Promoter per Scope       | 155       | `packages/host/tests/laws/L2.6.spec.ts`                          |

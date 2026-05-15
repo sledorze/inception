@@ -76,11 +76,12 @@ export const InProcessSupervisor = {
 
             for (const result of results) {
               if (result.tripped) {
+                const now = DateTime.formatIso(yield* DateTime.now)
                 yield* store.append({
                   actor: 'supervisor',
                   correlationId: `supervisor-${result.riskId}-${sessionId}`,
                   kind: 'SupervisorTrip',
-                  occurredAt: DateTime.formatIso(yield* DateTime.now),
+                  occurredAt: now,
                   payload: {
                     currentValue: result.currentValue,
                     riskId: result.riskId,
@@ -90,6 +91,19 @@ export const InProcessSupervisor = {
                   sessionId,
                   storyRef: 'supervision',
                 })
+                // R5 (sandbox escape) quarantines the session immediately (L2.3).
+                if (result.riskId === 'R5') {
+                  yield* store.append({
+                    actor: 'supervisor',
+                    correlationId: `supervisor-quarantine-${sessionId}`,
+                    kind: 'SessionQuarantined',
+                    occurredAt: now,
+                    payload: { reason: 'R5: sandbox escape attempt detected' },
+                    schemaV: 1,
+                    sessionId,
+                    storyRef: 'supervision',
+                  })
+                }
               }
             }
 
