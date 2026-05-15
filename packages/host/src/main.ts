@@ -12,7 +12,7 @@
 import { createServer } from 'node:http'
 import { Config, Effect, FileSystem, ManagedRuntime, Option, Random, Stream } from 'effect'
 import { makeSubmitGoal } from './application/submitGoal.ts'
-import { ClarifyNotFoundError, makeRespondToGoal } from './application/respondToGoal.ts'
+import { makeRespondToGoal } from './application/respondToGoal.ts'
 import { recordRejection } from './application/rejectionPattern.ts'
 import { registerCapability } from './application/registerCapability.ts'
 import { listPendingProposals, promoteProposal } from './application/reviewProposals.ts'
