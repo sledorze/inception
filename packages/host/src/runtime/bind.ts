@@ -1,8 +1,5 @@
-import { mkdirSync } from 'node:fs'
-import { readFile } from 'node:fs/promises'
-import { dirname, join } from 'node:path'
-import { Config, ConfigProvider, Effect, Layer } from 'effect'
-import { NodeFileSystem } from '@effect/platform-node'
+import { Config, ConfigProvider, Effect, FileSystem, Layer } from 'effect'
+import { NodeServices } from '@effect/platform-node'
 import { SessionError } from '../application/session.ts'
 import { CapabilityAwareToolRegistry } from '../adapters/driven/CapabilityAwareToolRegistry.ts'
 import { FileBackedCapabilityRegistry } from '../adapters/driven/FileBackedCapabilityRegistry.ts'
@@ -18,21 +15,22 @@ import { GeorgesToolkit, GeorgesToolkitLive } from '../adapters/driving/GeorgesT
 
 export { GeorgesToolkit }
 
-const __dir = import.meta.dirname
-const TOOLS_YAML = join(__dir, '../bootstrap', 'tools.yaml')
-const AGENT_MD_PATH = join(__dir, '../bootstrap', 'agent.md')
-const FIXTURE_PATH = join(__dir, '../bootstrap/fixtures', 'synthetic-001.csv')
+// URL-based path resolution avoids node:path imports (P24).
+const TOOLS_YAML = new URL('../bootstrap/tools.yaml', import.meta.url).pathname
+const AGENT_MD_PATH = new URL('../bootstrap/agent.md', import.meta.url).pathname
+const FIXTURE_PATH = new URL('../bootstrap/fixtures/synthetic-001.csv', import.meta.url).pathname
 // Capability registry persisted to disk; promoted capabilities survive restarts.
-const REGISTRY_PATH = join(__dir, '..', '..', 'data', 'capability-registry.json')
-mkdirSync(dirname(REGISTRY_PATH), { recursive: true })
+const REGISTRY_PATH = new URL('../../data/capability-registry.json', import.meta.url).pathname
+const DATA_DIR = new URL('../../data/', import.meta.url).pathname
 
 // 2.8: seed agent.md into the workspace at boot so Georges can `read-workspace agent.md`
 const workspaceMountLayer = Layer.unwrap(
   Effect.gen(function* () {
-    const agentMd = yield* Effect.tryPromise({
-      catch: cause => new SessionError({ cause }),
-      try: () => readFile(AGENT_MD_PATH, 'utf8'),
-    }).pipe(Effect.orDie)
+    const fs = yield* FileSystem.FileSystem
+    const agentMd = yield* fs.readFileString(AGENT_MD_PATH).pipe(
+      Effect.mapError(cause => new SessionError({ cause })),
+      Effect.orDie,
+    )
     return InMemoryWorkspaceMount.layer({ 'agent.md': agentMd })
   }),
 )
@@ -64,16 +62,23 @@ const BOOTSTRAP_TOOLS = [
 const eventStoreLayer = Layer.unwrap(
   Effect.gen(function* () {
     const dbPath = yield* Config.string('EVENT_STORE_PATH').pipe(
-      Config.withDefault(join(__dir, '..', '..', 'data', 'events.db')),
+      Config.withDefault(new URL('../../data/events.db', import.meta.url).pathname),
     )
-    mkdirSync(dirname(dbPath), { recursive: true })
+    const fs = yield* FileSystem.FileSystem
+    yield* fs.makeDirectory(DATA_DIR, { recursive: true }).pipe(Effect.orDie)
     return SqliteEventStore.layer(dbPath)
   }),
 )
 
 // FileBackedCapabilityRegistry persists promoted capabilities across restarts.
 // CapabilityAwareToolRegistry merges YAML seed tools + promoted capabilities.
-const capabilityRegistryLayer = FileBackedCapabilityRegistry.layer(REGISTRY_PATH)
+const capabilityRegistryLayer = Layer.unwrap(
+  Effect.gen(function* () {
+    const fs = yield* FileSystem.FileSystem
+    yield* fs.makeDirectory(DATA_DIR, { recursive: true }).pipe(Effect.orDie)
+    return FileBackedCapabilityRegistry.layer(REGISTRY_PATH)
+  }),
+)
 const toolRegistryLayer = CapabilityAwareToolRegistry.layerFromYamlFile(TOOLS_YAML).pipe(
   Layer.provide(capabilityRegistryLayer),
 )
@@ -90,15 +95,19 @@ const toolkitLayer = GeorgesToolkitLive.pipe(
 // InMemoryCapabilityRegistry for tests that don't touch the capability flow.
 export const InMemoryCapabilityRegistryLayer = InMemoryCapabilityRegistry.layer
 
-export const appLayer = Layer.mergeAll(toolkitLayer, eventStoreLayer, capabilityRegistryLayer, NodeFileSystem.layer)
+export const appLayer = Layer.mergeAll(toolkitLayer, eventStoreLayer, capabilityRegistryLayer).pipe(
+  Layer.provide(NodeServices.layer),
+)
 
 // Full runtime layer: toolkit + LLM + User gateway (used by main.ts)
 // ConfigProvider.layer is provided last so all sub-layers can read env config.
 // OpenAiCompatLlmProvider requires EventStore for UnknownShapeObserved events (P10).
+// Layer.provideMerge(NodeServices) here satisfies FileSystem needs from eventStoreLayer
+// and exposes FileSystem so main.ts can use it in rt.runPromise.
 export const fullLayer = Layer.mergeAll(
   appLayer,
   OpenAiCompatLlmProvider.layer().pipe(Layer.provide(eventStoreLayer)),
   CliUserGateway.layer(),
-).pipe(Layer.provide(ConfigProvider.layer(ConfigProvider.fromEnv())))
+).pipe(Layer.provideMerge(NodeServices.layer), Layer.provide(ConfigProvider.layer(ConfigProvider.fromEnv())))
 
 export type AppServices = Layer.Success<typeof appLayer>

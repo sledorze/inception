@@ -1,3 +1,4 @@
+// @effect-diagnostics-next-line nodeBuiltinImport:off
 import { createServer } from 'node:http'
 import { Config, Effect, Layer, Queue, Schema } from 'effect'
 import { UserGateway, UserGatewayError } from '../../ports/driving/UserGateway.ts'

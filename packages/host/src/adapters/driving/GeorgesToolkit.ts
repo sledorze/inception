@@ -5,7 +5,8 @@
  * Laws: L1.1 (mediation), L1.3 (code-over-data), L1.5 (policy gate — deny by default),
  *       L2.1 (self-description), L2.2 (role-scoped mutability), L2.6 (single promoter per scope).
  */
-import { Data, DateTime, Effect, Schema } from 'effect'
+import { Data, DateTime, Effect, FileSystem, Path, Schema } from 'effect'
+import { ChildProcessSpawner } from 'effect/unstable/process/ChildProcessSpawner'
 import { Tool, Toolkit } from 'effect/unstable/ai'
 import { CapabilityRegistry } from '../../ports/driven/CapabilityRegistry.ts'
 import { DataHandleRegistry } from '../../ports/driven/DataHandle.ts'
@@ -15,14 +16,9 @@ import { ToolRegistry } from '../../ports/driven/ToolRegistry.ts'
 import { WorkspaceMount } from '../../ports/driven/WorkspaceMount.ts'
 import { CurrentCorrelationId } from '../../domain/tracing.ts'
 import { runScriptInTempDir } from '../runScriptInTempDir.ts'
+import type { RunScriptError } from '../runScriptInTempDir.ts'
 
 class CapabilityRunError extends Data.TaggedError('@app/host/CapabilityRunError')<{ cause: unknown }> {}
-
-const runCapabilityCode = (code: string): Effect.Effect<string, CapabilityRunError> =>
-  Effect.tryPromise({
-    catch: e => new CapabilityRunError({ cause: e }),
-    try: () => runScriptInTempDir({ code, filename: 'capability.js', prefix: 'capability-', timeout: 10_000 }),
-  })
 
 const ToolDescriptorSchema = Schema.Struct({
   description: Schema.String,
@@ -127,6 +123,17 @@ export const GeorgesToolkitLive = GeorgesToolkit.toLayer(
     const handleRegistry = yield* DataHandleRegistry
     const policyGate = yield* PolicyGate
     const capabilityRegistry = yield* CapabilityRegistry
+    const fs = yield* FileSystem.FileSystem
+    const path = yield* Path.Path
+    const spawner = yield* ChildProcessSpawner
+
+    const runCapabilityCode = (code: string) =>
+      runScriptInTempDir({ code, filename: 'capability.js', prefix: 'capability-', timeout: 10_000 }).pipe(
+        Effect.mapError(e => new CapabilityRunError({ cause: e })),
+        Effect.provideService(FileSystem.FileSystem, fs),
+        Effect.provideService(Path.Path, path),
+        Effect.provideService(ChildProcessSpawner, spawner),
+      )
 
     // L1.5: first gate on every tool call — deny by default if no active policy.
     const checkPolicy = (toolName: string) =>

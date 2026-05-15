@@ -5,7 +5,7 @@
  * Replaces the hand-rolled OpenAiLlmProvider (AL.7 adoption).
  * Target: LMStudio (or any OpenAI-compatible endpoint) via LLM_BASE_URL env.
  */
-import { Clock, Config, Effect, Layer, Option, Schema } from 'effect'
+import { Config, DateTime, Effect, Layer, Option, Schema } from 'effect'
 import { OpenAiClient, OpenAiLanguageModel } from '@effect/ai-openai-compat'
 import { FetchHttpClient } from 'effect/unstable/http'
 import { EventStore } from '../../ports/driven/EventStore.ts'
@@ -26,9 +26,9 @@ const decodeLmMessage = Schema.decodeUnknownOption(LmMessage)
 // shape-alert callback: when a message fails LmMessage decode, onShapeAlert is called so the
 // Effect-side handler can persist an UnknownShapeObserved event (P10).
 const makeReasoningAwareFetch =
-  (onShapeAlert: (msg: unknown) => void): typeof globalThis.fetch =>
+  (baseFetch: typeof globalThis.fetch, onShapeAlert: (msg: unknown) => void): typeof globalThis.fetch =>
   (input, init) =>
-    globalThis.fetch(input, init).then(response => {
+    baseFetch(input, init).then(response => {
       const ct = response.headers.get('content-type') ?? ''
       if (!ct.includes('application/json')) {
         return response
@@ -78,13 +78,12 @@ export const OpenAiCompatLlmProvider = {
           void Effect.runPromiseWith(ctx)(
             Effect.gen(function* () {
               const store = yield* EventStore
-              const ms = yield* Clock.currentTimeMillis
               yield* store
                 .append({
                   actor: 'host',
                   correlationId: 'untraced',
                   kind: 'UnknownShapeObserved',
-                  occurredAt: new Date(ms).toISOString(),
+                  occurredAt: DateTime.formatIso(yield* DateTime.now),
                   payload: { message: msg },
                   schemaV: 1,
                   sessionId: 'untraced',
@@ -95,7 +94,8 @@ export const OpenAiCompatLlmProvider = {
           )
         }
 
-        const fetch = makeReasoningAwareFetch(onShapeAlert)
+        const baseFetch = yield* FetchHttpClient.Fetch
+        const fetch = makeReasoningAwareFetch(baseFetch, onShapeAlert)
         return OpenAiLanguageModel.layer({ model }).pipe(
           Layer.provide(OpenAiClient.layer({ apiUrl: baseUrl })),
           Layer.provide(FetchHttpClient.layer),

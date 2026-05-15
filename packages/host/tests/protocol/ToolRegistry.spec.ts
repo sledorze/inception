@@ -4,7 +4,8 @@
  * Laws exercised: L2.1 (self-description + ToolNotFound), L2.10 (role-scoped tool surface), L2.14 (port contract).
  */
 import { fileURLToPath } from 'node:url'
-import { Effect, ManagedRuntime } from 'effect'
+import { Effect, Layer, ManagedRuntime } from 'effect'
+import { NodeFileSystem } from '@effect/platform-node'
 import { afterAll, beforeAll, describe, expect, it } from '@effect/vitest'
 import { InMemoryToolRegistry } from '../../src/adapters/driven/InMemoryToolRegistry.ts'
 import type { ToolEntry } from '../../src/adapters/driven/InMemoryToolRegistry.ts'
@@ -148,5 +149,7 @@ function runContract(name: string, makeLayer: () => ManagedRuntime.ManagedRuntim
 runContract('InMemoryToolRegistry (static entries)', () => ManagedRuntime.make(InMemoryToolRegistry.layer(TOOLS)))
 
 runContract('InMemoryToolRegistry (YAML file bootstrap)', () =>
-  ManagedRuntime.make(InMemoryToolRegistry.layerFromYamlFile(TOOLS_YAML_PATH)),
+  ManagedRuntime.make(
+    InMemoryToolRegistry.layerFromYamlFile(TOOLS_YAML_PATH).pipe(Layer.provide(NodeFileSystem.layer)),
+  ),
 )

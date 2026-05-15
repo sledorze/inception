@@ -1,5 +1,5 @@
 import { Layer } from 'effect'
-import { NodeFileSystem } from '@effect/platform-node'
+import { NodeFileSystem, NodeServices } from '@effect/platform-node'
 import { InMemoryCapabilityRegistry } from '../../src/adapters/driven/InMemoryCapabilityRegistry.ts'
 import { InMemoryDataHandleRegistry } from '../../src/adapters/driven/InMemoryDataHandleRegistry.ts'
 import { InMemoryEventStore } from '../../src/adapters/driven/InMemoryEventStore.ts'
@@ -27,6 +27,7 @@ export const makeToolkitComponents = (
     Layer.provide(handleRegLayer),
     Layer.provide(policyGateLayer),
     Layer.provide(capabilityRegistryLayer),
+    Layer.provide(NodeServices.layer),
   )
   return {
     capabilityRegistryLayer,

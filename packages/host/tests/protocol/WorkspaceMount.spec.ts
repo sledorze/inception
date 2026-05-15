@@ -8,8 +8,8 @@ import { mkdtemp } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { promisify } from 'node:util'
-import type { Layer } from 'effect'
-import { Effect, ManagedRuntime } from 'effect'
+import { Effect, Layer, ManagedRuntime } from 'effect'
+import { NodeServices } from '@effect/platform-node'
 import { afterEach, beforeEach, describe, expect, it } from '@effect/vitest'
 import { GitWorkspaceMount } from '../../src/adapters/driven/GitWorkspaceMount.ts'
 import { InMemoryWorkspaceMount } from '../../src/adapters/driven/InMemoryWorkspaceMount.ts'
@@ -106,5 +106,5 @@ runContract('InMemoryWorkspaceMount', () => InMemoryWorkspaceMount.layer())
 
 runContract('GitWorkspaceMount', async () => {
   const dir = await makeTempGitRepo()
-  return GitWorkspaceMount.layer(dir)
+  return GitWorkspaceMount.layer(dir).pipe(Layer.provide(NodeServices.layer))
 })

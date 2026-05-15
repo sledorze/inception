@@ -9,7 +9,8 @@
  * The emit command (SqliteEventStore) is covered by SqliteEventStore protocol tests.
  */
 import { mkdtemp, rm, writeFile } from 'node:fs/promises'
-import { Effect } from 'effect'
+import { Effect, Layer } from 'effect'
+import { NodeFileSystem, NodePath } from '@effect/platform-node'
 import { afterEach, beforeEach, describe, expect, it } from '@effect/vitest'
 import { readPublicKey, writeKeypair } from '../../src/adapters/driven/CeremonyKeyStore.ts'
 import {
@@ -20,6 +21,8 @@ import {
   signAmendment,
 } from '../../src/domain/ceremony.ts'
 import type { AmendmentSignatures, SignerRole } from '../../src/domain/ceremony.ts'
+
+const fsLayer = Layer.mergeAll(NodeFileSystem.layer, NodePath.layer)
 
 let keyStoreDir: string
 let amendmentFile: string
@@ -61,7 +64,7 @@ describe('ceremonyBin — setup (bin/ceremony.ts setup)', () => {
         const pub = yield* readPublicKey(keyStoreDir, role)
         expect(pub).toContain('BEGIN PUBLIC KEY')
       }
-    }),
+    }).pipe(Effect.provide(fsLayer)),
   )
 })
 
@@ -95,7 +98,7 @@ describe('ceremonyBin — sign + verify pipeline (bin/ceremony.ts sign + verify)
       expect(result.met).toBe(true)
       expect(result.witnessCount).toBe(2)
       expect(result.missingRequired).toHaveLength(0)
-    }),
+    }).pipe(Effect.provide(fsLayer)),
   )
 
   it.effect('only 1 witness falls short of quorum', () =>
@@ -116,7 +119,7 @@ describe('ceremonyBin — sign + verify pipeline (bin/ceremony.ts sign + verify)
 
       expect(result.met).toBe(false)
       expect(result.witnessCount).toBe(1)
-    }),
+    }).pipe(Effect.provide(fsLayer)),
   )
 
   it.effect('tampered signature breaks quorum even if witness count appears sufficient', () =>
@@ -137,6 +140,6 @@ describe('ceremonyBin — sign + verify pipeline (bin/ceremony.ts sign + verify)
 
       expect(result.met).toBe(false)
       expect(result.witnessCount).toBe(1)
-    }),
+    }).pipe(Effect.provide(fsLayer)),
   )
 })

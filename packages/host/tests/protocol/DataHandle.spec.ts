@@ -8,6 +8,7 @@ import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { randomUUID } from 'node:crypto'
 import { Effect, ManagedRuntime, Ref } from 'effect'
+import { NodeServices } from '@effect/platform-node'
 import { afterEach, beforeEach, describe, expect, it } from '@effect/vitest'
 import { DpFileBackedHandle } from '../../src/adapters/driven/DpFileBackedHandle.ts'
 import { FileBackedHandle } from '../../src/adapters/driven/FileBackedHandle.ts'
@@ -187,7 +188,7 @@ runContract('FileBackedHandle', async () => {
         id: randomUUID(),
         redactedSample: { name: '***' },
         schema: { columns: ['id', 'name'] },
-      }),
+      }).pipe(Effect.provide(NodeServices.layer)),
     // Script reads the CSV and writes a JSON summary to stdout.
     sampleScript: [
       "const { readFileSync } = require('node:fs')",
@@ -210,7 +211,7 @@ runContract('DpFileBackedHandle', async () => {
         id: randomUUID(),
         redactedSample: { name: '***' },
         schema: { columns: ['id', 'name'] },
-      }),
+      }).pipe(Effect.provide(NodeServices.layer)),
     sampleScript: [
       "const { readFileSync } = require('node:fs')",
       String.raw`const rows = readFileSync(process.env['DATA_FILE'], 'utf8').trim().split('\n')`,
@@ -242,7 +243,7 @@ describe('FileBackedHandle info-ledger (L1.7)', () => {
         filePath,
         id: randomUUID(),
         infoBitLimit: 1,
-      }),
+      }).pipe(Effect.provide(NodeServices.layer)),
     )
     await run(
       Effect.gen(function* () {
@@ -273,7 +274,7 @@ describe('FileBackedHandle info-ledger (L1.7)', () => {
         filePath,
         id: randomUUID(),
         infoBitLimit: 1,
-      }),
+      }).pipe(Effect.provide(NodeServices.layer)),
     )
     await run(
       Effect.gen(function* () {

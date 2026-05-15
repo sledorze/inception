@@ -5,6 +5,30 @@ Convention: fix → move (cut from PAIN.md, paste here in the same commit as the
 
 ---
 
+## P24 — Four tsgo diagnostics remain `"off"` pending adapter-to-platform migration (severity: annoys)
+
+**Symptom.** The following `@effect/language-service` diagnostics were disabled in
+`packages/host/tsconfig.json` because the violations were structural (adapter bridge code
+using node built-ins and console/fetch globals):
+
+| Diagnostic            | Files migrated                                                                                              |
+| --------------------- | ----------------------------------------------------------------------------------------------------------- |
+| `nodeBuiltinImport`   | All adapters: `node:fs`, `node:child_process` → `@effect/platform-node` FileSystem/Path/ChildProcessSpawner |
+| `globalConsole`       | Suppressed with `@effect-diagnostics-next-line` at the Node bridge entry points                             |
+| `globalFetch`         | `OpenAiCompatLlmProvider.ts` → `FetchHttpClient.Fetch` from `effect/unstable/http`                          |
+| `globalFetchInEffect` | Same as `globalFetch`                                                                                       |
+
+**Fix.** Migrated all adapters to `@effect/platform-node` APIs (`FileSystem`, `Path`,
+`ChildProcessSpawner` from `effect/unstable/process/ChildProcessSpawner`). Used
+`FetchHttpClient.Fetch` as a `Context.Reference` in the LLM provider. One `createServer`
+import in `main.ts` suppressed per-line with `@effect-diagnostics-next-line nodeBuiltinImport:off`
+(no Effect alternative for HTTP server creation). All four diagnostics now set to `"error"`;
+`tsgo --noEmit` exits 0.
+
+FIXED 2026-05-15 — test: `tsgo --noEmit` exits 0 (run in CI via `pnpm --filter @app/host exec tsgo --noEmit`)
+
+---
+
 ## P10 — LMStudio response shape divergence not surfaced to EventStore (severity: annoys)
 
 **Symptom.** `OpenAiCompatLlmProvider`'s `reasoningAwareFetch` intercept uses

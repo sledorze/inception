@@ -19,12 +19,16 @@ import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { randomUUID } from 'node:crypto'
 import { Effect, Random } from 'effect'
+import { NodeServices } from '@effect/platform-node'
 import { describe, expect, it } from '@effect/vitest'
 import { DpFileBackedHandle } from '../../src/adapters/driven/DpFileBackedHandle.ts'
+import type { DpHandleOptions } from '../../src/adapters/driven/DpFileBackedHandle.ts'
 import { dpBitsEstimate } from '../../src/domain/dp.ts'
 import { HandleExhausted, SensitivityViolation } from '../../src/ports/driven/DataHandle.ts'
 
 const SAMPLE_SCRIPT = 'process.stdout.write("42")'
+
+const makeHandle = (opts: DpHandleOptions) => DpFileBackedHandle.create(opts).pipe(Effect.provide(NodeServices.layer))
 
 const makeTestFile = () =>
   Effect.promise(async () => {
@@ -38,7 +42,7 @@ describe('L1.7 — DP information budget', () => {
     Effect.gen(function* () {
       const filePath = yield* makeTestFile()
       // ε_per_query=0.5, ε_max=1.0 → exhausts after 2 successful calls
-      const handle = yield* DpFileBackedHandle.create({
+      const handle = yield* makeHandle({
         epsilonMax: 1,
         epsilonPerQuery: 0.5,
         filePath,
@@ -61,7 +65,7 @@ describe('L1.7 — DP information budget', () => {
   it.effect('handle isAlive returns false after ε exhaustion', () =>
     Effect.gen(function* () {
       const filePath = yield* makeTestFile()
-      const handle = yield* DpFileBackedHandle.create({
+      const handle = yield* makeHandle({
         epsilonMax: 0.5,
         epsilonPerQuery: 0.5,
         filePath,
@@ -78,7 +82,7 @@ describe('L1.7 — DP information budget', () => {
   it.effect('SensitivityViolation when declared sensitivity exceeds max (L1.7 boundary enforcement)', () =>
     Effect.gen(function* () {
       const filePath = yield* makeTestFile()
-      const handle = yield* DpFileBackedHandle.create({ filePath, id: randomUUID(), maxSensitivityL1: 1 })
+      const handle = yield* makeHandle({ filePath, id: randomUUID(), maxSensitivityL1: 1 })
 
       yield* handle.runScript(SAMPLE_SCRIPT, { norm: 'l1', value: 2 }).pipe(
         Effect.flip,
@@ -94,7 +98,7 @@ describe('L1.7 — DP information budget', () => {
   it.effect('bitsConsumed is always ≥ 0 (DP noise clamped)', () =>
     Effect.gen(function* () {
       const filePath = yield* makeTestFile()
-      const handle = yield* DpFileBackedHandle.create({ filePath, id: randomUUID() })
+      const handle = yield* makeHandle({ filePath, id: randomUUID() })
 
       const result = yield* handle.runScript(SAMPLE_SCRIPT)
       expect(result.bitsConsumed).toBeGreaterThanOrEqual(0)
@@ -120,7 +124,7 @@ describe('L1.7 — DP information budget', () => {
   it.effect('Gaussian mechanism also produces non-negative bitsConsumed', () =>
     Effect.gen(function* () {
       const filePath = yield* makeTestFile()
-      const handle = yield* DpFileBackedHandle.create({ filePath, id: randomUUID() })
+      const handle = yield* makeHandle({ filePath, id: randomUUID() })
 
       const result = yield* handle.runScript(SAMPLE_SCRIPT, { norm: 'l2', value: 1 })
       expect(result.bitsConsumed).toBeGreaterThanOrEqual(0)
