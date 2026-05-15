@@ -7,6 +7,7 @@ import { afterAll, beforeAll, describe, expect, it } from '@effect/vitest'
 const REPO_ROOT = join(import.meta.dirname, '..', '..', '..', '..')
 const OXLINT_BIN = join(REPO_ROOT, 'node_modules', '.bin', 'oxlint')
 const HOST_CONFIG = join(REPO_ROOT, 'packages', 'host', '.oxlintrc.json')
+const FRONTEND_CONFIG = join(REPO_ROOT, 'packages', 'frontend', '.oxlintrc.json')
 
 let FIXTURE_DIR: string
 
@@ -15,16 +16,17 @@ beforeAll(() => {
   mkdirSync(join(FIXTURE_DIR, 'packages', 'host', 'src', 'adapters', 'driven'), { recursive: true })
   mkdirSync(join(FIXTURE_DIR, 'packages', 'host', 'src', 'application'), { recursive: true })
   mkdirSync(join(FIXTURE_DIR, 'packages', 'host', 'tests', 'unit'), { recursive: true })
+  mkdirSync(join(FIXTURE_DIR, 'packages', 'frontend', 'src', 'components', 'ui'), { recursive: true })
 })
 
 afterAll(() => {
   rmSync(FIXTURE_DIR, { force: true, recursive: true })
 })
 
-function lint(relPath: string, src: string): { exitCode: number; stdout: string } {
+function lint(relPath: string, src: string, config: string = HOST_CONFIG): { exitCode: number; stdout: string } {
   const absPath = join(FIXTURE_DIR, relPath)
   writeFileSync(absPath, src)
-  const result = spawnSync(OXLINT_BIN, ['--config', HOST_CONFIG, relPath], {
+  const result = spawnSync(OXLINT_BIN, ['--config', config, relPath], {
     cwd: FIXTURE_DIR,
     encoding: 'utf8',
   })
@@ -354,5 +356,174 @@ describe('P20 — process.env access banned in packages/host/src/ (acceptance)',
       { encoding: 'utf8' },
     )
     expect(result.stdout.trim()).toBe('')
+  })
+})
+
+// ── design-system/no-raw-interactive-element — matrix ────────────────────────
+
+const RULE = 'no-raw-interactive-element'
+
+const designSystemCases: { desc: string; expectError: boolean; path: string; src: string }[] = [
+  {
+    desc: 'raw <button> in src/ → error',
+    expectError: true,
+    path: 'packages/frontend/src/Probe.tsx',
+    src: `export const Probe = () => <button type="button">x</button>\n`,
+  },
+  {
+    desc: 'raw <textarea> in src/ → error',
+    expectError: true,
+    path: 'packages/frontend/src/ProbeTa.tsx',
+    src: `export const ProbeTa = () => <textarea />\n`,
+  },
+  {
+    desc: 'shadcn <Button> component in src/ → allowed',
+    expectError: false,
+    path: 'packages/frontend/src/ProbeOk.tsx',
+    src: `import { Button } from '@/components/ui/button'\nexport const ProbeOk = () => <Button>x</Button>\n`,
+  },
+  {
+    desc: 'raw <button> in src/components/ui/ → allowed (shadcn wraps raw elements)',
+    expectError: false,
+    path: 'packages/frontend/src/components/ui/probe-ui.tsx',
+    src: `export const ProbeUi = () => <button type="button">x</button>\n`,
+  },
+]
+
+describe('design-system/no-raw-interactive-element — raw HTML vs shadcn/ui', () => {
+  it.each(designSystemCases)('$desc', ({ path, src, expectError }) => {
+    const { stdout } = lint(path, src, FRONTEND_CONFIG)
+    if (expectError) {
+      expect(stdout).toContain(RULE)
+    } else {
+      expect(stdout).not.toContain(RULE)
+    }
+  })
+
+  it('the diagnostic invites the shadcn component + install command', () => {
+    const { stdout } = lint(
+      'packages/frontend/src/ProbeMsg.tsx',
+      `export const ProbeMsg = () => <button type="button">x</button>\n`,
+      FRONTEND_CONFIG,
+    )
+    expect(stdout).toContain('<Button>')
+    expect(stdout).toContain('@/components/ui/button')
+    expect(stdout).toContain('npx shadcn add button')
+  })
+})
+
+// ── design-system/no-raw-color-utility — matrix ──────────────────────────────
+
+const COLOR_RULE = 'no-raw-color-utility'
+
+const colorCases: { desc: string; expectError: boolean; path: string; src: string }[] = [
+  {
+    desc: 'raw palette color in string literal className → error',
+    expectError: true,
+    path: 'packages/frontend/src/ProbeColor.tsx',
+    src: `export const X = () => <div className="bg-red-50 text-red-800">x</div>\n`,
+  },
+  {
+    desc: 'raw palette color in template literal ternary → error',
+    expectError: true,
+    path: 'packages/frontend/src/ProbeColorTmpl.tsx',
+    src: "export const X = (f: boolean) => <div className={`base ${f ? 'bg-red-50' : 'bg-green-50'}`}>x</div>\n",
+  },
+  {
+    desc: 'semantic token in className → allowed',
+    expectError: false,
+    path: 'packages/frontend/src/ProbeColorOk.tsx',
+    src: `export const X = () => <div className="bg-destructive text-muted-foreground">x</div>\n`,
+  },
+  {
+    desc: 'semantic token with opacity modifier → allowed',
+    expectError: false,
+    path: 'packages/frontend/src/ProbeColorOpacity.tsx',
+    src: `export const X = () => <div className="bg-destructive/10 text-success">x</div>\n`,
+  },
+  {
+    desc: 'raw palette color in src/components/ui/ → allowed (shadcn internals)',
+    expectError: false,
+    path: 'packages/frontend/src/components/ui/probe-color-ui.tsx',
+    src: `export const X = () => <div className="bg-red-50">x</div>\n`,
+  },
+]
+
+describe('design-system/no-raw-color-utility — palette colors vs semantic tokens', () => {
+  it.each(colorCases)('$desc', ({ path, src, expectError }) => {
+    const { stdout } = lint(path, src, FRONTEND_CONFIG)
+    if (expectError) {
+      expect(stdout).toContain(COLOR_RULE)
+    } else {
+      expect(stdout).not.toContain(COLOR_RULE)
+    }
+  })
+
+  it('the diagnostic names the matched token and invites semantic alternatives', () => {
+    const { stdout } = lint(
+      'packages/frontend/src/ProbeColorMsg.tsx',
+      `export const X = () => <div className="text-gray-500">x</div>\n`,
+      FRONTEND_CONFIG,
+    )
+    expect(stdout).toContain("'text-gray-500'")
+    expect(stdout).toContain('text-muted-foreground')
+    expect(stdout).toContain('index.css')
+  })
+})
+
+// ── design-system/no-inline-style — matrix ───────────────────────────────────
+
+const STYLE_RULE = 'no-inline-style'
+
+describe('design-system/no-inline-style — style={{}} bypass', () => {
+  it('style={{}} in src/ → error', () => {
+    const { stdout } = lint(
+      'packages/frontend/src/ProbeStyle.tsx',
+      `export const X = () => <div style={{ color: 'red' }}>x</div>\n`,
+      FRONTEND_CONFIG,
+    )
+    expect(stdout).toContain(STYLE_RULE)
+  })
+
+  it('no style attr → allowed', () => {
+    const { stdout } = lint(
+      'packages/frontend/src/ProbeStyleOk.tsx',
+      `export const X = () => <div className="text-foreground">x</div>\n`,
+      FRONTEND_CONFIG,
+    )
+    expect(stdout).not.toContain(STYLE_RULE)
+  })
+
+  it('style={{}} in src/components/ui/ → allowed', () => {
+    const { stdout } = lint(
+      'packages/frontend/src/components/ui/probe-style-ui.tsx',
+      `export const X = () => <div style={{ color: 'red' }}>x</div>\n`,
+      FRONTEND_CONFIG,
+    )
+    expect(stdout).not.toContain(STYLE_RULE)
+  })
+})
+
+// ── design-system/no-raw-interactive-element — <section> → Card ──────────────
+
+describe('design-system/no-raw-interactive-element — <section> invitation', () => {
+  it('raw <section> in src/ → error with Card invite', () => {
+    const { stdout } = lint(
+      'packages/frontend/src/ProbeSection.tsx',
+      `export const X = () => <section className="p-4"><h2>Title</h2></section>\n`,
+      FRONTEND_CONFIG,
+    )
+    expect(stdout).toContain('no-raw-interactive-element')
+    expect(stdout).toContain('<Card>')
+    expect(stdout).toContain('npx shadcn add card')
+  })
+
+  it('shadcn <Card> in src/ → allowed', () => {
+    const { stdout } = lint(
+      'packages/frontend/src/ProbeSectionOk.tsx',
+      `import { Card } from '@/components/ui/card'\nexport const X = () => <Card className="p-4"><h2>Title</h2></Card>\n`,
+      FRONTEND_CONFIG,
+    )
+    expect(stdout).not.toContain('no-raw-interactive-element')
   })
 })
