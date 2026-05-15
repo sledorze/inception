@@ -94,8 +94,11 @@ export const appLayer = Layer.mergeAll(toolkitLayer, eventStoreLayer, capability
 
 // Full runtime layer: toolkit + LLM + User gateway (used by main.ts)
 // ConfigProvider.layer is provided last so all sub-layers can read env config.
-export const fullLayer = Layer.mergeAll(appLayer, OpenAiCompatLlmProvider.layer(), CliUserGateway.layer()).pipe(
-  Layer.provide(ConfigProvider.layer(ConfigProvider.fromEnv())),
-)
+// OpenAiCompatLlmProvider requires EventStore for UnknownShapeObserved events (P10).
+export const fullLayer = Layer.mergeAll(
+  appLayer,
+  OpenAiCompatLlmProvider.layer().pipe(Layer.provide(eventStoreLayer)),
+  CliUserGateway.layer(),
+).pipe(Layer.provide(ConfigProvider.layer(ConfigProvider.fromEnv())))
 
 export type AppServices = Layer.Success<typeof appLayer>

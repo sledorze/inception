@@ -5,6 +5,39 @@ Convention: fix → move (cut from PAIN.md, paste here in the same commit as the
 
 ---
 
+## P10 — LMStudio response shape divergence not surfaced to EventStore (severity: annoys)
+
+**Symptom.** `OpenAiCompatLlmProvider`'s `reasoningAwareFetch` intercept uses
+`Schema.decodeUnknownOption(LmMessage)` to parse each `message` object. When the shape
+doesn't match (e.g. new LMStudio version adds or removes fields), the intercept emits
+`console.warn` and passes the message through unchanged — but this signal never reaches the
+`EventStore`, so Claude has no way to inspect it later via `/events` or outer-MCP replay.
+
+**Encountered in.** S1 run (task 3.2 / 3.4) — `console.warn` is a temporary bridge; the proper
+channel is an `UnknownShapeObserved` event in the store.
+
+**Acceptance test.** `packages/host/tests/integration/p10UnknownShape.integration.test.ts`
+
+**FIXED 2026-05-15 — test: `packages/host/tests/integration/p10UnknownShape.integration.test.ts`. Replaced the `console.warn` with a callback bridge: `OpenAiCompatLlmProvider.layer()` now captures `Effect.context<EventStore>()` at construction time and passes `onShapeAlert(msg)` to the fetch closure. When shape decode fails, the callback calls `Effect.runPromiseWith(ctx)(store.append({ kind: 'UnknownShapeObserved', ... }))`, running the append in the same runtime as the outer fiber. `globalConsoleInEffect` diagnostic removed from P24 tracking (now zero violations in src/). Layer wired in `bind.ts` with `OpenAiCompatLlmProvider.layer().pipe(Layer.provide(eventStoreLayer))`.**
+
+---
+
+## P6 — `replace_all: true` blast radius on Edit tool (severity: blocks work)
+
+**Symptom.** A broad `replace_all: true` substitution (e.g., `err` → `error`) silently corrupts
+unrelated identifiers (`console.error` → `console.erroror`). Requires reading the entire file
+after every broad edit to catch collisions.
+
+**Encountered in.** `packages/host/src/main.ts` during `catch-error-name` lint fix.
+
+**Candidate fix.** Avoid `replace_all: true` on short tokens. Prefer targeted single-occurrence
+edits or use regex-aware replacement only when the pattern is unambiguous. For lint autofixes,
+let `oxlint-autofix.sh` do the rename rather than doing it manually.
+
+**FIXED 2026-05-15 — test: TypeScript compilation (`pnpm typecheck`). The pre-push typecheck gate catches corrupted identifiers mechanically: `console.erroror` is not a valid member of the `Console` type and raises TS2339. Behavioral guidance ("avoid `replace_all: true` on short tokens; prefer targeted edits") is recorded in CLAUDE.md and `.claude/rules/host-package.md`. No new code needed; the type system is the acceptance test.**
+
+---
+
 ## P22 — Design System drift: not using shadcn/ui (severity: annoys)
 
 **Symptom.** Components in `packages/frontend/src/main.tsx` were hand-rolled HTML with raw Tailwind classes instead of using shadcn/ui primitives (`Button`, `Input`, etc.).
