@@ -15,7 +15,6 @@
 import { Config, Effect, Layer } from 'effect'
 import { OpenAiClient, OpenAiLanguageModel } from '@effect/ai-openai-compat'
 import { FetchHttpClient } from 'effect/unstable/http'
-// @effect-diagnostics-next-line nodeBuiltinImport:off
 import { createHash } from 'node:crypto'
 // @effect-diagnostics-next-line nodeBuiltinImport:off
 import { mkdirSync, readFileSync, writeFileSync } from 'node:fs'
