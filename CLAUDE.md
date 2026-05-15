@@ -231,6 +231,7 @@ Annotated code patterns for the codebase's recurring constructs. Check here **be
 | `cycle-hunt.md`             | End of slice/phase, or when friction repeats — proactive scan for cycle-time + token-cost waste            |
 | `frontend-design-system.md` | Adding a new design-system oxlint rule or migrating a violation in `packages/frontend/`                    |
 | `breakdown-strategy.md`     | Planning a multi-slice task — when to spike, how to map blast radius, when to trigger a strategic refactor |
+| `schema-decode.md`          | Decoding `unknown` data at any boundary — which API (`decodeUnknownEffect` / `Result` / generics) and why  |
 
 ## When in doubt
 
