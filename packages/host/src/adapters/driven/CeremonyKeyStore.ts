@@ -1,7 +1,7 @@
 import { Data, Effect, FileSystem, Path } from 'effect'
 import type { Keypair, SignerRole } from '../../domain/ceremony.ts'
 
-export class CeremonyIOError extends Data.TaggedError('@app/host/CeremonyIOError')<{
+class CeremonyIOError extends Data.TaggedError('@app/host/CeremonyIOError')<{
   cause: unknown
 }> {}
 
