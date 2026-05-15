@@ -123,7 +123,12 @@ Advances S6 (parked P.2) and S8 (placeholder) to _demonstrated_. Exit: determini
   - Hash inputs (stable): `sha256({ model, messages:[{role,content:string}], tools:sorted_schemas })`. Volatile exclusions: message IDs, `tool_call_id`, timestamps, `reasoning_content`, `correlationId`.
   - Cassette format: one JSON per hash at `tests/fixtures/llm-cassettes/<sha256>.json`.
   - Spike 1b (6.3, human-gated) still required for LMStudio variance + seed pinning decision → gates 6.6.
-- [blocked] **6.3** Spike 1b (human-gated, same gate as 4.3 — needs LMStudio): measure output variance; decide temp/seed pinning + replay viability. Gates 6.6.
+- [done] **6.3** Spike 1b (LMStudio at host.docker.internal:1235, model: qwen3.5-9b-deepseek-v4-flash): measure output variance; decide temp/seed pinning + replay viability. Gates 6.6.
+  - Default temperature: HIGH variance — 3 different phrasings across 3 identical runs. Not cassette-safe.
+  - temperature=0 + seed=42: DETERMINISTIC — identical content + identical reasoning_len=1246 across all 3 runs.
+  - Decision: record with temperature=0 + seed=42; cassette captures post-reasoning content (reasoning_content is excluded — volatile at default temp, and not semantically meaningful to replay). requestHash is over the INPUT only (model + messages + tool schemas); temperature/seed are recording-time params, not part of the hash.
+  - This is a reasoning model (Qwen3.5-9b-deepseek-v4-flash): reasoning_content can be 1246+ chars; the P7 fix (makeReasoningAwareFetch) already handles promoting reasoning_content → content. Cassette stores only the promoted content.
+  - LMStudio URL from container: host.docker.internal:1235 (192.168.0.15:1235 is the host LAN IP; unreachable from Docker bridge). The LLM_BASE_URL env in the RecordReplay record mode must use host.docker.internal; replay mode is pure-local (no network call).
 - [todo] **6.4** Spike 2: `sessionId` / `UserGateway`-return blast-radius map + refactor recommendation. Decision gates whether 6.8/6.9 are broken down or deferred. Map only; no prod code.
 - [todo] **6.5** (conditional on 6.4 recommendation) Strategic refactor R1 (session threading) / R2 (`submitGoal → Correlation`) — separate refactor commit(s), no behavior change. "Prepares 6.6."
 - [todo] **6.6** Vertical Slice 1 (MVP kernel): RecordReplay adapter + bind + parametrised protocol/integration tests; `submitGoal` returns `correlationId`; `main.ts` race fix + real `sessionId`; `chat.ts` + `Conversation.tsx` + shadcn; RED→GREEN `e2e/conversation.spec.ts`; human-gated cassette capture + replay lock.
