@@ -9,6 +9,36 @@ in the same commit as the fix. This file holds OPEN items only, severity-sorted.
 
 ---
 
+## P25 — Root `.oxlintrc.json` uses path-glob overrides instead of per-package nested configs (severity: annoys)
+
+**Symptom.** All package-specific lint rules live in the root `.oxlintrc.json` behind `files` globs
+like `**/packages/host/src/**/*.ts`. Adding a new package or extending rules to `monitor` or
+`frontend` means editing the root file and widening globs — the coupling grows linearly. The
+`oxlint-rules` acceptance test only covers host because the rules only exist in the root file
+under host-scoped globs; monitor and frontend have no analogous enforcement.
+
+**Encountered in.** 5-whys on why `packages/monitor/tests/unit/oxlint-rules.unit.test.ts` doesn't
+exist — root cause is the config isn't factorised per package.
+
+**Why it's fixable.** oxlint supports nested config files (the `--disable-nested-config` flag
+suppresses them, confirming they load automatically). A per-package `.oxlintrc.json` inherits the
+root config and adds only the rules relevant to that package, without path globs.
+
+**Candidate fix.**
+
+1. Move host-specific overrides (Effect rules, `no-restricted-imports` for `node:*`, adapter
+   escape-hatch list) out of root `.oxlintrc.json` into `packages/host/.oxlintrc.json`.
+2. Create `packages/monitor/.oxlintrc.json` with monitor-appropriate rules (e.g. the
+   `no-effect-gen-without-vitest` rule once monitor uses Effect).
+3. Root config keeps only truly universal rules (no path globs).
+4. Each package can then have its own `oxlint-rules.unit.test.ts` probing its own config.
+
+**Acceptance test.** A per-package `oxlint-rules.unit.test.ts` that fires against that package's
+own `.oxlintrc.json`. The test for host already exists; adding one per package that probes the
+relevant rules is the closure condition.
+
+---
+
 ## P24 — Five tsgo diagnostics remain `"off"` pending adapter-to-platform migration (severity: annoys)
 
 **Symptom.** The following `@effect/language-service` diagnostics are disabled in
