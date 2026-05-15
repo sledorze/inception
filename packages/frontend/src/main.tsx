@@ -1,6 +1,8 @@
 import React, { useState } from 'react'
 import ReactDOM from 'react-dom/client'
 import './index.css'
+import { Button } from '@/components/ui/button'
+import { Input } from '@/components/ui/input'
 import { callTool } from './api/toolkit.ts'
 import type { HandlerResult } from './api/toolkit.ts'
 import { submitGoal } from './api/goals.ts'
@@ -29,21 +31,21 @@ function ListTools() {
     <section className="rounded border p-4 space-y-2">
       <h2 className="font-semibold">list-tools</h2>
       <div className="flex gap-2">
-        <input
-          className="flex-1 rounded border px-2 py-1 text-sm"
+        <Input
+          className="flex-1"
           data-testid="lt-role"
           onChange={e => setRole(e.target.value)}
           placeholder="role"
           value={role}
         />
-        <button
-          className="rounded bg-blue-600 px-3 py-1 text-sm text-white hover:bg-blue-700"
+        <Button
           data-testid="lt-submit"
           onClick={() => callTool('list-tools', { role }).then(setResult)}
+          size="sm"
           type="button"
         >
           Call
-        </button>
+        </Button>
       </div>
       <div data-testid="lt-result">
         <ResultBox result={result} />
@@ -60,21 +62,21 @@ function ReadWorkspace() {
     <section className="rounded border p-4 space-y-2">
       <h2 className="font-semibold">read-workspace</h2>
       <div className="flex gap-2">
-        <input
-          className="flex-1 rounded border px-2 py-1 text-sm"
+        <Input
+          className="flex-1"
           data-testid="rw-path"
           onChange={e => setPath(e.target.value)}
           placeholder="path"
           value={path}
         />
-        <button
-          className="rounded bg-blue-600 px-3 py-1 text-sm text-white hover:bg-blue-700"
+        <Button
           data-testid="rw-submit"
           onClick={() => callTool('read-workspace', { path }).then(setResult)}
+          size="sm"
           type="button"
         >
           Call
-        </button>
+        </Button>
       </div>
       <div data-testid="rw-result">
         <ResultBox result={result} />
@@ -93,15 +95,15 @@ function WriteWorkspace() {
     <section className="rounded border p-4 space-y-2">
       <h2 className="font-semibold">write-workspace</h2>
       <div className="flex gap-2">
-        <input
-          className="flex-1 rounded border px-2 py-1 text-sm"
+        <Input
+          className="flex-1"
           data-testid="ww-role"
           onChange={e => setRole(e.target.value)}
           placeholder="role"
           value={role}
         />
-        <input
-          className="flex-1 rounded border px-2 py-1 text-sm"
+        <Input
+          className="flex-1"
           data-testid="ww-path"
           onChange={e => setPath(e.target.value)}
           placeholder="path"
@@ -116,14 +118,14 @@ function WriteWorkspace() {
         rows={3}
         value={content}
       />
-      <button
-        className="rounded bg-blue-600 px-3 py-1 text-sm text-white hover:bg-blue-700"
+      <Button
         data-testid="ww-submit"
         onClick={() => callTool('write-workspace', { content, path, role }).then(setResult)}
+        size="sm"
         type="button"
       >
         Call
-      </button>
+      </Button>
       <div data-testid="ww-result">
         <ResultBox result={result} />
       </div>
@@ -168,22 +170,16 @@ function SubmitGoal() {
         value={goal}
       />
       <div className="flex gap-2">
-        <input
-          className="flex-1 rounded border px-2 py-1 text-sm"
+        <Input
+          className="flex-1"
           data-testid="sg-handle"
           onChange={e => setHandleId(e.target.value)}
           placeholder="handleId"
           value={handleId}
         />
-        <button
-          className="rounded bg-indigo-600 px-3 py-1 text-sm text-white hover:bg-indigo-700 disabled:opacity-50"
-          data-testid="sg-submit"
-          disabled={busy}
-          onClick={handleSubmit}
-          type="button"
-        >
+        <Button data-testid="sg-submit" disabled={busy} onClick={handleSubmit} size="sm" type="button">
           {busy ? 'Processing…' : 'Submit'}
-        </button>
+        </Button>
       </div>
       {result && (
         <pre className="mt-2 rounded bg-green-50 p-3 text-sm whitespace-pre-wrap break-all text-green-800">
@@ -224,14 +220,9 @@ function Proposals() {
     <section className="rounded border p-4 space-y-2">
       <div className="flex items-center justify-between">
         <h2 className="font-semibold">Pending Proposals</h2>
-        <button
-          className="rounded bg-gray-200 px-3 py-1 text-sm hover:bg-gray-300"
-          data-testid="proposals-refresh"
-          onClick={refresh}
-          type="button"
-        >
+        <Button data-testid="proposals-refresh" onClick={refresh} size="sm" type="button" variant="secondary">
           Refresh
-        </button>
+        </Button>
       </div>
       {proposals.length === 0 && <p className="text-sm text-gray-500">No pending proposals. Submit a goal first.</p>}
       {proposals.map(p => (
@@ -250,14 +241,15 @@ function Proposals() {
               <span className="font-medium">Description:</span> {p.payload.description}
             </div>
           )}
-          <button
-            className="mt-1 rounded bg-green-600 px-3 py-1 text-white hover:bg-green-700"
+          <Button
+            className="mt-1"
             data-testid={`promote-${p.contentHash}`}
             onClick={() => promote(p.contentHash)}
+            size="sm"
             type="button"
           >
             Promote
-          </button>
+          </Button>
         </div>
       ))}
       {msg && <p className="text-sm text-indigo-700">{msg}</p>}
@@ -274,28 +266,28 @@ function CallCapability() {
     <section className="rounded border p-4 space-y-2">
       <h2 className="font-semibold">call-capability</h2>
       <div className="flex gap-2">
-        <input
-          className="flex-1 rounded border px-2 py-1 text-sm"
+        <Input
+          className="flex-1"
           data-testid="cc-name"
           onChange={e => setName(e.target.value)}
           placeholder="capability name"
           value={name}
         />
-        <input
-          className="w-32 rounded border px-2 py-1 text-sm"
+        <Input
+          className="w-32"
           data-testid="cc-role"
           onChange={e => setRole(e.target.value)}
           placeholder="role"
           value={role}
         />
-        <button
-          className="rounded bg-blue-600 px-3 py-1 text-sm text-white hover:bg-blue-700"
+        <Button
           data-testid="cc-submit"
           onClick={() => callTool('call-capability', { name, role }).then(setResult)}
+          size="sm"
           type="button"
         >
           Call
-        </button>
+        </Button>
       </div>
       <div data-testid="cc-result">
         <ResultBox result={result} />

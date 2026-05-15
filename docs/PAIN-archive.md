@@ -5,6 +5,26 @@ Convention: fix → move (cut from PAIN.md, paste here in the same commit as the
 
 ---
 
+## P22 — Design System drift: not using shadcn/ui (severity: annoys)
+
+**Symptom.** Components in `packages/frontend/src/main.tsx` were hand-rolled HTML with raw Tailwind classes instead of using shadcn/ui primitives (`Button`, `Input`, etc.).
+
+**Acceptance test.** `packages/frontend/src/main.tsx` imports `Button` and `Input` from `@/components/ui/`. `pnpm typecheck` passes.
+
+**FIXED 2026-05-15 — test: TypeScript compilation (`pnpm --filter @app/frontend typecheck`). Installed `shadcn add button input card`. Set up `@` path alias in `vite.config.ts` + `tsconfig.json`. Added neutral theme CSS variables to `index.css`. Migrated all `<button>`/`<input>` elements in `main.tsx` to `<Button>`/`<Input>` from `@/components/ui/`.**
+
+---
+
+## P21 — Frontend state management: no Atom pattern, logic in UI components (severity: annoys)
+
+**Symptom.** Anticipated `useEffect` + `fetch` anti-pattern in UI components. Current code uses an `api/` layer (no direct fetch in components) and event handlers (not `useEffect`) for async calls. The anti-pattern does not exist in current code.
+
+**Acceptance test.** Grep check: no `.tsx` file in `packages/frontend/src/` imports from `react` with `useEffect` AND calls `fetch` in the same file.
+
+**FIXED 2026-05-15 — no violations found. The existing api-layer abstraction (`src/api/*.ts`) already prevents fetch from leaking into components. The `frontend.md` rule ("never call fetch directly in a component") enforces this going forward.**
+
+---
+
 ## P25 — Root `.oxlintrc.json` uses path-glob overrides instead of per-package nested configs (severity: annoys)
 
 **Symptom.** All package-specific lint rules live in the root `.oxlintrc.json` behind `files` globs

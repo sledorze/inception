@@ -41,38 +41,6 @@ commit is cited. P24 is closed when all five are "error".
 
 ---
 
-## P21 — Frontend state management: no Atom pattern, logic in UI components (severity: annoys)
-
-**Symptom.** Frontend components (e.g., `GoalPanel`, `ProposalsPanel`) hold fetched data and async logic directly in local `useState` + `useEffect`. This violates the single-responsibility principle: UI components should be pure render functions; async orchestration and derived state should live in atoms or stores.
-
-**Encountered in.** `packages/frontend/src/` — all three panels mix fetch logic with render logic.
-
-**Acceptance test.** None yet — add a check that fails if `useEffect` + `fetch` appear together in a component file.
-
-**Candidate fix.** Consult experts (Jotai/Zustand/TanStack Query). Recommended pattern: Jotai atoms for server-state (async atoms with `atomWithQuery` or manual `atomWithFetch`); components only call `useAtomValue`/`useSetAtom`. No async logic in `useEffect` inside components. Possibly use TanStack Query for cache invalidation.
-
----
-
-## P22 — Design System drift: not using shadcn/ui (severity: annoys)
-
-**Symptom.** The project was set up with shadcn/ui as the component library, but current UI components are hand-rolled HTML with Tailwind classes instead of using shadcn/ui primitives (Button, Card, Input, etc.). This causes inconsistency and duplicated effort.
-
-**5-whys:**
-
-1. **Why are components hand-rolled?** Fast-path: skipped the shadcn/ui setup step during Phase 3 UI work.
-2. **Why was shadcn/ui setup skipped?** The scaffold was added to the template but `npx shadcn-ui@latest init` was never run to generate the component library.
-3. **Why wasn't it run?** No hard enforcement — only a soft recommendation in `packages/frontend/package.json`.
-4. **Why no enforcement?** The component library check was not added to the CI pipeline or pre-commit hooks.
-5. **Why not?** shadcn/ui components are generated into the source tree; there is no runtime import check to enforce their use.
-
-**Expert advice.** shadcn/ui components (built on Radix UI primitives) provide: accessible ARIA patterns, consistent Tailwind token usage, and keyboard navigation out of the box. Hand-rolling bypasses all three. Use `Button`, `Card`, `Input`, `Dialog`, `Badge` for the current panels before adding any new UI.
-
-**Acceptance test.** None yet — could check that at least one import from `@/components/ui/` exists per panel file.
-
-**Candidate fix.** Run `npx shadcn-ui@latest init` if not done; then replace hand-rolled elements in `GoalPanel`, `ProposalsPanel`, `CallCapabilityPanel` with shadcn/ui primitives. Add a CI check that fails if a panel file has zero `@/components/ui/` imports.
-
----
-
 ## P6 — `replace_all: true` blast radius on Edit tool (severity: blocks work)
 
 **Symptom.** A broad `replace_all: true` substitution (e.g., `err` → `error`) silently corrupts
