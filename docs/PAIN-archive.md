@@ -5,6 +5,16 @@ Convention: fix → move (cut from PAIN.md, paste here in the same commit as the
 
 ---
 
+## P26 — `schemaSyncInEffect` fires false-positive inside `Effect.try` sync callbacks
+
+**Severity:** annoys (adds suppression boilerplate every time SQLite/sync decode is needed inside Effect.gen)
+
+**Symptom:** `effect(schemaSyncInEffect)` tsgo diagnostic fires when `Schema.decodeUnknownSync` is called inside the `try: () =>` synchronous callback of `Effect.try`, even when that `Effect.try` is nested inside `Effect.gen`. The sync callback cannot `yield*`, so `Schema.decodeUnknownEffect` is not applicable — yet the rule flags it as if it were.
+
+FIXED 2026-05-16 in feat/design-system-enforcement — extract sync decode helpers to plain functions outside `Effect.gen` scope (`rowToStoredEvent` in SqliteEventStore.ts). All `schemaSyncInEffect:off` suppressions eliminated. Also fixed tsgo diagnostics in new FileBackedSettings.ts by using `Schema.decodeUnknownEffect(Schema.fromJsonString(...))` and `Schema.encodeEffect(Schema.fromJsonString(...))` instead of `JSON.parse`/`JSON.stringify`. test: `packages/host/tests/unit/schemaSyncSuppressions.unit.test.ts`
+
+---
+
 ## P28 — Law test coverage at 28% (13/39 laws) — L0.x foundational laws have zero tests
 
 **Severity:** slows (L3 loop health ⚠)

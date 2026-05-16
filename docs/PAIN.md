@@ -9,18 +9,6 @@ in the same commit as the fix. This file holds OPEN items only, severity-sorted.
 
 ---
 
-## P26 — `schemaSyncInEffect` fires false-positive inside `Effect.try` sync callbacks
-
-**Severity:** annoys (adds suppression boilerplate every time SQLite/sync decode is needed inside Effect.gen)
-
-**Symptom:** `effect(schemaSyncInEffect)` tsgo diagnostic fires when `Schema.decodeUnknownSync` is called inside the `try: () =>` synchronous callback of `Effect.try`, even when that `Effect.try` is nested inside `Effect.gen`. The sync callback cannot `yield*`, so `Schema.decodeUnknownEffect` is not applicable — yet the rule flags it as if it were. Requires `@effect-diagnostics-next-line schemaSyncInEffect:off` on each affected line.
-
-**Candidate fix:** Suppress only the specific sites that are genuinely in sync callbacks (as done). Long-term: open a tsgo issue requesting the rule distinguish between `Effect.gen` body scope and sync sub-callbacks. Alternatively, extract sync decode helpers that run outside any `Effect.gen` scope.
-
-**Affected files:** `packages/host/src/adapters/driven/SqliteEventStore.ts` (2 suppression sites)
-
----
-
 <!-- Hunt log 2026-05-15 (third pass)
 Triggers that fired: explicit /hunt invocation
 Hunt start time: 23:45

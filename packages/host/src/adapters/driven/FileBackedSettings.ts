@@ -5,10 +5,13 @@
  * any code that reads from the Settings port at call time.
  */
 import { Effect, FileSystem, Layer, Ref, Schema } from 'effect'
-import { DEFAULT_SETTINGS, AppSettingsSchema, Settings, SettingsError } from '../../ports/driven/Settings.ts'
+import { AppSettingsSchema, DEFAULT_SETTINGS, Settings, SettingsError } from '../../ports/driven/Settings.ts'
 import type { AppSettings } from '../../ports/driven/Settings.ts'
 
-const decodeSettings = Schema.decodeUnknownOption(AppSettingsSchema)
+// Schema that decodes JSON string → AppSettings and encodes AppSettings → JSON string.
+const JsonSettings = Schema.fromJsonString(AppSettingsSchema)
+const decodeJsonSettings = Schema.decodeUnknownEffect(JsonSettings)
+const encodeToJsonString = Schema.encodeEffect(JsonSettings)
 
 export const FileBackedSettings = {
   layer: (settingsPath: string): Layer.Layer<Settings, never, FileSystem.FileSystem> =>
@@ -19,25 +22,19 @@ export const FileBackedSettings = {
 
         // Read initial settings; fall back to defaults if file missing or invalid.
         const initial: AppSettings = yield* fs.readFileString(settingsPath).pipe(
-          Effect.flatMap(raw =>
-            Effect.try({
-              catch: e => e,
-              try: () => JSON.parse(raw) as unknown,
-            }),
-          ),
-          Effect.flatMap(parsed => {
-            const decoded = decodeSettings(parsed)
-            return decoded._tag === 'Some' ? Effect.succeed(decoded.value) : Effect.fail(new Error('invalid'))
-          }),
+          Effect.flatMap(raw => decodeJsonSettings(raw)),
           Effect.orElseSucceed(() => DEFAULT_SETTINGS),
         )
 
         const ref = yield* Ref.make<AppSettings>(initial)
 
         const persist = (settings: AppSettings): Effect.Effect<void, SettingsError> =>
-          fs
-            .writeFileString(settingsPath, JSON.stringify(settings, null, 2))
-            .pipe(Effect.mapError(cause => new SettingsError({ cause })))
+          encodeToJsonString(settings).pipe(
+            Effect.mapError(cause => new SettingsError({ cause })),
+            Effect.flatMap(encoded =>
+              fs.writeFileString(settingsPath, encoded).pipe(Effect.mapError(cause => new SettingsError({ cause }))),
+            ),
+          )
 
         return Settings.of({
           get: () => Ref.get(ref),

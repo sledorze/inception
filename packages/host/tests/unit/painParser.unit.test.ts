@@ -37,7 +37,7 @@ describe('parsePainMd', () => {
   it('all items from live docs/PAIN.md have id, title, status=open, severity', () => {
     const md = readFileSync(PAIN_MD_PATH, 'utf-8')
     const items = parsePainMd(md)
-    expect(items.length).toBeGreaterThan(0)
+    // Zero items is valid — an empty PAIN.md is the goal state.
     for (const item of items) {
       expect(typeof item.id).toBe('string')
       expect(item.id.length).toBeGreaterThan(0)
