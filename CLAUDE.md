@@ -247,8 +247,11 @@ Annotated code patterns for the codebase's recurring constructs. Check here **be
 - "What would an expert say?" → `docs/EXPERTS.md`.
 - "Should I build this or use a library?" → AL.7 + §2.8. Default to adopt/integrate.
 - "How does this Effect API work?" → `.agents/skills/effect-ts/references/` first, then `vendor/effect-smol/ai-docs/` → `vendor/effect-smol/packages/effect/src/`. Never guess from v3 memory.
+- "How should I write or modify a test in `packages/host/tests/`?" → `/effect-test-pattern` (layer(), it.effect, Effect.flip, RED .fails tests).
+- "Which decode API do I use at this boundary?" → `/schema-decode` (three-way table: decodeUnknownEffect / decodeUnknownResult / helper function).
+- "How do I add a new adapter or wire a new Layer?" → `/composition-root` (bind.ts is the only adapter importer; Layer.provide chain; AppServices derived automatically).
 - "What code pattern should I follow here?" → `.claude/patterns/` (hex boundaries, test structure, composition root).
-- "Is there waste I'm not seeing?" → `.claude/patterns/cycle-hunt.md`
+- "Is there waste I'm not seeing?" → `/hunt`
 - "Where do Georges' behavioral instructions live?" → `packages/host/src/bootstrap/agent.md` (never in `.claude/`)
 - "Are the self-improving loops healthy?" → `docs/META-LOOPS.md` (metrics + degradation signals for L1–L7)
 

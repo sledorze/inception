@@ -4,12 +4,10 @@ import { describe, expect, it } from '@effect/vitest'
 
 const REPO_ROOT = join(import.meta.dirname, '..', '..', '..', '..')
 
-// ── P38 red-step acceptance tests ─────────────────────────────────────────────
-// Pattern files are passive docs not surfaced at the point of decision.
-// Fix (TODO 10.3): promote to .claude/commands/ slash commands + wire CLAUDE.md.
-//
-// Skipped: commands do not exist yet. Remove .skip in TODO 10.3 once the promotion lands.
-describe.skip('P38 red step — critical pattern files promoted to .claude/commands/', () => {
+// ── P38 green-step acceptance tests ──────────────────────────────────────────
+// Pattern files promoted to .claude/commands/ and CLAUDE.md wired (TODO 10.3 done).
+
+describe('P38 — critical pattern files promoted to .claude/commands/', () => {
   const commands = join(REPO_ROOT, '.claude', 'commands')
 
   it('effect-test-pattern command exists', () => {

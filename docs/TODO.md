@@ -274,17 +274,10 @@ intentional`). Annotated 4 bridge files. Documented pattern in `.claude/patterns
   `packages/backoffice/src/hooks/`; (c) migrate all 13 components; (d) update deps-check
   lefthook step to include app/backoffice src paths (already included via `pnpm deps:check`).
 
-- [todo] **10.3** **Promote critical pattern files to `.claude/commands/` slash commands** (closes P38).
-  `.agents/skills/` requires external FleetView registration; `.claude/commands/` is always
-  discoverable (same mechanism as `/hunt`, `/enforcement-audit`). Promote
-  `effect-test-pattern.md`, `schema-decode.md`, `composition-root.md` to
-  `.claude/commands/effect-test-pattern.md`, `.claude/commands/schema-decode.md`,
-  `.claude/commands/composition-root.md` — immediately invocable as slash commands.
-  Update CLAUDE.md "When in doubt" to name each slash command at its decision point.
-  Repurpose `patterns/` files as thin redirects ("see /effect-test-pattern").
-  Red: `tests/unit/enforce-conventions.unit.test.ts` — "P38 red step" asserts command files exist
-  and CLAUDE.md "When in doubt" references each (currently all fail). Green: create commands,
-  update CLAUDE.md.
+- [done] **10.3** **Promote critical pattern files to `.claude/commands/` slash commands** (closes P38).
+  Created `.claude/commands/effect-test-pattern.md`, `schema-decode.md`, `composition-root.md`.
+  Added three "When in doubt" entries to CLAUDE.md naming each slash command at its decision point.
+  Green gate: `tests/unit/enforce-conventions.unit.test.ts` — "P38" (6 assertions pass).
 
 - [done] **10.4** **`effect-patterns/no-try-catch-in-src` rule** (closes P39).
   Added `no-try-catch-in-src` to `effect-patterns.js` with bridge-zone exemption. Fixed

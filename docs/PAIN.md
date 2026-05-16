@@ -90,18 +90,6 @@ All three findings resolved in commit 5030e00c — no open PAIN items added.
 
 ---
 
-## P38 — Critical `.claude/patterns/` files are passive docs not surfaced at the point of decision
-
-**Severity:** annoys
-
-**Symptom:** `.claude/patterns/effect-test-pattern.md`, `schema-decode.md`, and `composition-root.md` contain guidance that is re-derived every session it is needed: `schema-decode.md` was created after 3 typecheck cycles spent finding the right decode API (P25 hunt); `composition-root.md` encoding was wrong in 2 sessions caught only at commit time; `effect-test-pattern.md` must be re-read each time a new test layer is started. The `effect-ts` skill fills the same role for Effect APIs and is proactively invocable via `/effect-ts`; CLAUDE.md's "When in doubt" section links to it by decision point. The three pattern files are not referenced in "When in doubt" for their specific decisions and are discovered only if the developer explicitly knows to look. The enforcement gap: a developer about to write `Schema.decodeUnknownSync` or wire a new Layer gets no proactive signal from the toolchain.
-
-**Candidate fix:** `.agents/skills/` requires FleetView project-settings registration to be invocable — new entries there are invisible to Claude Code until registered externally. The always-discoverable mechanism is `.claude/commands/<name>.md` (project-level slash commands, same mechanism as `/hunt`). Promote `effect-test-pattern.md`, `schema-decode.md`, `composition-root.md` to `.claude/commands/effect-test-pattern.md`, etc. — these are immediately invocable as `/effect-test-pattern`, `/schema-decode`, `/composition-root`. Update CLAUDE.md "When in doubt" to name the slash commands at each decision point. The patterns/ files become thin redirects. Validation: grep CLAUDE.md "When in doubt" for the three command names — fails before fix, passes after.
-
-**Acceptance test (red):** `packages/host/tests/unit/enforce-conventions.unit.test.ts` — "P38 red step" describe block asserts `.claude/commands/effect-test-pattern.md`, `schema-decode.md`, and `composition-root.md` exist and that CLAUDE.md "When in doubt" references each slash command name. Currently all six assertions fail (files absent, CLAUDE.md not updated) — test FAILS.
-
----
-
 ## P40 — Cross-package quality standards drift — no single-source enforcement
 
 **Severity:** slows

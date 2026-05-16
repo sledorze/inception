@@ -25,6 +25,16 @@ FIXED 2026-05-16 in feat/design-system-enforcement — added `effect-patterns/no
 
 ---
 
+## P38 — Critical `.claude/patterns/` files are passive docs not surfaced at the point of decision
+
+**Severity:** annoys
+
+**Symptom:** `effect-test-pattern.md`, `schema-decode.md`, and `composition-root.md` were discovered only if the developer explicitly knew to look in `.claude/patterns/`. No "When in doubt" link pointed to them at the relevant decision points.
+
+FIXED 2026-05-16 in feat/design-system-enforcement — created `.claude/commands/effect-test-pattern.md`, `.claude/commands/schema-decode.md`, `.claude/commands/composition-root.md` as project slash commands. Added three decision-point entries to CLAUDE.md "When in doubt" section (`/effect-test-pattern`, `/schema-decode`, `/composition-root`). test: `packages/host/tests/unit/enforce-conventions.unit.test.ts` — "P38" (6 assertions)
+
+---
+
 ## P26 — `schemaSyncInEffect` fires false-positive inside `Effect.try` sync callbacks
 
 **Severity:** annoys (adds suppression boilerplate every time SQLite/sync decode is needed inside Effect.gen)
