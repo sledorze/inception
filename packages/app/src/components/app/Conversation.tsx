@@ -90,7 +90,7 @@ export function Conversation() {
         setBusy(false)
         return getTurns(sessionId)
       })
-      .then((updatedTurns: Turn[]) => {
+      .then((updatedTurns: readonly Turn[]) => {
         setTurns(updatedTurns.map(t => ({ ...t })))
       })
       .catch((err: unknown) => {
