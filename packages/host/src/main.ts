@@ -11,7 +11,7 @@
  *   POST /api/sessions/:id/respond    — enduser: answer clarification
  *   GET  /api/proposals               — admin: list pending proposals
  *   POST /api/proposals/:id/promote   — admin: promote a proposal
- *   POST /api/tools/:name             — invoke a toolkit tool (internal)
+ *   POST /api/tools/:name             — admin: invoke a toolkit tool (internal)
  *   GET  /api/admin/metrics           — admin: loop health
  *   GET  /api/admin/pain              — admin: open PAIN items
  *   GET  /api/admin/work              — admin: TODO work items
@@ -317,14 +317,16 @@ const adminTraceRoute = HttpRouter.add(
 const toolRoute = HttpRouter.add(
   'POST',
   '/api/tools/:toolName',
-  Effect.gen(function* () {
-    const { toolName } = yield* HttpRouter.schemaPathParams(Schema.Struct({ toolName: Schema.String }))
-    const params = yield* parseBody(Schema.Unknown)
-    const toolkit = yield* GeorgesToolkit
-    const stream = yield* toolkit.handle(toolName as 'list-tools', params as { role: string })
-    const last = yield* Stream.runLast(stream)
-    return jsonOk(Option.getOrNull(last))
-  }),
+  withRole('admin')(
+    Effect.gen(function* () {
+      const { toolName } = yield* HttpRouter.schemaPathParams(Schema.Struct({ toolName: Schema.String }))
+      const params = yield* parseBody(Schema.Unknown)
+      const toolkit = yield* GeorgesToolkit
+      const stream = yield* toolkit.handle(toolName as 'list-tools', params as { role: string })
+      const last = yield* Stream.runLast(stream)
+      return jsonOk(Option.getOrNull(last))
+    }),
+  ),
 )
 
 // Closed leak — GET /events is replaced by guarded /api/admin/trace.

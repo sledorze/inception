@@ -171,9 +171,11 @@ surface independently deployable.
   from `EventStoreAdminQuery`; unit tests contract-tested against live `docs/PAIN.md`/`docs/TODO.md`.
   488 tests green.
 
-- [todo] **7.C** Wrap remaining unguarded `/api/*` routes (tool route); add quarantine list/release
-  endpoints behind `withRole('admin')`; e2e Playwright scenarios: enduser cannot reach `/api/admin/*`,
-  admin can reach metrics/trace, `GET /events` → 404.
+- [done] **7.C** `POST /api/tools/:name` guarded with `withRole('admin')` (raw tool surface —
+  admin-only); Playwright API-level RBAC scenarios in `e2e/rbac.spec.ts`: unauthenticated →
+  401 on all guarded routes, admin token → 200 on metrics/pain/work/trace, `GET /events` → 404,
+  `GET /health` open. Quarantine list/release deferred to 8.x (no quarantine port exists yet).
+  488 tests green.
 
 - [todo] **7.D** Scaffold `packages/backoffice` + `packages/app`; responsive shadcn UI; move panels
   (builder → backoffice, consumer → app); decommission `packages/frontend`; update `docs/SPEC.md §1`
