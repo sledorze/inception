@@ -382,10 +382,7 @@ rt.runFork(
 // Compile routes into an HTTP effect.
 // Effect.scoped handles the Scope requirement of Layer.build inside toHttpEffect.
 // The app services (AuthGateway, EventStore, etc.) are provided at request time by the runtime.
-// Routes carry service requirements in R; the ManagedRuntime satisfies them at dispatch time.
-// The intermediate `as any` bridges the gap between static route types and the runtime's dynamic
-// service provision — a structural limitation of the current Effect HTTP routing API.
-// @effect-diagnostics-next-line unsafeEffectTypeAssertion:off anyUnknownInErrorContext:off
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
 const httpApp = (await rt.runPromise(HttpRouter.toHttpEffect(allRoutes).pipe(Effect.scoped) as any)) as Effect.Effect<
   HttpServerResponse.HttpServerResponse,
   never,
@@ -394,7 +391,7 @@ const httpApp = (await rt.runPromise(HttpRouter.toHttpEffect(allRoutes).pipe(Eff
 
 // makeHandler requires a Scope to manage per-request resource cleanup.
 // We reuse the ManagedRuntime's root scope so handler lifetimes are bound to the server.
-// @effect-diagnostics-next-line unsafeEffectTypeAssertion:off
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
 const handler = await (rt.runPromise(NodeHttpServer.makeHandler(httpApp, { scope: rt.scope }) as any) as Promise<
   Parameters<typeof createServer>[0]
 >)
