@@ -13,6 +13,8 @@
  *   POST /api/proposals/:id/promote   — admin: promote a proposal
  *   POST /api/tools/:name             — invoke a toolkit tool (internal)
  *   GET  /api/admin/metrics           — admin: loop health
+ *   GET  /api/admin/pain              — admin: open PAIN items
+ *   GET  /api/admin/work              — admin: TODO work items
  *   GET  /api/admin/trace             — admin: event trace (replaces GET /events)
  *   GET  /events                      — 404 (leak closed)
  *   GET  /*                           — static SPA (spa:true makes refresh work)
@@ -101,7 +103,9 @@ const loginRoute = HttpRouter.add(
   Effect.gen(function* () {
     const LoginBody = Schema.Struct({ password: Schema.String, username: Schema.String })
     const body = yield* parseBody(LoginBody)
-    if (body === null) return textErr('missing username or password', 422)
+    if (body === null) {
+      return textErr('missing username or password', 422)
+    }
     return yield* login(body.username, body.password).pipe(
       Effect.matchEffect({
         onFailure: err =>
@@ -122,7 +126,9 @@ const submitGoalRoute = HttpRouter.add(
   withRole('enduser')(
     Effect.gen(function* () {
       const body = yield* parseBody(SubmitGoalBody)
-      if (body === null) return textErr('missing or invalid goal/handleId', 422)
+      if (body === null) {
+        return textErr('missing or invalid goal/handleId', 422)
+      }
       const { goal, handleId, sessionId: reqSessionId } = body
       const toolkit = yield* GeorgesToolkit
       const sessionId = reqSessionId ?? (yield* Random.nextUUIDv4)
@@ -224,7 +230,9 @@ const sessionRespondRoute = HttpRouter.add(
   withRole('enduser')(
     Effect.gen(function* () {
       const body = yield* parseBody(RespondBody)
-      if (body === null) return textErr('missing correlationId or answer', 422)
+      if (body === null) {
+        return textErr('missing correlationId or answer', 422)
+      }
       const { sessionId } = yield* HttpRouter.schemaPathParams(Schema.Struct({ sessionId: Schema.String }))
       const { correlationId, answer } = body
       const toolkit = yield* GeorgesToolkit
@@ -266,6 +274,30 @@ const adminMetricsRoute = HttpRouter.add(
       const adminQuery = yield* AdminQuery
       const metrics = yield* adminQuery.metrics()
       return jsonOk(metrics)
+    }),
+  ),
+)
+
+const adminPainRoute = HttpRouter.add(
+  'GET',
+  '/api/admin/pain',
+  withRole('admin')(
+    Effect.gen(function* () {
+      const adminQuery = yield* AdminQuery
+      const items = yield* adminQuery.pain()
+      return jsonOk(items)
+    }),
+  ),
+)
+
+const adminWorkRoute = HttpRouter.add(
+  'GET',
+  '/api/admin/work',
+  withRole('admin')(
+    Effect.gen(function* () {
+      const adminQuery = yield* AdminQuery
+      const items = yield* adminQuery.work()
+      return jsonOk(items)
     }),
   ),
 )
@@ -323,6 +355,8 @@ const allRoutes: Layer.Layer<never, never, never> = Layer.mergeAll(
   listProposalsRoute,
   promoteProposalRoute,
   adminMetricsRoute,
+  adminPainRoute,
+  adminWorkRoute,
   adminTraceRoute,
   toolRoute,
   closedLeakRoute,

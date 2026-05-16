@@ -166,9 +166,10 @@ surface independently deployable.
   seed + protocol test `AdminQuery.spec.ts` (parametrised over InMemory+EventStore, L1.3 no-raw-bytes
   invariant) + bootstrap integration test updated. All 478 tests green.
 
-- [todo] **7.B** `AdminQuery.pain()` + `AdminQuery.work()` HTTP surface (`GET /api/admin/pain`,
-  `GET /api/admin/work`); wire `painParser`/`todoParser` pure domain modules; contract-test against
-  live `docs/PAIN.md`/`docs/TODO.md`.
+- [done] **7.B** `AdminQuery.pain()` + `AdminQuery.work()` HTTP surface (`GET /api/admin/pain`,
+  `GET /api/admin/work`); extracted `domain/painParser.ts` + `domain/todoParser.ts` pure modules
+  from `EventStoreAdminQuery`; unit tests contract-tested against live `docs/PAIN.md`/`docs/TODO.md`.
+  488 tests green.
 
 - [todo] **7.C** Wrap remaining unguarded `/api/*` routes (tool route); add quarantine list/release
   endpoints behind `withRole('admin')`; e2e Playwright scenarios: enduser cannot reach `/api/admin/*`,
