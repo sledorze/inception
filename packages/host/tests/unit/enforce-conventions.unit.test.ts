@@ -1,4 +1,4 @@
-import { existsSync, readFileSync } from 'node:fs'
+import { existsSync, readFileSync, readdirSync } from 'node:fs'
 import { join } from 'node:path'
 import { describe, expect, it } from '@effect/vitest'
 
@@ -40,5 +40,32 @@ describe.skip('P38 red step — critical pattern files promoted to .claude/comma
     const claudeMd = readFileSync(join(REPO_ROOT, 'CLAUDE.md'), 'utf8')
     const section = claudeMd.slice(claudeMd.indexOf('When in doubt'))
     expect(section).toContain('/composition-root')
+  })
+})
+
+// ── P40 red-step acceptance tests ─────────────────────────────────────────────
+// Cross-package quality standards drift: packages diverge because there's no
+// shared baseline config contract.
+// Fix: extract shared .oxlintrc-base.json; assert all packages extend it.
+//
+// Skipped: base config does not exist yet. Remove .skip when baseline lands.
+describe.skip('P40 red step — every package oxlint config extends shared baseline', () => {
+  it('each packages/* directory has .oxlintrc.json extending a shared base', () => {
+    const packagesDir = join(REPO_ROOT, 'packages')
+    const packages = readdirSync(packagesDir, { withFileTypes: true })
+      .filter(d => d.isDirectory())
+      .map(d => d.name)
+
+    for (const pkg of packages) {
+      const oxlintrc = join(packagesDir, pkg, '.oxlintrc.json')
+      if (!existsSync(oxlintrc)) {
+        continue
+      }
+      const config = JSON.parse(readFileSync(oxlintrc, 'utf8')) as Record<string, unknown>
+      expect(
+        config['extends'],
+        `packages/${pkg}/.oxlintrc.json must have an "extends" field pointing to the shared base`,
+      ).toBeDefined()
+    }
   })
 })

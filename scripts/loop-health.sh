@@ -75,7 +75,7 @@ pending "Output channel quality (hook+pattern vs PAIN-only ratio)" "structured h
 echo ""
 echo "L3  Assessment Frame → Test → Coverage"
 
-LAW_SPEC_COUNT=$(grep -c "^| L[0-9A]\|^| AL\." docs/SPEC-nav.md 2>/dev/null || echo 0)
+LAW_SPEC_COUNT=$(grep -c "^| L[0-9]\." docs/SPEC-nav.md 2>/dev/null || echo 0)
 LAW_TEST_COUNT=$(ls packages/host/tests/laws/*.spec.ts 2>/dev/null | wc -l | tr -d ' ')
 
 if [ "$LAW_SPEC_COUNT" -gt 0 ]; then

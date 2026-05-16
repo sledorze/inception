@@ -123,3 +123,15 @@ All three findings resolved in commit 5030e00c — no open PAIN items added.
 **Candidate fix:** Add `effect-patterns/no-try-catch-in-src` rule to `.claude/oxlint-plugins/effect-patterns.js`. The rule fires on any `TryStatement` node in files matching `packages/host/src/` (same path-scope logic as `no-async-in-src`). Wire into the PostToolUse `check-effect-patterns.sh` alongside existing checks. Fix `ceremony.ts`: convert `verifySignature` to return `Effect<boolean, never>` using `Effect.try(() => verify(...)).pipe(Effect.map(() => true), Effect.orElseSucceed(() => false))`; update `checkQuorum` to return `Effect<QuorumResult, never>` via `Effect.gen`; update callers (only `ceremonyBin.integration.test.ts` and `ceremony.unit.test.ts`).
 
 **Acceptance test (red):** `packages/host/tests/unit/oxlint-rules.unit.test.ts` — "effect-patterns/no-try-catch-in-src (P39)" describe block asserts that a `try { ... } catch { }` block in a `src/` path exits non-zero with `no-try-catch-in-src` in stdout. Currently oxlint exits 0 (rule absent) — test FAILS.
+
+---
+
+## P40 — Cross-package quality standards drift — no single-source enforcement
+
+**Severity:** slows
+
+**Symptom:** `packages/host/`, `packages/app/`, and `packages/backoffice/` have grown independently. Quality gates are applied inconsistently: `packages/host/` has a full oxlint plugin with custom rules, PostToolUse hooks, protocol tests, and a law/coverage ratchet; `packages/app/` and `packages/backoffice/` have a design-system oxlint plugin but no PostToolUse hook, no protocol tests, no mutation score, and no custom PAIN-closure check. There is no single place that declares "every package must have X" — only per-package `.oxlintrc.json` files that drift independently. Concretely: (a) a new package could be added without any lint config and no gate would fire; (b) a rule added to `host/.oxlintrc.json` is not automatically considered for `app/` and `backoffice/`; (c) Turborepo task definitions (`lint:ci`, `typecheck`, `test:coverage:ci`) are per-package and not cross-checked against a baseline contract. The result: quality guarantees degrade as new packages are added.
+
+**Candidate fix:** Extract a `packages/design-system/.oxlintrc-base.json` (shared base config, extended by each package's `.oxlintrc.json` via `"extends": [...]`). Add a `check-package-baseline.sh` lefthook step that verifies every `packages/*/.oxlintrc.json` contains an `"extends"` pointing to the base config — enforces the contract structurally. Separately, gate new package creation: `check-layout.sh` (already checking directory names) can be extended to assert that every new `packages/<name>/` directory has the required quality files (`.oxlintrc.json`, `tsconfig.json`, a test directory).
+
+**Acceptance test (red):** Add `describe.skip('P40 — every package has baseline quality files', ...)` to `packages/host/tests/unit/enforce-conventions.unit.test.ts` — asserts that each `packages/*/.oxlintrc.json` includes an `"extends"` field pointing to the shared base. Currently none of the package oxlint configs use `"extends"` — all assertions fail.
