@@ -38,8 +38,9 @@ const program = Effect.gen(function* () {
 
   const rootDir = path.resolve(import.meta.dirname ?? '.', '../../../..')
   const backendTests = yield* findTestFiles(path.join(rootDir, 'packages/host/src'))
-  const frontendTests = yield* findTestFiles(path.join(rootDir, 'packages/frontend/src'))
-  const testFiles = [...backendTests, ...frontendTests]
+  const appTests = yield* findTestFiles(path.join(rootDir, 'packages/app/src'))
+  const backofficeTests = yield* findTestFiles(path.join(rootDir, 'packages/backoffice/src'))
+  const testFiles = [...backendTests, ...appTests, ...backofficeTests]
 
   const files: FileContent[] = yield* Effect.forEach(
     testFiles,

@@ -177,11 +177,11 @@ surface independently deployable.
   `GET /health` open. Quarantine list/release deferred to 8.x (no quarantine port exists yet).
   488 tests green.
 
-- [todo] **7.D** Scaffold `packages/backoffice` + `packages/app`; responsive shadcn UI; move panels
+- [done] **7.D** Scaffold `packages/backoffice` + `packages/app`; responsive shadcn UI; move panels
   (builder → backoffice, consumer → app); decommission `packages/frontend`; update `docs/SPEC.md §1`
   repo layout + §13 Tech Decisions.
 
-- [todo] **7.1** **Architecture spike** (subsumed into 7.A–7.D above; retained for reference):
+- [done] **7.1** **Architecture spike** (subsumed into 7.A–7.D above; retained for reference):
   defines `packages/backoffice` (proposals, capability registry, trace replay, role management,
   quarantine) and `packages/app` (chat/conversation, goal submission, clarify flow). Shared UI
   primitives determination deferred to 7.D.

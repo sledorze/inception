@@ -12,7 +12,7 @@ const config: KnipConfig = {
       ],
       ignoreDependencies: [
         // Frontend UI packages live in root node_modules (pnpm hoisting) but are
-        // consumed by packages/frontend — knip attributes them to root instead.
+        // consumed by packages/app and packages/backoffice — knip attributes them to root instead.
         '@testing-library/jest-dom',
         '@testing-library/react',
         '@testing-library/user-event',
@@ -24,8 +24,11 @@ const config: KnipConfig = {
         'shadcn',
       ],
     },
-    'packages/frontend': {
-      // shadcn scaffold — not yet referenced but will be once UI is built
+    'packages/app': {
+      ignore: ['src/lib/utils.ts'],
+      project: ['src/**/*.{ts,tsx}'],
+    },
+    'packages/backoffice': {
       ignore: ['src/lib/utils.ts'],
       project: ['src/**/*.{ts,tsx}'],
     },

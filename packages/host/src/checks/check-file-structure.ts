@@ -47,9 +47,10 @@ const program = Effect.gen(function* () {
   const path = yield* Path.Path
 
   const rootDir = path.resolve(import.meta.dirname ?? '.', '../../../..')
-  const frontendSrc = path.join(rootDir, 'packages/frontend/src')
+  const appSrc = path.join(rootDir, 'packages/app/src')
+  const backofficeSrc = path.join(rootDir, 'packages/backoffice/src')
 
-  const files = yield* findTsxFiles(frontendSrc, frontendSrc)
+  const files = [...(yield* findTsxFiles(appSrc, appSrc)), ...(yield* findTsxFiles(backofficeSrc, backofficeSrc))]
 
   type Violation = { path: string; count: number }
   const violations: Violation[] = []

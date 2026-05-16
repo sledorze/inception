@@ -35,11 +35,11 @@ module.exports = {
       to: { path: '^packages/' },
     },
 
-    // Frontend src (no host-specific restrictions here)
+    // App + backoffice internals (no host-specific restrictions here)
     {
-      comment: 'Frontend internals.',
-      from: { path: '^packages/frontend/src/' },
-      to: { path: '^packages/frontend/src/' },
+      comment: 'App and backoffice internals.',
+      from: { path: '^packages/(app|backoffice)/src/' },
+      to: { path: '^packages/(app|backoffice)/src/' },
     },
 
     // e2e + scripts

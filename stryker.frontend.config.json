@@ -5,11 +5,11 @@
   "incremental": true,
   "incrementalFile": "reports/stryker-frontend-incremental.json",
   "mutate": [
-    "packages/frontend/src/**/*.{ts,tsx}",
-    "!packages/frontend/src/**/*.test.ts",
-    "!packages/frontend/src/**/*.test.tsx",
-    "!packages/frontend/src/**/*.d.ts",
-    "!packages/frontend/src/main.tsx"
+    "packages/app/src/**/*.{ts,tsx}",
+    "!packages/app/src/**/*.test.ts",
+    "!packages/app/src/**/*.test.tsx",
+    "!packages/app/src/**/*.d.ts",
+    "!packages/app/src/main.tsx"
   ],
   "packageManager": "pnpm",
   "plugins": ["@stryker-mutator/vitest-runner"],

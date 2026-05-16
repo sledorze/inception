@@ -51,7 +51,7 @@ import { GeorgesToolkit, fullLayer } from './runtime/bind.ts'
 import { UserGateway } from './ports/driving/UserGateway.ts'
 
 // URL-based path avoids node:path import (P24).
-const DIST = new URL('../../frontend/dist', import.meta.url).pathname
+const DIST = new URL('../../app/dist', import.meta.url).pathname
 
 // ─── RBAC guard ───────────────────────────────────────────────────────────────
 
@@ -337,11 +337,7 @@ const closedLeakRoute = HttpRouter.add('GET', '/events', Effect.succeed(textErr(
 // Fallback to a 503 if the frontend hasn't been built yet (PlatformError → caught → fallback).
 const spaRoute = HttpStaticServer.layer({ root: DIST, spa: true }).pipe(
   Layer.catchTag('PlatformError', () =>
-    HttpRouter.add(
-      'GET',
-      '/*',
-      Effect.succeed(textErr('frontend not built — run pnpm build in packages/frontend', 503)),
-    ),
+    HttpRouter.add('GET', '/*', Effect.succeed(textErr('app not built — run pnpm build:app in packages/app', 503))),
   ),
 )
 

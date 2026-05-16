@@ -15,7 +15,7 @@ export interface Violation {
 
 const TEST_FILE_PATTERN = /\.test\.tsx?$/u
 
-const EXEMPT_PATTERNS = [/\.test\.tsx$/u, /^packages\/frontend\//u]
+const EXEMPT_PATTERNS = [/\.test\.tsx$/u, /^packages\/(app|backoffice)\//u]
 
 export const defaultCategories: readonly CategoryConfig[] = [
   {

@@ -13,7 +13,7 @@ export default defineConfig({
     trace: 'on-first-retry',
   },
   webServer: {
-    command: `pnpm build:frontend && LLM_MODE=${process.env['LLM_MODE']} PORT=3100 node --import tsx packages/host/src/main.ts`,
+    command: `pnpm build:app && LLM_MODE=${process.env['LLM_MODE']} PORT=3100 node --import tsx packages/host/src/main.ts`,
     reuseExistingServer: !process.env['CI'],
     timeout: 30_000,
     url: 'http://localhost:3100/health',

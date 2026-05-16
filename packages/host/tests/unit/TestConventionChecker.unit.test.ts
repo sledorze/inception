@@ -29,8 +29,8 @@ describe('checkTestConventions — file categorisation', () => {
     expect(violations).toHaveLength(0)
   })
 
-  it('exempts frontend test files', () => {
-    const violations = checkTestConventions([file('packages/frontend/src/api/goals.test.ts', '')], defaultCategories)
+  it('exempts app/backoffice test files', () => {
+    const violations = checkTestConventions([file('packages/app/src/api/goals.test.ts', '')], defaultCategories)
     expect(violations).toHaveLength(0)
   })
 
