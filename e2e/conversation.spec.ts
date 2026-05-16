@@ -7,6 +7,7 @@
  *
  * Skipped automatically when LLM_MODE != 'replay' (cassette not yet committed).
  */
+import type { Page } from '@playwright/test'
 import { expect, test } from '@playwright/test'
 import { FAKE_CLARIFY_TRIGGER } from '../packages/host/src/adapters/driven/RecordReplayLlmProvider.ts'
 
@@ -15,8 +16,18 @@ import { FAKE_CLARIFY_TRIGGER } from '../packages/host/src/adapters/driven/Recor
 const hasLlm = ['replay', 'fake'].includes(process.env['LLM_MODE'] ?? '')
 test.skip(!hasLlm, 'Requires LLM_MODE=fake or LLM_MODE=replay')
 
-test('conversation: send a goal and receive a non-empty reply', async ({ page }) => {
+/** Log in as the enduser account before each conversation test. */
+async function loginAsEnduser(page: Page): Promise<void> {
   await page.goto('/')
+  await page.getByTestId('login-username').fill('enduser')
+  await page.getByTestId('login-password').fill('enduser')
+  await page.getByTestId('login-submit').click()
+  // Wait until the login screen disappears (goal input becomes visible).
+  await expect(page.getByTestId('conv-goal')).toBeVisible({ timeout: 10_000 })
+}
+
+test('conversation: send a goal and receive a non-empty reply', async ({ page }) => {
+  await loginAsEnduser(page)
 
   const goalInput = page.getByTestId('conv-goal')
   const sendBtn = page.getByTestId('conv-send')
@@ -50,7 +61,7 @@ test('conversation: send a goal and receive a non-empty reply', async ({ page })
 test.skip(!hasLlm, 'Requires LLM_MODE=fake or LLM_MODE=replay')
 
 test('conversation: Georges asks for clarification, User answers, final reply appears', async ({ page }) => {
-  await page.goto('/')
+  await loginAsEnduser(page)
 
   const goalInput = page.getByTestId('conv-goal')
   const sendBtn = page.getByTestId('conv-send')

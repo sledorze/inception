@@ -34,6 +34,16 @@ export const sendMessage = (sessionId: string, goal: string, handleId: string): 
     return res.json() as Promise<SendResult>
   })
 
+export const getTurns = (sessionId: string): Promise<readonly Turn[]> =>
+  authedFetch(`/api/sessions/${encodeURIComponent(sessionId)}/turns`, { method: 'GET' }).then(res => {
+    if (!res.ok) {
+      return res.text().then(t => {
+        throw new Error(`${res.status}: ${t}`)
+      })
+    }
+    return res.json() as Promise<readonly Turn[]>
+  })
+
 export const respondToGoal = (sessionId: string, correlationId: string, answer: string): Promise<RespondResult> =>
   authedFetch(`/api/sessions/${encodeURIComponent(sessionId)}/respond`, {
     body: JSON.stringify({ answer, correlationId }),

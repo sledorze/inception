@@ -15,8 +15,10 @@ npm-debug.log*
 .env
 .env.local
 
-# Data (SQLite databases)
-data/
+# Data (SQLite databases and WAL files — credentials.json is tracked separately)
+**/data/*.db
+**/data/*.db-shm
+**/data/*.db-wal
 *.db
 
 # Reference repositories (clone as needed)

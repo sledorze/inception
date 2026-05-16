@@ -3,7 +3,7 @@ import { Button } from '@/components/ui/button'
 import { Card } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
 import { Textarea } from '@/components/ui/textarea'
-import { respondToGoal, sendMessage } from '../../api/chat.ts'
+import { getTurns, respondToGoal, sendMessage } from '../../api/chat.ts'
 import type { Turn } from '../../api/chat.ts'
 
 interface PendingClarify {
@@ -88,7 +88,7 @@ export function Conversation() {
         setPendingClarify(null)
         setClarifyAnswer('')
         setBusy(false)
-        return fetch(`/api/sessions/${encodeURIComponent(sessionId)}/turns`).then(r => r.json() as Promise<Turn[]>)
+        return getTurns(sessionId)
       })
       .then((updatedTurns: Turn[]) => {
         setTurns(updatedTurns.map(t => ({ ...t })))
