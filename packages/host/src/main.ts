@@ -56,19 +56,20 @@ import { registerCapability } from './application/registerCapability.ts'
 import { listPendingProposals, promoteProposal } from './application/reviewProposals.ts'
 import { login } from './application/login.ts'
 import { requireRole } from './application/authorize.ts'
+import { AGENT_MD_PATH } from './application/session.ts'
 import { EventStore } from './ports/driven/EventStore.ts'
-import { Settings } from './ports/driven/Settings.ts'
+import type { StoredEvent } from './ports/driven/EventStore.ts'
+import type { AppSettings } from './ports/driven/Settings.ts'
+import { AppSettingsSchema, Settings } from './ports/driven/Settings.ts'
+import type { AdminQueryError } from './ports/driving/AdminQuery.ts'
 import { AdminQuery } from './ports/driving/AdminQuery.ts'
 import type { AuthGateway } from './ports/driving/AuthGateway.ts'
-import { SessionExpiredTag, SessionNotFoundTag } from './ports/driving/AuthGateway.ts'
+import { InvalidCredentialsTag, SessionExpiredTag, SessionNotFoundTag } from './ports/driving/AuthGateway.ts'
 import { GeorgesToolkit, fullLayer } from './runtime/bind.ts'
 import { UserGateway } from './ports/driving/UserGateway.ts'
 
 // URL-based path avoids node:path import (P24).
 const DIST = new URL('../../app/dist', import.meta.url).pathname
-
-// Path to Georges' operating context file (S8 — review loop reads and patches this).
-const AGENT_MD_PATH = new URL('./bootstrap/agent.md', import.meta.url).pathname
 
 // ─── RBAC guard ───────────────────────────────────────────────────────────────
 
@@ -114,13 +115,18 @@ const parseBody = <A, I, RD, RE>(
 
 // ─── Routes ───────────────────────────────────────────────────────────────────
 
+const LoginBody = Schema.Struct({ password: Schema.String, username: Schema.String })
+
+// Shorthand for the common admin GET → AdminQuery method → jsonOk pattern (4 routes use it).
+const adminGet = (path: `/${string}`, query: Effect.Effect<unknown, AdminQueryError, AdminQuery>) =>
+  HttpRouter.add('GET', path, withRole('admin')(query.pipe(Effect.map(jsonOk))))
+
 const healthRoute = HttpRouter.add('GET', '/health', Effect.succeed(HttpServerResponse.text('ok')))
 
 const loginRoute = HttpRouter.add(
   'POST',
   '/api/login',
   Effect.gen(function* () {
-    const LoginBody = Schema.Struct({ password: Schema.String, username: Schema.String })
     const body = yield* parseBody(LoginBody)
     if (body === null) {
       return textErr('missing username or password', 422)
@@ -129,9 +135,7 @@ const loginRoute = HttpRouter.add(
       Effect.matchEffect({
         onFailure: err =>
           Effect.succeed(
-            err._tag === '@app/host/InvalidCredentials' ?
-              textErr('invalid credentials', 401)
-            : textErr('server error', 500),
+            err._tag === InvalidCredentialsTag ? textErr('invalid credentials', 401) : textErr('server error', 500),
           ),
         onSuccess: session => Effect.succeed(jsonOk(session)),
       }),
@@ -281,52 +285,21 @@ const promoteProposalRoute = HttpRouter.add(
   ),
 )
 
-const adminMetricsRoute = HttpRouter.add(
-  'GET',
+const adminMetricsRoute = adminGet(
   '/api/admin/metrics',
-  withRole('admin')(
-    Effect.gen(function* () {
-      const adminQuery = yield* AdminQuery
-      const metrics = yield* adminQuery.metrics()
-      return jsonOk(metrics)
-    }),
-  ),
+  Effect.flatMap(AdminQuery, q => q.metrics()),
 )
-
-const adminPainRoute = HttpRouter.add(
-  'GET',
+const adminPainRoute = adminGet(
   '/api/admin/pain',
-  withRole('admin')(
-    Effect.gen(function* () {
-      const adminQuery = yield* AdminQuery
-      const items = yield* adminQuery.pain()
-      return jsonOk(items)
-    }),
-  ),
+  Effect.flatMap(AdminQuery, q => q.pain()),
 )
-
-const adminWorkRoute = HttpRouter.add(
-  'GET',
+const adminWorkRoute = adminGet(
   '/api/admin/work',
-  withRole('admin')(
-    Effect.gen(function* () {
-      const adminQuery = yield* AdminQuery
-      const items = yield* adminQuery.work()
-      return jsonOk(items)
-    }),
-  ),
+  Effect.flatMap(AdminQuery, q => q.work()),
 )
-
-const adminTraceRoute = HttpRouter.add(
-  'GET',
+const adminTraceRoute = adminGet(
   '/api/admin/trace',
-  withRole('admin')(
-    Effect.gen(function* () {
-      const adminQuery = yield* AdminQuery
-      const events = yield* adminQuery.trace({})
-      return jsonOk(events)
-    }),
-  ),
+  Effect.flatMap(AdminQuery, q => q.trace({})),
 )
 
 const toolRoute = HttpRouter.add(
@@ -448,6 +421,12 @@ const flagExchangeRoute = HttpRouter.add(
   ),
 )
 
+const PatternPayload = Schema.Struct({
+  note: Schema.optional(Schema.String),
+  reason: Schema.optional(Schema.String),
+})
+const PATTERN_MAX_EXAMPLES = 5
+
 const patternsRoute = HttpRouter.add(
   'GET',
   '/api/patterns',
@@ -461,10 +440,6 @@ const patternsRoute = HttpRouter.add(
         string,
         { key: string; count: number; examples: string[]; firstSeen: string; lastSeen: string }
       >()
-      const PatternPayload = Schema.Struct({
-        note: Schema.optional(Schema.String),
-        reason: Schema.optional(Schema.String),
-      })
       for (const e of flagged) {
         const p = Schema.decodeUnknownOption(PatternPayload)(e.payload).pipe(
           Option.getOrElse(() => ({ note: undefined, reason: undefined })),
@@ -482,7 +457,10 @@ const patternsRoute = HttpRouter.add(
           })
         } else {
           bucket.count++
-          if (e.correlationId !== bucket.examples[bucket.examples.length - 1]) {
+          if (
+            e.correlationId !== bucket.examples[bucket.examples.length - 1] &&
+            bucket.examples.length < PATTERN_MAX_EXAMPLES
+          ) {
             bucket.examples.push(e.correlationId)
           }
           if (e.occurredAt > bucket.lastSeen) {
@@ -550,6 +528,15 @@ const agentMdPatchRoute = HttpRouter.add(
   ),
 )
 
+// Decode the text field from a GoalCompleted event, or null when the event is absent.
+const extractCompletedText = (event: StoredEvent | undefined) =>
+  event === undefined ?
+    Effect.succeed<string | null>(null)
+  : Schema.decodeUnknownEffect(GoalCompletedPayload)(event.payload).pipe(
+      Effect.orDie,
+      Effect.map(p => p.text),
+    )
+
 const replayExchangeRoute = HttpRouter.add(
   'POST',
   '/api/exchanges/:correlationId/replay',
@@ -565,28 +552,14 @@ const replayExchangeRoute = HttpRouter.add(
       const { goal, handleId } = yield* Schema.decodeUnknownEffect(GoalSubmittedPayload)(goalEvent.payload).pipe(
         Effect.orDie,
       )
-      const originalReply = events.findLast(e => e.kind === EventKind.GoalCompleted)
-      const originalText =
-        originalReply !== undefined ?
-          yield* Schema.decodeUnknownEffect(GoalCompletedPayload)(originalReply.payload).pipe(
-            Effect.orDie,
-            Effect.map(p => p.text),
-          )
-        : null
+      const originalText = yield* extractCompletedText(events.findLast(e => e.kind === EventKind.GoalCompleted))
 
       // Re-run with a fresh correlationId.
       const replaySessionId = `replay-${correlationId.slice(0, 8)}`
       const toolkit = yield* GeorgesToolkit
       const result = yield* makeSubmitGoal(toolkit)({ goal, handleId, sessionId: replaySessionId })
       const newEvents = yield* store.query({ correlationId: result.correlationId })
-      const newCompleted = newEvents.findLast(e => e.kind === EventKind.GoalCompleted)
-      const newText =
-        newCompleted !== undefined ?
-          yield* Schema.decodeUnknownEffect(GoalCompletedPayload)(newCompleted.payload).pipe(
-            Effect.orDie,
-            Effect.map(p => p.text),
-          )
-        : null
+      const newText = yield* extractCompletedText(newEvents.findLast(e => e.kind === EventKind.GoalCompleted))
 
       return jsonOk({ after: newText, before: originalText, replayCorrelationId: result.correlationId })
     }),
@@ -607,10 +580,11 @@ const settingsGetRoute = HttpRouter.add(
   ),
 )
 
+// Each field optional; Schema.optional encodes presence/absence under exactOptionalPropertyTypes.
 const PartialAppSettingsSchema = Schema.Struct({
-  llmBaseUrl: Schema.optional(Schema.String),
-  llmModel: Schema.optional(Schema.String),
-  sessionMaxTurns: Schema.optional(Schema.Number),
+  llmBaseUrl: Schema.optional(AppSettingsSchema.fields.llmBaseUrl),
+  llmModel: Schema.optional(AppSettingsSchema.fields.llmModel),
+  sessionMaxTurns: Schema.optional(AppSettingsSchema.fields.sessionMaxTurns),
 })
 
 const settingsPatchRoute = HttpRouter.add(
@@ -619,19 +593,13 @@ const settingsPatchRoute = HttpRouter.add(
   withRole('admin')(
     Effect.gen(function* () {
       const body = yield* parseBody(PartialAppSettingsSchema)
-      // Strip undefined values before passing to patch (exactOptionalPropertyTypes).
-      const updates: Record<string, unknown> = {}
-      if (body?.llmBaseUrl !== undefined) {
-        updates['llmBaseUrl'] = body.llmBaseUrl
-      }
-      if (body?.llmModel !== undefined) {
-        updates['llmModel'] = body.llmModel
-      }
-      if (body?.sessionMaxTurns !== undefined) {
-        updates['sessionMaxTurns'] = body.sessionMaxTurns
-      }
+      // Drop keys whose value is undefined before passing to patch (exactOptionalPropertyTypes
+      // means Partial<AppSettings> has absent keys, not undefined-valued keys).
+      const updates = Object.fromEntries(
+        Object.entries(body ?? {}).filter(([, v]) => v !== undefined),
+      ) as Partial<AppSettings>
       const settings = yield* Settings
-      const updated = yield* settings.patch(updates as Partial<import('./ports/driven/Settings.ts').AppSettings>)
+      const updated = yield* settings.patch(updates)
       return jsonOk(updated)
     }),
   ),

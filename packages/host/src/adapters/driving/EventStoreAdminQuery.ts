@@ -20,24 +20,25 @@ export const EventStoreAdminQuery = {
       const readMd = (path: string): Effect.Effect<string, AdminQueryError> =>
         fs.readFileString(path).pipe(Effect.mapError((cause): AdminQueryError => new AdminQueryError({ cause })))
 
-      return AdminQuery.of({
+      const query = AdminQuery.of({
         metrics: (): Effect.Effect<LoopHealth, AdminQueryError> =>
           Effect.gen(function* () {
-            const painMd = yield* readMd(PAIN_MD_PATH)
-            const todoMd = yield* readMd(TODO_MD_PATH)
-            const painItems = parsePainMd(painMd)
-            const todoItems = parseTodoMd(todoMd)
-            const allEvents = yield* store
-              .query({})
-              .pipe(Effect.mapError((cause): AdminQueryError => new AdminQueryError({ cause })))
-            const health: LoopHealth = {
+            // Run both file reads and the store scan concurrently — all three are independent.
+            const [painItems, todoItems, allEvents] = yield* Effect.all(
+              [
+                query.pain(),
+                query.work(),
+                store.query({}).pipe(Effect.mapError((cause): AdminQueryError => new AdminQueryError({ cause }))),
+              ],
+              { concurrency: 'unbounded' },
+            )
+            return {
               archivedPainItems: 0, // PAIN-archive.md parsing deferred to 7.C
               doneTodoItems: todoItems.filter(t => t.status === 'done').length,
               eventCount: allEvents.length,
               openPainItems: painItems.length,
               openTodoItems: todoItems.filter(t => t.status === 'todo' || t.status === 'in-progress').length,
             }
-            return health
           }),
 
         pain: (): Effect.Effect<readonly PainItem[], AdminQueryError> =>
@@ -68,6 +69,7 @@ export const EventStoreAdminQuery = {
         work: (): Effect.Effect<readonly TodoItem[], AdminQueryError> =>
           readMd(TODO_MD_PATH).pipe(Effect.map(parseTodoMd)),
       })
+      return query
     }),
   ),
 }

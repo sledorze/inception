@@ -57,6 +57,7 @@ export function Conversation() {
             },
           ])
         }
+
         setGoal('')
         setBusy(false)
       })
@@ -109,16 +110,16 @@ export function Conversation() {
         {turns.length === 0 && (
           <p className="text-sm text-muted-foreground">Send a message to start the conversation.</p>
         )}
-        {turns.map(t => (
+        {turns.map((t, i) => (
           <div className="space-y-1" key={t.correlationId}>
             <p className="text-right text-sm font-medium text-primary">{t.goal}</p>
             {t.reply !== undefined && (
-              <p className="text-left text-sm" data-testid={`conv-reply-${t.turnIndex}`}>
+              <p className="text-left text-sm" data-testid={`conv-reply-${i}`}>
                 {t.reply}
               </p>
             )}
             {t.clarifyQuestion !== undefined && t.reply === undefined && (
-              <p className="text-left text-sm italic text-muted-foreground" data-testid={`conv-clarify-${t.turnIndex}`}>
+              <p className="text-left text-sm italic text-muted-foreground" data-testid={`conv-clarify-${i}`}>
                 Georges asks: {t.clarifyQuestion}
               </p>
             )}
