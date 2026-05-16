@@ -1,0 +1,38 @@
+{
+  "choices": [
+    {
+      "finish_reason": "tool_calls",
+      "index": 0,
+      "logprobs": null,
+      "message": {
+        "content": "\n\nI can help with that. Let me first check what tools are available to me and then look into \"synthetic-001\".\n\n",
+        "reasoning_content": "The user wants to analyze \"synthetic-001\". This sounds like a data handle or dataset identifier. Let me first check what tools I have available and then try to understand what \"synthetic-001\" refers to - it could be a data handle that I need to fetch the shape of, or something else entirely.\n\nLet me start by listing my tools to see what's available to me.\n",
+        "role": "assistant",
+        "tool_calls": [
+          {
+            "function": {
+              "arguments": "{\"role\":\"user\"}",
+              "name": "list-tools"
+            },
+            "id": "401849669",
+            "type": "function"
+          }
+        ]
+      }
+    }
+  ],
+  "created": 1778961280,
+  "id": "chatcmpl-7ftjlb3uvo8pdgght646k",
+  "model": "qwopus3.6-35b-a3b-v1",
+  "object": "chat.completion",
+  "stats": {},
+  "system_fingerprint": "qwopus3.6-35b-a3b-v1",
+  "usage": {
+    "completion_tokens": 143,
+    "completion_tokens_details": {
+      "reasoning_tokens": 86
+    },
+    "prompt_tokens": 2392,
+    "total_tokens": 2535
+  }
+}

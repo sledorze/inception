@@ -153,19 +153,36 @@ function makeRecordReplayFetch(
       )
     }
 
-    // record: force temperature=0 + seed=42 for determinism; write raw response text to cassette.
+    // record: serve existing cassette when present (allows hand-crafted seeds); otherwise call the
+    // real LLM with temperature=0 + seed=42 for determinism and write the response to a cassette.
     // Spread rawParsed (not the schema-decoded subset) to preserve all original request fields.
-    const deterministicBody = { ...(rawParsed as Record<string, unknown>), seed: 42, temperature: 0 }
-    return baseFetch(input, { ...init, body: JSON.stringify(deterministicBody) }).then(response =>
-      response.text().then(text =>
-        Effect.runPromise(
-          fs.makeDirectory(cassetteDir, { recursive: true }).pipe(
-            Effect.flatMap(() => fs.writeFileString(cassettePath, text)),
-            Effect.orDie,
+    // Use a fresh Request (not ...init) to avoid stale Content-Length from the original body.
+    return Effect.runPromise(fs.readFileString(cassettePath).pipe(Effect.option)).then(contentOpt => {
+      if (Option.isSome(contentOpt)) {
+        return new Response(contentOpt.value, { headers: { 'Content-Type': 'application/json' }, status: 200 })
+      }
+      const deterministicBody = { ...(rawParsed as Record<string, unknown>), seed: 42, temperature: 0 }
+      const url =
+        typeof input === 'string' ? input
+        : input instanceof URL ? input.href
+        : (input as Request).url
+      return baseFetch(url, {
+        body: JSON.stringify(deterministicBody),
+        headers: { 'Content-Type': 'application/json' },
+        method: 'POST',
+      }).then(response =>
+        response.text().then(text =>
+          Effect.runPromise(
+            fs.makeDirectory(cassetteDir, { recursive: true }).pipe(
+              Effect.flatMap(() => fs.writeFileString(cassettePath, text)),
+              Effect.orDie,
+            ),
+          ).then(
+            () => new Response(text, { headers: { 'Content-Type': 'application/json' }, status: response.status }),
           ),
-        ).then(() => new Response(text, { headers: { 'Content-Type': 'application/json' }, status: response.status })),
-      ),
-    )
+        ),
+      )
+    })
   }
 }
 
