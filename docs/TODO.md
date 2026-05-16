@@ -285,8 +285,21 @@ mechanism, (3) fix any existing violations the rule now surfaces.
   `.claude/commands/composition-root.md` — immediately invocable as slash commands.
   Update CLAUDE.md "When in doubt" to name each slash command at its decision point.
   Repurpose `patterns/` files as thin redirects ("see /effect-test-pattern").
+  Red: `tests/unit/enforce-conventions.unit.test.ts` — "P38 red step" asserts command files exist
+  and CLAUDE.md "When in doubt" references each (currently all fail). Green: create commands,
+  update CLAUDE.md.
 
-**Exit:** `pnpm lint:ci` catches a standalone `async function` in `packages/host/src/`; dep-cruiser
+- [todo] **10.4** **`effect-patterns/no-try-catch-in-src` rule** (closes P39).
+  The CLAUDE.md hard rule "No async/await **or try/catch**" in `packages/host/src/` — the
+  `try/catch` half has zero enforcement. `domain/ceremony.ts:64-69` has a live violation.
+  Red: `tests/unit/oxlint-rules.unit.test.ts` — "effect-patterns/no-try-catch-in-src (P39)"
+  asserts a `try { } catch { }` in a `src/` path exits non-zero (currently exits 0 — test fails).
+  Green: add `no-try-catch-in-src` rule to `effect-patterns.js`; wire into
+  `check-effect-patterns.sh`; fix `ceremony.ts` — convert `verifySignature` to return
+  `Effect<boolean, never>` via `Effect.try(...).pipe(Effect.map(() => true), Effect.orElseSucceed(() => false))`;
+  update `checkQuorum` and its callers accordingly.
+
+**Exit:** `pnpm lint:ci` catches a standalone `async function` or `try/catch` in `packages/host/src/`; dep-cruiser
 reports a violation for any component that imports `api/` directly; the three promoted skills are
 invocable and linked from CLAUDE.md.
 

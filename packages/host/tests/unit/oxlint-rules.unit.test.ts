@@ -554,3 +554,28 @@ describe.skip('effect-patterns/no-async-in-src (P35) — async keyword banned in
     expect(stdout).toContain('no-async-in-src')
   })
 })
+
+// ── effect-patterns/no-try-catch-in-src (P39 red step) ───────────────────────
+// These tests FAIL on the current code because the rule does not exist yet.
+// They become the green gate for TODO 10.4.
+
+// Skipped: rule does not exist yet. Remove .skip in TODO 10.4 once no-try-catch-in-src lands.
+describe.skip('effect-patterns/no-try-catch-in-src (P39) — try/catch banned in host/src/', () => {
+  it('try/catch block in src/ → error', () => {
+    const { exitCode, stdout } = lint(
+      'packages/host/src/application/probe_try_catch.ts',
+      `function probe(x: unknown): boolean { try { return !!x } catch { return false } }\n`,
+    )
+    expect(exitCode).not.toBe(0)
+    expect(stdout).toContain('no-try-catch-in-src')
+  })
+
+  it('try/catch-with-binding in src/ → error', () => {
+    const { exitCode, stdout } = lint(
+      'packages/host/src/application/probe_try_catch_binding.ts',
+      `function probe(): void { try { throw new Error() } catch (e) { console.error(e) } }\n`,
+    )
+    expect(exitCode).not.toBe(0)
+    expect(stdout).toContain('no-try-catch-in-src')
+  })
+})
