@@ -186,12 +186,7 @@ surface independently deployable.
   quarantine) and `packages/app` (chat/conversation, goal submission, clarify flow). Shared UI
   primitives determination deferred to 7.D.
 
-- [todo] **7.2** **Settings subsystem**: runtime-configurable parameters (LLM base URL, model name,
-  session defaults). Define a `Settings` port + in-memory adapter (persisted to disk on change);
-  wire `GET /api/settings` + `PATCH /api/settings` HTTP surface. Back-office exposes the full
-  settings panel (including LLM endpoint + model picker); consumer frontend exposes only
-  consumer-relevant knobs (e.g. session name). Changes take effect on next request — no restart
-  required.
+- [done] **7.2** **Settings subsystem**: `Settings` driven port + `InMemorySettings` (test) + `FileBackedSettings` (prod, persists to `data/settings.json`); `AppSettings` schema: `{ llmBaseUrl, llmModel, sessionMaxTurns }`. `GET /api/settings` + `PATCH /api/settings` (admin-guarded). Back-office settings panel with shadcn `Input` fields. Protocol test parametrised over InMemory + FileBacked adapters. `sessionMaxTurns` takes effect on next request; LLM connection settings persist and take effect on next server restart.
 
 - [done] **7.3** **Design system package**: `packages/design-system/` (`@app/design-system`) created with 4 shadcn components + `utils.ts`. Duplicate `src/components/ui/` trees removed from backoffice and app; all 20 import sites updated to `@app/design-system/*`. `tests/design-system-isolation.test.ts` passes. Fixes P34.
 

@@ -11,6 +11,7 @@ import { ReadWorkspace } from './components/app/ReadWorkspace.tsx'
 import { WriteWorkspace } from './components/app/WriteWorkspace.tsx'
 import { Sessions } from './components/app/Sessions.tsx'
 import { AgentMd } from './components/app/AgentMd.tsx'
+import { Settings } from './components/app/Settings.tsx'
 import { Button } from '@app/design-system/button'
 
 export function App() {
@@ -43,6 +44,7 @@ export function App() {
       <WriteWorkspace />
       <Sessions />
       <AgentMd />
+      <Settings />
     </div>
   )
 }

@@ -4,6 +4,7 @@ import { SessionError } from '../application/session.ts'
 import { CapabilityAwareToolRegistry } from '../adapters/driven/CapabilityAwareToolRegistry.ts'
 import { FileBackedCapabilityRegistry } from '../adapters/driven/FileBackedCapabilityRegistry.ts'
 import { FileBackedHandle } from '../adapters/driven/FileBackedHandle.ts'
+import { FileBackedSettings } from '../adapters/driven/FileBackedSettings.ts'
 import { InMemoryCapabilityRegistry } from '../adapters/driven/InMemoryCapabilityRegistry.ts'
 import { InMemoryDataHandleRegistry } from '../adapters/driven/InMemoryDataHandleRegistry.ts'
 import { InMemoryPolicyGate } from '../adapters/driven/InMemoryPolicyGate.ts'
@@ -29,6 +30,7 @@ const FIXTURE_PATH = new URL('../bootstrap/fixtures/synthetic-001.csv', import.m
 const REGISTRY_PATH = new URL('../../data/capability-registry.json', import.meta.url).pathname
 const DATA_DIR = new URL('../../data/', import.meta.url).pathname
 const CREDENTIALS_PATH = new URL('../../data/credentials.json', import.meta.url).pathname
+const SETTINGS_PATH = new URL('../../data/settings.json', import.meta.url).pathname
 
 const CredentialEntrySchema = Schema.Struct({
   role: Schema.Literals(['admin', 'enduser']),
@@ -127,9 +129,15 @@ export const InMemoryCapabilityRegistryLayer = InMemoryCapabilityRegistry.layer
 
 const adminQueryLayer = EventStoreAdminQuery.layer.pipe(Layer.provide(eventStoreLayer))
 
-export const appLayer = Layer.mergeAll(toolkitLayer, eventStoreLayer, capabilityRegistryLayer, adminQueryLayer).pipe(
-  Layer.provide(NodeServices.layer),
-)
+const settingsLayer = FileBackedSettings.layer(SETTINGS_PATH)
+
+export const appLayer = Layer.mergeAll(
+  toolkitLayer,
+  eventStoreLayer,
+  capabilityRegistryLayer,
+  adminQueryLayer,
+  settingsLayer,
+).pipe(Layer.provide(NodeServices.layer))
 
 // LLM_MODE=record|replay|fake → RecordReplayLlmProvider; otherwise → OpenAiCompatLlmProvider (default).
 // RecordReplayLlmProvider needs no EventStore; OpenAiCompatLlmProvider needs it for P10 shape alerts.

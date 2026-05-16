@@ -23,6 +23,8 @@
  *   GET  /api/agent-md                        — admin: read current agent.md (S8)
  *   PATCH /api/agent-md                       — admin: amend agent.md with rationale (S8)
  *   POST /api/exchanges/:id/replay            — admin: replay a goal under current agent.md (S8)
+ *   GET  /api/settings                         — admin: read runtime settings
+ *   PATCH /api/settings                        — admin: patch runtime settings
  *   GET  /events                              — 404 (leak closed)
  *   GET  /*                                   — static SPA (spa:true makes refresh work)
  */
@@ -55,6 +57,7 @@ import { listPendingProposals, promoteProposal } from './application/reviewPropo
 import { login } from './application/login.ts'
 import { requireRole } from './application/authorize.ts'
 import { EventStore } from './ports/driven/EventStore.ts'
+import { Settings } from './ports/driven/Settings.ts'
 import { AdminQuery } from './ports/driving/AdminQuery.ts'
 import type { AuthGateway } from './ports/driving/AuthGateway.ts'
 import { SessionExpiredTag, SessionNotFoundTag } from './ports/driving/AuthGateway.ts'
@@ -594,6 +597,50 @@ const replayExchangeRoute = HttpRouter.add(
   ),
 )
 
+// ─── Settings routes ─────────────────────────────────────────────────────────
+
+const settingsGetRoute = HttpRouter.add(
+  'GET',
+  '/api/settings',
+  withRole('admin')(
+    Effect.gen(function* () {
+      const settings = yield* Settings
+      const current = yield* settings.get()
+      return jsonOk(current)
+    }),
+  ),
+)
+
+const PartialAppSettingsSchema = Schema.Struct({
+  llmBaseUrl: Schema.optional(Schema.String),
+  llmModel: Schema.optional(Schema.String),
+  sessionMaxTurns: Schema.optional(Schema.Number),
+})
+
+const settingsPatchRoute = HttpRouter.add(
+  'PATCH',
+  '/api/settings',
+  withRole('admin')(
+    Effect.gen(function* () {
+      const body = yield* parseBody(PartialAppSettingsSchema)
+      // Strip undefined values before passing to patch (exactOptionalPropertyTypes).
+      const updates: Record<string, unknown> = {}
+      if (body?.llmBaseUrl !== undefined) {
+        updates['llmBaseUrl'] = body.llmBaseUrl
+      }
+      if (body?.llmModel !== undefined) {
+        updates['llmModel'] = body.llmModel
+      }
+      if (body?.sessionMaxTurns !== undefined) {
+        updates['sessionMaxTurns'] = body.sessionMaxTurns
+      }
+      const settings = yield* Settings
+      const updated = yield* settings.patch(updates as Partial<import('./ports/driven/Settings.ts').AppSettings>)
+      return jsonOk(updated)
+    }),
+  ),
+)
+
 // Closed leak — GET /events is replaced by guarded /api/admin/trace.
 const closedLeakRoute = HttpRouter.add('GET', '/events', Effect.succeed(textErr('not found', 404)))
 
@@ -629,6 +676,8 @@ const allRoutes = Layer.mergeAll(
   agentMdGetRoute,
   agentMdPatchRoute,
   replayExchangeRoute,
+  settingsGetRoute,
+  settingsPatchRoute,
   closedLeakRoute,
   spaRoute,
 )

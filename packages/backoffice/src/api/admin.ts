@@ -121,3 +121,24 @@ export const replayExchange = (correlationId: string): Promise<ReplayResult> =>
   authedFetch(`/api/exchanges/${encodeURIComponent(correlationId)}/replay`, { method: 'POST' })
     .then(handleErr)
     .then(r => r.json() as Promise<ReplayResult>)
+
+// ─── Settings ─────────────────────────────────────────────────────────────────
+
+export interface AppSettings {
+  llmBaseUrl: string
+  llmModel: string
+  sessionMaxTurns: number
+}
+
+export const getSettings = (): Promise<AppSettings> =>
+  authedFetch('/api/settings', { method: 'GET' })
+    .then(handleErr)
+    .then(r => r.json() as Promise<AppSettings>)
+
+export const patchSettings = (updates: Partial<AppSettings>): Promise<AppSettings> =>
+  authedFetch('/api/settings', {
+    body: JSON.stringify(updates),
+    method: 'PATCH',
+  })
+    .then(handleErr)
+    .then(r => r.json() as Promise<AppSettings>)
