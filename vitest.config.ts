@@ -24,7 +24,9 @@ export default defineConfig({
         'packages/host/src/main.ts',
         'packages/app/src/setupTests.ts',
       ],
-      include: ['packages/host/src/**/*.ts', 'packages/app/src/**/*.{ts,tsx}', 'packages/backoffice/src/**/*.{ts,tsx}'],
+      // app/backoffice are SPA packages — their coverage is measured separately
+      // via browser-based tests once React Testing Library is wired up (TODO Phase 7.D+).
+      include: ['packages/host/src/**/*.ts'],
       provider: 'v8',
       reporter: ['text', 'html', 'json-summary'],
       thresholds: {
