@@ -462,8 +462,14 @@ const patternsRoute = HttpRouter.add(
         string,
         { key: string; count: number; examples: string[]; firstSeen: string; lastSeen: string }
       >()
+      const PatternPayload = Schema.Struct({
+        note: Schema.optional(Schema.String),
+        reason: Schema.optional(Schema.String),
+      })
       for (const e of flagged) {
-        const p = e.payload as { note?: string; reason?: string; correlationId?: string }
+        const p = Schema.decodeUnknownOption(PatternPayload)(e.payload).pipe(
+          Option.getOrElse(() => ({ note: undefined, reason: undefined })),
+        )
         const text = p.note ?? p.reason ?? ''
         const key = text.split(/\s+/).slice(0, 5).join(' ').toLowerCase()
         const bucket = buckets.get(key)
@@ -531,7 +537,7 @@ const agentMdPatchRoute = HttpRouter.add(
 
       yield* store.append({
         actor: 'claude',
-        correlationId: newHash.slice(0, 16),
+        correlationId: yield* Random.nextUUIDv4,
         kind: EventKind.AgentMdAmended,
         occurredAt: DateTime.formatIso(yield* DateTime.now),
         payload: { newHash, patternIds: body.patternIds ?? [], prevHash, rationale: body.rationale },

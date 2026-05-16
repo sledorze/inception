@@ -20,6 +20,13 @@ const LmMessage = Schema.Struct({
   reasoning_content: Schema.optional(Schema.String),
 })
 
+// Partial response schema — validates before any property access (P27: no blind as-casts).
+// Uses Schema.Unknown for the message field so we can run a second decode on it separately.
+const OpenAiResponseBody = Schema.Struct({
+  choices: Schema.optional(Schema.Array(Schema.Struct({ message: Schema.optional(Schema.NullOr(Schema.Unknown)) }))),
+})
+
+const decodeResponseBody = Schema.decodeUnknownOption(OpenAiResponseBody)
 const decodeLmMessage = Schema.decodeUnknownOption(LmMessage)
 
 // Bridge: promotes reasoning_content → content when content is blank (P7).
@@ -34,12 +41,19 @@ const makeReasoningAwareFetch =
       if (!ct.includes('application/json')) {
         return response
       }
-      return response.json().then((body: unknown) => {
-        const b = body as Record<string, unknown>
-        const choices = b['choices']
+      return response.json().then((rawBody: unknown) => {
+        // Validate structure before any property access — replaces the original blind as-casts.
+        // The schema decode is synchronous (Option, no Effect needed).
+        if (Option.isNone(decodeResponseBody(rawBody))) {
+          return Response.json(rawBody, { status: response.status })
+        }
+        // rawBody passed validation: it's an object with an optional choices array.
+        // We work with rawBody directly (not the decoded copy) to preserve all original fields
+        // (id, model, usage, system_fingerprint, …) in the forwarded response.
+        const choices: unknown = (rawBody as Record<string, unknown>)['choices']
         if (Array.isArray(choices)) {
-          for (const choice of choices as Record<string, unknown>[]) {
-            const msg = choice['message']
+          for (const choice of choices) {
+            const msg: unknown = (choice as Record<string, unknown>)['message']
             if (msg === undefined || msg === null) {
               continue
             }
@@ -54,12 +68,15 @@ const makeReasoningAwareFetch =
               reasoning !== undefined &&
               reasoning.length > 0
             ) {
+              // msg is a live reference inside rawBody — mutation is reflected in the response.
+              // Cast is sound: decodeResponseBody confirmed choices[].message exists, and
+              // decodeLmMessage confirmed msg has content/reasoning_content fields.
               ;(msg as Record<string, unknown>)['content'] = reasoning
             }
           }
         }
         // Do not forward original headers — Content-Length would be stale after body mutation.
-        return Response.json(b, { status: response.status })
+        return Response.json(rawBody, { status: response.status })
       })
     })
 

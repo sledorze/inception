@@ -116,6 +116,9 @@ importers:
 
   packages/app:
     dependencies:
+      '@app/design-system':
+        specifier: workspace:*
+        version: link:../design-system
       '@radix-ui/react-slot':
         specifier: ^1.2.4
         version: 1.2.4(@types/react@19.2.14)(react@19.2.4)
@@ -137,6 +140,9 @@ importers:
 
   packages/backoffice:
     dependencies:
+      '@app/design-system':
+        specifier: workspace:*
+        version: link:../design-system
       '@radix-ui/react-slot':
         specifier: ^1.2.4
         version: 1.2.4(@types/react@19.2.14)(react@19.2.4)
@@ -156,7 +162,7 @@ importers:
         specifier: ^3.5.0
         version: 3.5.0
 
-  packages/frontend:
+  packages/design-system:
     dependencies:
       '@radix-ui/react-slot':
         specifier: ^1.2.4
@@ -170,9 +176,6 @@ importers:
       react:
         specifier: ^19.1.0
         version: 19.2.4
-      react-dom:
-        specifier: ^19.1.0
-        version: 19.2.4(react@19.2.4)
       tailwind-merge:
         specifier: ^3.5.0
         version: 3.5.0

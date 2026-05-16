@@ -193,6 +193,8 @@ surface independently deployable.
   consumer-relevant knobs (e.g. session name). Changes take effect on next request — no restart
   required.
 
+- [done] **7.3** **Design system package**: `packages/design-system/` (`@app/design-system`) created with 4 shadcn components + `utils.ts`. Duplicate `src/components/ui/` trees removed from backoffice and app; all 20 import sites updated to `@app/design-system/*`. `tests/design-system-isolation.test.ts` passes. Fixes P34.
+
 **Exit:** two independently deployable frontends; no panel lives in both; shared primitives (if
 any) isolated in their own package; CI green on both.
 
@@ -233,6 +235,26 @@ newHash, rationale }` to event store.
 **Exit:** one observed issue travels the full loop — flagged in the UI, a pattern detected,
 agent.md amended with rationale, replay confirms improvement, Supervisor + Monitor agree,
 amendment promoted and logged.
+
+---
+
+## Phase 9 — Law coverage + CI ratchets
+
+Brings law-test coverage from 28% (13/46) to 100% and adds PR-blocking enforcement for test quality.
+
+- [done] **9.1** **L0.4 self-enforcing law test**: `tests/laws/L0.4.spec.ts` enumerates all law IDs from `docs/SPEC-nav.md` and asserts each has a file at `tests/laws/<id>.spec.ts`. 16 pass, 24 fail — tracking convergence as coverage grows. Fixes P31.
+
+- [done] **9.2** **L0.1 structural law test**: `tests/laws/L0.1.spec.ts` asserts each existing law spec file contains at least one `it.effect` or `it(` assertion (not just a describe skeleton). Complements 9.1.
+
+- [done] **9.3** **Scoped Stryker job in `ci.yml`**: `law-mutation` job runs `npx stryker run --mutate 'packages/host/tests/laws/**/*.ts'` on every PR (20-min timeout). Full-repo Stryker stays nightly. Fixes P30.
+
+- [done] **9.4** **`UserGateway` protocol postcondition**: `InMemoryUserGateway.layerWithResponds` records calls in a `Ref`; `UserGateway.spec.ts` adds postcondition describe block asserting `respond` populates the Ref. Fixes P32.
+
+- [done] **9.5** **EventStore durability test**: "SqliteEventStore — cross-restart durability" describe block in `tests/protocol/EventStore.spec.ts` — writes events, disposes layer, re-opens same path, asserts events still present. Fixes P33.
+
+- [done] **9.6** **CLAUDE.md layout drift guard**: `scripts/check-layout.sh` + lefthook `pre-commit` `check-layout` command. Fixes P29.
+
+**Exit:** `L0.4.spec.ts` passes with 100% law coverage; scoped Stryker runs green on every PR; `UserGateway` and `EventStore` protocol tests cover the gaps identified in P32/P33.
 
 ---
 

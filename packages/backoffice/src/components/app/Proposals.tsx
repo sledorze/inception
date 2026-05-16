@@ -1,6 +1,6 @@
 import { useState } from 'react'
-import { Button } from '@/components/ui/button'
-import { Card } from '@/components/ui/card'
+import { Button } from '@app/design-system/button'
+import { Card } from '@app/design-system/card'
 import { listProposals, promoteProposal } from '../../api/proposals.ts'
 import type { Proposal } from '../../api/proposals.ts'
 

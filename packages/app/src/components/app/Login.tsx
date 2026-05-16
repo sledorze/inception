@@ -1,7 +1,7 @@
 import { useState } from 'react'
-import { Button } from '@/components/ui/button'
-import { Card } from '@/components/ui/card'
-import { Input } from '@/components/ui/input'
+import { Button } from '@app/design-system/button'
+import { Card } from '@app/design-system/card'
+import { Input } from '@app/design-system/input'
 import { login, setToken } from '../../api/auth.ts'
 
 interface LoginProps {

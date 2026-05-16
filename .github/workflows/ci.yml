@@ -101,6 +101,33 @@ jobs:
           path: test-results/
           retention-days: 14
 
+  law-mutation:
+    name: law mutation (scoped Stryker)
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile --reporter append-only
+      - name: Run Stryker on law tests only (L2.4 ratchet)
+        run: |
+          npx stryker run \
+            --mutate 'packages/host/tests/laws/**/*.ts' \
+            --logLevel warn \
+            --reporters progress,json \
+            --coverageAnalysis perTest \
+            --ignoreStatic true
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: law-mutation-report
+          path: reports/mutation/
+          retention-days: 14
+
   security:
     name: security
     runs-on: ubuntu-latest

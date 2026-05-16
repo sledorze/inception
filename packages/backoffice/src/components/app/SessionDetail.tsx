@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { Button } from '@/components/ui/button'
+import { Button } from '@app/design-system/button'
 import type { SessionEvent } from '../../api/admin.ts'
 import { getSessionEvents } from '../../api/admin.ts'
 import { EventRow } from './EventRow.tsx'

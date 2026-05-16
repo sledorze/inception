@@ -19,7 +19,7 @@
  * Used by: runtime/bind.ts (LLM_MODE=record|replay|fake env); LlmProvider.spec.ts.
  * FileSystem is used for cassette I/O (no node:fs import — Effect-clean).
  */
-import { Config, Effect, FileSystem, Layer } from 'effect'
+import { Config, Effect, FileSystem, Layer, Option, Schema } from 'effect'
 import { OpenAiClient, OpenAiLanguageModel } from '@effect/ai-openai-compat'
 import { FetchHttpClient } from 'effect/unstable/http'
 import { createHash } from 'node:crypto'
@@ -32,11 +32,28 @@ export type RecordReplayMode = 'record' | 'replay' | 'fake'
 /** Seed phrase that triggers a clarify tool call in fake mode. Import in e2e tests to keep in sync. */
 export const FAKE_CLARIFY_TRIGGER = 'help me'
 
-function makeFakeResponse(body: Record<string, unknown>): Response {
-  const messages = Array.isArray(body['messages']) ? (body['messages'] as Array<Record<string, unknown>>) : []
-  const hasToolResult = messages.some(m => m['role'] === 'tool')
-  const userMsgs = messages.filter(m => m['role'] === 'user')
-  const lastUserContent = String(userMsgs.at(-1)?.['content'] ?? '')
+// Schema for the subset of the LLM request body we access structurally (P27: no blind as-casts).
+const LlmRequestMessage = Schema.Struct({
+  content: Schema.optional(Schema.NullOr(Schema.Unknown)),
+  role: Schema.optional(Schema.String),
+})
+const LlmRequestTool = Schema.Struct({
+  function: Schema.optional(Schema.NullOr(Schema.Struct({ name: Schema.optional(Schema.String) }))),
+})
+const LlmRequestBody = Schema.Struct({
+  messages: Schema.optional(Schema.Array(LlmRequestMessage)),
+  model: Schema.optional(Schema.String),
+  tools: Schema.optional(Schema.Array(LlmRequestTool)),
+})
+type LlmRequestBody = typeof LlmRequestBody.Type
+const decodeLlmRequestBody = Schema.decodeUnknownOption(LlmRequestBody)
+const emptyBody: LlmRequestBody = {}
+
+function makeFakeResponse(body: LlmRequestBody): Response {
+  const messages = body.messages ?? []
+  const hasToolResult = messages.some(m => m.role === 'tool')
+  const userMsgs = messages.filter(m => m.role === 'user')
+  const lastUserContent = String(userMsgs.at(-1)?.content ?? '')
     .toLowerCase()
     .trim()
 
@@ -90,23 +107,10 @@ function makeFakeResponse(body: Record<string, unknown>): Response {
   return new Response(JSON.stringify(responseBody), { headers: { 'Content-Type': 'application/json' }, status: 200 })
 }
 
-function computeRequestHash(body: Record<string, unknown>): string {
-  const model = typeof body['model'] === 'string' ? body['model'] : ''
-  const messages =
-    Array.isArray(body['messages']) ?
-      (body['messages'] as Array<Record<string, unknown>>).map(m => ({
-        content: m['content'],
-        role: m['role'],
-      }))
-    : []
-  const tools =
-    Array.isArray(body['tools']) ?
-      [...(body['tools'] as Array<Record<string, unknown>>)].sort((a, b) => {
-        const fn = (t: Record<string, unknown>) =>
-          ((t['function'] as Record<string, unknown> | undefined)?.['name'] as string | undefined) ?? ''
-        return fn(a).localeCompare(fn(b))
-      })
-    : []
+function computeRequestHash(body: LlmRequestBody): string {
+  const model = body.model ?? ''
+  const messages = (body.messages ?? []).map(m => ({ content: m.content, role: m.role }))
+  const tools = [...(body.tools ?? [])].sort((a, b) => (a.function?.name ?? '').localeCompare(b.function?.name ?? ''))
   return createHash('sha256').update(JSON.stringify({ messages, model, tools })).digest('hex')
 }
 
@@ -134,7 +138,8 @@ function makeRecordReplayFetch(
 ): typeof globalThis.fetch {
   return (input, init) => {
     const rawBody = decodeBody(init)
-    const body = JSON.parse(rawBody) as Record<string, unknown>
+    const rawParsed: unknown = JSON.parse(rawBody)
+    const body = Option.getOrElse(decodeLlmRequestBody(rawParsed), () => emptyBody)
     const hash = computeRequestHash(body)
     const cassettePath = `${cassetteDir}/${hash}.json`
 
@@ -149,7 +154,8 @@ function makeRecordReplayFetch(
     }
 
     // record: force temperature=0 + seed=42 for determinism; write raw response text to cassette.
-    const deterministicBody = { ...body, seed: 42, temperature: 0 }
+    // Spread rawParsed (not the schema-decoded subset) to preserve all original request fields.
+    const deterministicBody = { ...(rawParsed as Record<string, unknown>), seed: 42, temperature: 0 }
     return baseFetch(input, { ...init, body: JSON.stringify(deterministicBody) }).then(response =>
       response.text().then(text =>
         Effect.runPromise(

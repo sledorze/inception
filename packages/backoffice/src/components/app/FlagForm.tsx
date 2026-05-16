@@ -1,6 +1,6 @@
 import { useState } from 'react'
-import { Button } from '@/components/ui/button'
-import { Textarea } from '@/components/ui/textarea'
+import { Button } from '@app/design-system/button'
+import { Textarea } from '@app/design-system/textarea'
 import { flagExchange } from '../../api/admin.ts'
 
 type Severity = 'observation' | 'issue' | 'blocker'

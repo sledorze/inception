@@ -36,6 +36,11 @@ pre-commit:
       fail_text: |
         Recurring version drift? → docs/PAIN.md (P2 + candidate fix)
 
+    # Repository layout drift guard — CLAUDE.md layout section must reference existing dirs (P29).
+    check-layout:
+      glob: '{CLAUDE.md,packages/**}'
+      run: bash scripts/check-layout.sh
+
     # Hex architecture boundaries (L2.14) — catches adapter/port/domain import violations.
     # Runs at commit time so violations surface immediately, not only at push.
     deps-check:

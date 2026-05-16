@@ -1,6 +1,6 @@
 import { useState } from 'react'
-import { Button } from '@/components/ui/button'
-import { Card } from '@/components/ui/card'
+import { Button } from '@app/design-system/button'
+import { Card } from '@app/design-system/card'
 import type { PainItem } from '../../api/admin.ts'
 import { getPain } from '../../api/admin.ts'
 

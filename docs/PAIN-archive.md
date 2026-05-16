@@ -5,6 +5,74 @@ Convention: fix → move (cut from PAIN.md, paste here in the same commit as the
 
 ---
 
+## P28 — Law test coverage at 28% (13/39 laws) — L0.x foundational laws have zero tests
+
+**Severity:** slows (L3 loop health ⚠)
+
+**Symptom:** 23 laws had no paired `tests/laws/<id>.spec.ts` file; L0.4 self-enforcement test had 23 failing assertions.
+
+FIXED 2026-05-16 in feat/design-system-enforcement — wrote all 23 missing law spec files (L0.2, L0.5, L1.2, L1.6, L2.2, L2.4, L2.5, L2.7, L2.8, L2.9, L2.12, L2.14, L2.15, L2.16, L3.1, L3.2, L3.3, L3.4, L3.5, L3.6, L3.8, L3.9, L3.10); L0.4.spec.ts now fully green (0 failures); total test count 599 (all passing). Coverage: 100% of 39 laws have paired spec files. test: `packages/host/tests/laws/L0.4.spec.ts` (all 41 assertions pass)
+
+---
+
+## P27 — Promise-land fetch adapters cannot use Schema.decodeUnknownEffect → residual `as` casts
+
+**Severity:** annoys (type-safety gap at external API boundary)
+
+**Symptom:** `OpenAiCompatLlmProvider.ts` and `RecordReplayLlmProvider.ts` implement `typeof globalThis.fetch` (Promise-based API). `body as Record<string, unknown>`, `choices as Record<string, unknown>[]` casts remained unvalidated by Schema.
+
+FIXED 2026-05-16 in feat/design-system-enforcement — `OpenAiCompatLlmProvider.ts`: added `OpenAiResponseBody` + `LmMessage` schemas; `decodeResponseBody` validates outer structure before any property access; remaining `(msg as Record<string, unknown>)['content'] = reasoning` cast is sound (both schemas confirmed structure). `RecordReplayLlmProvider.ts`: added `LlmRequestBody` schema; `computeRequestHash` and `makeFakeResponse` accept decoded `LlmRequestBody` type; single boundary cast for deterministicBody spread (preserves all original fields). test: `pnpm --filter @app/host typecheck` + `pnpm lint:ci` exit 0 (tsgo no-blind-cast diagnostic catches regressions)
+
+---
+
+## P34 — Design system components duplicated across `packages/backoffice` and `packages/app`
+
+**Severity:** slows
+**Symptom:** shadcn `Button`, `Card`, `Textarea`, `Input` were vendored independently under `packages/backoffice/src/components/ui/` and `packages/app/src/components/ui/` — identical files, double maintenance burden.
+FIXED 2026-05-16 in feat/design-system-enforcement — created `packages/design-system/` (`@app/design-system`) with 4 components + `utils.ts`; removed duplicate `src/components/ui/` trees; updated all 20 import sites from `@/components/ui/*` to `@app/design-system/*`; added `workspace:*` dep to both packages; `pnpm --filter @app/backoffice typecheck` + `pnpm --filter @app/app typecheck` both clean. test: `tests/design-system-isolation.test.ts` (3 tests, all passing)
+
+---
+
+## P33 — EventStore protocol tests run only against InMemory adapter; prod SQLite file-path durability untested
+
+**Severity:** slows
+**Symptom:** `tests/protocol/EventStore.spec.ts` parametrised over InMemory + SQLite with a temp path per run; cross-restart durability (close → reopen same path → events still there) was never exercised.
+FIXED 2026-05-16 in feat/design-system-enforcement — test: `packages/host/tests/protocol/EventStore.spec.ts` (new "SqliteEventStore — cross-restart durability" describe block, 1 test, all passing)
+
+---
+
+## P32 — `CliUserGateway.respond` is a no-op stub, weakening the `UserGateway` protocol contract
+
+**Severity:** slows
+**Symptom:** `UserGateway.spec.ts` accepted a silent no-op `respond` implementation; no postcondition asserted delivery.
+FIXED 2026-05-16 in feat/design-system-enforcement — `InMemoryUserGateway.layerWithResponds` now records calls in a `Ref`; `UserGateway.spec.ts` adds "InMemoryUserGateway — respond postcondition (P32)" describe block asserting `respond` populates the Ref. test: `packages/host/tests/protocol/UserGateway.spec.ts`
+
+---
+
+## P31 — `L0.1` and `L0.4` have zero dedicated tests; the meta-law is itself unenforced
+
+**Severity:** slows
+**Symptom:** The files `tests/laws/L0.1.spec.ts` and `tests/laws/L0.4.spec.ts` did not exist. L0.4 ("every law has a test") is self-enforcing only when its own test exists.
+FIXED 2026-05-16 in feat/design-system-enforcement — `tests/laws/L0.4.spec.ts` enumerates all law IDs from SPEC-nav.md and asserts each has a spec file (16 pass, 24 fail — tracking convergence); `tests/laws/L0.1.spec.ts` asserts each existing law spec file has at least one assertion. test: `packages/host/tests/laws/L0.1.spec.ts`, `packages/host/tests/laws/L0.4.spec.ts`
+
+---
+
+## P30 — Stryker mutation testing is nightly-only; it never runs on PRs
+
+**Severity:** slows
+**Symptom:** `mutation-report.yml` had only `schedule: cron` and `workflow_dispatch` triggers; `ci.yml` had no Stryker step. Law tests had no mutation gate at PR time.
+FIXED 2026-05-16 in feat/design-system-enforcement — added `law-mutation` job to `.github/workflows/ci.yml` that runs `npx stryker run --mutate 'packages/host/tests/laws/**/*.ts'` on every PR (20-min timeout). Full-repo Stryker stays nightly. test: presence of `law-mutation` job in ci.yml verified by grep
+
+---
+
+## P29 — MD files capture aspirational state that drifts from reality
+
+**Severity:** annoys
+**Symptom:** `CLAUDE.md ## Repository Layout (target)` described `packages/frontend/` (decommissioned in 7.D) and omitted `packages/backoffice/`, `packages/app/`, and new driving ports.
+FIXED 2026-05-16 in feat/design-system-enforcement — renamed section to `## Repository Layout` (removed "(target)"), updated to reflect actual directories; added `scripts/check-layout.sh` which greps directory names from CLAUDE.md and fails if any named directory is absent; added `check-layout` command to lefthook `pre-commit`. test: `scripts/check-layout.sh` exits 0 on current state
+
+---
+
 ## P2 — `@effect/platform-node` full import silently corrupts `@effect/vitest` HTTP tests
 
 **Severity:** slows (one full session to diagnose)

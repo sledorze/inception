@@ -87,19 +87,19 @@ The **Kernel** (`kernel/`) is the inviolable TCB — actor model, TCB driven-por
 
 Formal specs live in `formal/` and are model-checked in CI (`tlc` for TLA+).
 
-## Repository Layout (target)
+## Repository Layout
 
 ```
 packages/
   host/                     Substrate Georges inhabits
     src/
       ports/
-        driving/            Outside calls in (User, Claude)
-        driven/             Host calls out (data, LLM, sandbox, …)
+        driving/            Outside calls in (User, Claude) — AuthGateway, AdminQuery, UserGateway, ObservabilityGateway
+        driven/             Host calls out (data, LLM, sandbox, …) — LlmProvider, EventStore, SandboxExecutor, DataHandle, ToolRegistry, WorkspaceMount, Supervisor
       adapters/
-        driving/
-        driven/
-      runtime/bind.ts       Service registry: ports → adapters at boot
+        driving/            ScryptAuthGateway, FakeAuthGateway, EventStoreAdminQuery, CliUserGateway, …
+        driven/             SqliteEventStore, OpenAiCompatLlmProvider, FileBackedHandle, …
+      runtime/bind.ts       Service registry: ports → adapters at boot (composition root)
       application/          Effect.gen orchestrations; imports ports only
       domain/               Pure leaf: schemas, value objects, invariants
       bootstrap/
@@ -111,7 +111,8 @@ packages/
       unit/                 Pure logic tests
       integration/          Cross-component tests
   monitor/                  Out-of-process Supervisor cross-check (L3.7)
-  frontend/                 Optional UI (deferred past Phase 1)
+  backoffice/               Admin back-office UI (proposals, trace, PAIN, patterns, agent.md)
+  app/                      End-user chat app (goal submission + conversation)
 kernel/                     Inviolable TCB (L0.5; signed; 2-of-3 Witness quorum)
 formal/                     TLA+ specs (L0.2 promoter; later sandbox + DP)
 docs/
@@ -128,7 +129,8 @@ docs/
 ## Effect runtime (`packages/host/`)
 
 All Host code is written with **Effect v4** (`effect@4.0.0-beta.x` — exact-pinned; see `.syncpackrc`).  
-The v4 source is vendored at `vendor/effect-smol/` (read-only reference — do not import from it).
+The v4 source is vendored at `vendor/effect-smol/` via **git subtree** (read-only reference; do not import from it).  
+To pull in Effect updates: `git subtree pull --prefix=vendor/effect-smol https://github.com/Effect-TS/effect.git main --squash`
 
 ### Canonical patterns (AGENTS.md in `vendor/effect-smol/` has the full list)
 
@@ -150,11 +152,14 @@ The v4 source is vendored at `vendor/effect-smol/` (read-only reference — do n
 
 ### When you need to understand an Effect API
 
-1. Read `.agents/skills/effect-ts/references/` — curated skill guides (layers, schema, error handling, testing, observability, …). Fastest first stop; token-efficient.
-2. Read `vendor/effect-smol/ai-docs/` — AI-optimised examples by category.
-3. Read `vendor/effect-smol/packages/effect/src/<Module>.ts` — canonical source for exact signatures.
-4. Read `vendor/effect-smol/MIGRATION.md` — v3 → v4 API mapping table.
-5. Read `vendor/effect-smol/AGENTS.md` — coding-agent conventions for this repo.
+> `vendor/effect-smol/` is a **git subtree** of the Effect repo (read-only reference; do not import from it; excluded from VSCode search and auto-import). Treat it as your source of truth for Effect patterns — not web search, not training data.
+
+1. Read `vendor/effect-smol/LLMS.md` — agent-oriented overview; read this first before any Effect code.
+2. Read `.agents/skills/effect-ts/references/` — project-local curated guides (layers, schema, error handling, testing, observability, …). Fastest token-efficient stop for common patterns.
+3. Read `vendor/effect-smol/ai-docs/src/` — AI-optimised examples by category (effect, stream, testing, observability, …).
+4. Read `vendor/effect-smol/packages/effect/src/<Module>.ts` — canonical source for exact signatures.
+5. Read `vendor/effect-smol/MIGRATION.md` — v3 → v4 API mapping table.
+6. Read `vendor/effect-smol/AGENTS.md` — coding-agent conventions used inside the Effect repo itself.
 
 Do **not** rely on web search or your training-data knowledge of Effect v3 APIs — the v4 API changed.
 

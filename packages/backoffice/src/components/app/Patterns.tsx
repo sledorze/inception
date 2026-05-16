@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { Button } from '@/components/ui/button'
+import { Button } from '@app/design-system/button'
 import type { Pattern } from '../../api/admin.ts'
 import { getPatterns } from '../../api/admin.ts'
 

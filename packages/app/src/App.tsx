@@ -3,7 +3,7 @@ import { clearToken, getToken } from './api/auth.ts'
 import { Login } from './components/app/Login.tsx'
 import { Conversation } from './components/app/Conversation.tsx'
 import { SubmitGoal } from './components/app/SubmitGoal.tsx'
-import { Button } from '@/components/ui/button'
+import { Button } from '@app/design-system/button'
 
 export function App() {
   const [authed, setAuthed] = useState(() => getToken() !== null)

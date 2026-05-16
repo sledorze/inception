@@ -11,7 +11,7 @@ import { ReadWorkspace } from './components/app/ReadWorkspace.tsx'
 import { WriteWorkspace } from './components/app/WriteWorkspace.tsx'
 import { Sessions } from './components/app/Sessions.tsx'
 import { AgentMd } from './components/app/AgentMd.tsx'
-import { Button } from '@/components/ui/button'
+import { Button } from '@app/design-system/button'
 
 export function App() {
   const [authed, setAuthed] = useState(() => getToken() !== null)

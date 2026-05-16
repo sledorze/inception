@@ -46,6 +46,7 @@ export default defineConfig({
       'packages/app/src/**/*.test.tsx',
       'packages/backoffice/src/**/*.test.ts',
       'packages/backoffice/src/**/*.test.tsx',
+      'tests/**/*.test.ts',
     ],
     setupFiles: ['packages/app/src/setupTests.ts'],
   },

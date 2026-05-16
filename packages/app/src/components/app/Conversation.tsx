@@ -1,8 +1,8 @@
 import { useState } from 'react'
-import { Button } from '@/components/ui/button'
-import { Card } from '@/components/ui/card'
-import { Input } from '@/components/ui/input'
-import { Textarea } from '@/components/ui/textarea'
+import { Button } from '@app/design-system/button'
+import { Card } from '@app/design-system/card'
+import { Input } from '@app/design-system/input'
+import { Textarea } from '@app/design-system/textarea'
 import { getTurns, respondToGoal, sendMessage } from '../../api/chat.ts'
 import type { Turn } from '../../api/chat.ts'
 

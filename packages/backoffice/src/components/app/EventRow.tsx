@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { Button } from '@/components/ui/button'
+import { Button } from '@app/design-system/button'
 import type { ReplayResult, SessionEvent } from '../../api/admin.ts'
 import { replayExchange } from '../../api/admin.ts'
 import { FlagForm } from './FlagForm.tsx'
