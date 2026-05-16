@@ -12,6 +12,7 @@ export const requireRole = Effect.fn('authorize.requireRole')(function* (token: 
   }
   const auth = yield* AuthGateway
   const principal: Principal = yield* auth.verify(token)
+  // admin ⊃ enduser: an admin token passes any withRole('enduser') guard.
   if (required === 'admin' && principal.role !== 'admin') {
     return yield* new Forbidden({ required, subject: principal.subject })
   }

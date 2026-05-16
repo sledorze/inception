@@ -13,7 +13,11 @@ export const parsePainMd = (md: string): readonly PainItem[] => {
     const title = headerMatch[2]?.trim() ?? ''
     const severityMatch = /\*\*Severity:\*\*\s*(.+)/u.exec(block)
     const severity = severityMatch?.[1]?.trim() ?? 'unknown'
-    items.push({ id, severity, status: 'open', title })
+    const symptomMatch = /\*\*Symptom:\*\*\s*(.+)/u.exec(block)
+    const symptom = symptomMatch?.[1]?.trim()
+    const candidateFixMatch = /\*\*Candidate fix:\*\*\s*(.+)/u.exec(block)
+    const candidateFix = candidateFixMatch?.[1]?.trim()
+    items.push({ candidateFix, id, severity, status: 'open', symptom, title })
   }
   return items
 }

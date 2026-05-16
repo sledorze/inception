@@ -209,14 +209,10 @@ const sessionTurnsRoute = HttpRouter.add(
         } else if (e.kind === EventKind.ClarifyAnswered) {
           const p = yield* Schema.decodeUnknownEffect(ClarifyAnsweredPayload)(e.payload).pipe(Effect.orDie)
           clarifyAnswers.set(e.correlationId, p.answer)
-        }
-      }
-      for (const cid of order) {
-        const cidEvents = yield* store.query({ correlationId: cid })
-        const ce = cidEvents.findLast(e => e.kind === EventKind.ClarifyRequested)
-        if (ce !== undefined) {
-          const p = yield* Schema.decodeUnknownEffect(ClarifyRequestedPayload)(ce.payload).pipe(Effect.orDie)
-          clarifyQuestions.set(cid, p.question)
+        } else if (e.kind === EventKind.ClarifyRequested) {
+          // Collect inline — avoids N+1 store.query calls per turn.
+          const p = yield* Schema.decodeUnknownEffect(ClarifyRequestedPayload)(e.payload).pipe(Effect.orDie)
+          clarifyQuestions.set(e.correlationId, p.question)
         }
       }
       let idx = 0
