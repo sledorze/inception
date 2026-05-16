@@ -96,7 +96,7 @@ These items make Phase 1's traces _honest_ and _bounded_: per-handle info budget
 
 - [done] **4.1** Promotion queue + Claude-mediated review path (likely a CLI subcommand).
 - [done] **4.2** Versioned capability registry on disk; rollback by version pin.
-- [in-progress] **4.3** First Georges-proposed capability accepted end-to-end. UI wired: SubmitGoal, Proposals (list+promote), CallCapability panels added to frontend; backend routes POST /api/goals, GET /api/proposals, POST /api/proposals/:id/promote added to main.ts; CapabilityRegistry exposed in appLayer. Pending: run with real LLM to observe Georges propose a capability end-to-end.
+- [done] **4.3** First Georges-proposed capability accepted end-to-end (2026-05-16). Agentic loop added to submitGoal (up to 4 rounds): Georges called list-tools(role=Implementer) → propose-capability(compute-stats, scope=capability) → admin promoted via POST /api/proposals/{contentHash}/promote → version 1 registered. Phase 4 exit condition met.
 
 **Exit:** Georges can grow his own tool surface, gated.
 
