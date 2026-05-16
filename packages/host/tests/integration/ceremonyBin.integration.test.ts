@@ -94,7 +94,7 @@ describe('ceremonyBin — sign + verify pipeline (bin/ceremony.ts sign + verify)
       yield* Effect.tryPromise(() => writeFile(`${amendmentFile}.sigs.json`, JSON.stringify(sigs, null, 2), 'utf8'))
 
       const pubKeys = yield* loadPublicKeys()
-      const result = checkQuorum(sigs, pubKeys, contentHash)
+      const result = yield* checkQuorum(sigs, pubKeys, contentHash)
 
       expect(result.met).toBe(true)
       expect(result.witnessCount).toBe(2)
@@ -116,7 +116,7 @@ describe('ceremonyBin — sign + verify pipeline (bin/ceremony.ts sign + verify)
       }
 
       const pubKeys = yield* loadPublicKeys()
-      const result = checkQuorum(sigs, pubKeys, contentHash)
+      const result = yield* checkQuorum(sigs, pubKeys, contentHash)
 
       expect(result.met).toBe(false)
       expect(result.witnessCount).toBe(1)
@@ -137,7 +137,7 @@ describe('ceremonyBin — sign + verify pipeline (bin/ceremony.ts sign + verify)
       }
 
       const pubKeys = yield* loadPublicKeys()
-      const result = checkQuorum(sigs, pubKeys, contentHash)
+      const result = yield* checkQuorum(sigs, pubKeys, contentHash)
 
       expect(result.met).toBe(false)
       expect(result.witnessCount).toBe(1)

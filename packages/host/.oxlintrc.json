@@ -5,8 +5,11 @@
     {
       "files": ["**/src/**/*.ts"],
       "rules": {
+        "effect-patterns/no-async-in-src": "error",
         "effect-patterns/no-date-clock": "error",
         "effect-patterns/no-inline-correlation-id": "error",
+        "effect-patterns/no-raw-promise": "error",
+        "effect-patterns/no-try-catch-in-src": "error",
         "no-restricted-imports": [
           "error",
           {

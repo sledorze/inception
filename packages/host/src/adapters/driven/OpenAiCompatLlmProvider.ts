@@ -1,3 +1,4 @@
+// promise-bridge: intentional — satisfies typeof globalThis.fetch (Promise-based API)
 /**
  * LLM adapter: @effect/ai-openai-compat → LanguageModel (§13, L2.14).
  *

@@ -305,12 +305,18 @@ describe('P23 — oxlint overrides are a closed list (acceptance)', () => {
     // Block 0: **/src/**/*.ts — effect-patterns + no-restricted-imports enforced
     const b0 = overrides[0]?.rules ?? {}
     expect(Object.keys(b0).toSorted()).toEqual([
+      'effect-patterns/no-async-in-src',
       'effect-patterns/no-date-clock',
       'effect-patterns/no-inline-correlation-id',
+      'effect-patterns/no-raw-promise',
+      'effect-patterns/no-try-catch-in-src',
       'no-restricted-imports',
     ])
+    expect(sev(b0['effect-patterns/no-async-in-src'])).toBe('error')
     expect(sev(b0['effect-patterns/no-date-clock'])).toBe('error')
     expect(sev(b0['effect-patterns/no-inline-correlation-id'])).toBe('error')
+    expect(sev(b0['effect-patterns/no-raw-promise'])).toBe('error')
+    expect(sev(b0['effect-patterns/no-try-catch-in-src'])).toBe('error')
     expect(sev(b0['no-restricted-imports'])).toBe('error')
 
     // Block 1: adapters/checks/runtime/main — no-restricted-imports off (sanctioned escape hatch, files locked above)
@@ -531,11 +537,9 @@ describe('design-system/no-raw-interactive-element — <section> invitation', ()
 })
 
 // ── effect-patterns/no-async-in-src (P35 red step) ───────────────────────────
-// These tests FAIL on the current code because the rule does not exist yet.
-// They become the green gate for TODO 10.1.
+// These tests verify the rule that now exists (TODO 10.1 green step).
 
-// Skipped: rule does not exist yet. Remove .skip in TODO 10.1 once no-async-in-src lands.
-describe.skip('effect-patterns/no-async-in-src (P35) — async keyword banned in host/src/', () => {
+describe('effect-patterns/no-async-in-src (P35) — async keyword banned in host/src/', () => {
   it('async function declaration in src/ → error', () => {
     const { exitCode, stdout } = lint(
       'packages/host/src/application/probe_async_fn.ts',
@@ -555,12 +559,10 @@ describe.skip('effect-patterns/no-async-in-src (P35) — async keyword banned in
   })
 })
 
-// ── effect-patterns/no-try-catch-in-src (P39 red step) ───────────────────────
-// These tests FAIL on the current code because the rule does not exist yet.
-// They become the green gate for TODO 10.4.
+// ── effect-patterns/no-try-catch-in-src (P39 green step) ────────────────────
+// These tests verify the rule that now exists (TODO 10.4 green step).
 
-// Skipped: rule does not exist yet. Remove .skip in TODO 10.4 once no-try-catch-in-src lands.
-describe.skip('effect-patterns/no-try-catch-in-src (P39) — try/catch banned in host/src/', () => {
+describe('effect-patterns/no-try-catch-in-src (P39) — try/catch banned in host/src/', () => {
   it('try/catch block in src/ → error', () => {
     const { exitCode, stdout } = lint(
       'packages/host/src/application/probe_try_catch.ts',

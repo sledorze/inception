@@ -68,18 +68,6 @@ All three findings resolved in commit 5030e00c — no open PAIN items added.
 
 ---
 
-## P35 — `async`/`await` and raw `Promise` in `packages/host/src/` are CLAUDE.md-only — no lint enforcement
-
-**Severity:** slows
-
-**Symptom:** The hard rule "No async/await or try/catch in packages/host/" in CLAUDE.md has zero machine backing. The `effect-patterns` oxlint plugin and `check-effect-patterns.sh` catch `Date.now()`, `Effect.runPromise` in tests, and inline `correlationId: randomUUID()` — but nothing catches a standalone `async function` declaration, `Promise.resolve()`, `Promise.reject()`, or `new Promise()` in `src/` files. Two adapter files (`OpenAiCompatLlmProvider.ts`, `RecordReplayLlmProvider.ts`) legitimately use Promise chains in bridge layers and carry prose comments explaining why, but there is no machine-readable marker distinguishing them from accidental violations. Any new adapter that copies the bridge pattern without understanding it passes all pre-commit checks silently, bypassing Effect's TestClock and typed error channels.
-
-**Candidate fix:** Add two rules to `effect-patterns.js`: `effect-patterns/no-async-in-src` (bans `async` keyword in `packages/host/src/` files not annotated `// promise-bridge: intentional` at file scope) and `effect-patterns/no-raw-promise` (bans `new Promise`, `Promise.resolve`, `Promise.reject` under the same condition). Annotate the three existing legitimate files. Wire both rules into the PostToolUse hook for immediate inline feedback. The file annotation is the machine-readable distinction between a bridge zone (legitimate) and an accidental violation.
-
-**Acceptance test (red):** `packages/host/tests/unit/oxlint-rules.unit.test.ts` — "effect-patterns/no-async-in-src (P35)" describe block asserts that `async function foo(){}` in a `src/` path exits non-zero with `no-async-in-src` in stdout. Currently oxlint exits 0 (rule absent) — test FAILS.
-
----
-
 ## P36 — Frontend components couple data-fetching, state management, and rendering in one unit
 
 **Severity:** slows
@@ -111,18 +99,6 @@ All three findings resolved in commit 5030e00c — no open PAIN items added.
 **Candidate fix:** `.agents/skills/` requires FleetView project-settings registration to be invocable — new entries there are invisible to Claude Code until registered externally. The always-discoverable mechanism is `.claude/commands/<name>.md` (project-level slash commands, same mechanism as `/hunt`). Promote `effect-test-pattern.md`, `schema-decode.md`, `composition-root.md` to `.claude/commands/effect-test-pattern.md`, etc. — these are immediately invocable as `/effect-test-pattern`, `/schema-decode`, `/composition-root`. Update CLAUDE.md "When in doubt" to name the slash commands at each decision point. The patterns/ files become thin redirects. Validation: grep CLAUDE.md "When in doubt" for the three command names — fails before fix, passes after.
 
 **Acceptance test (red):** `packages/host/tests/unit/enforce-conventions.unit.test.ts` — "P38 red step" describe block asserts `.claude/commands/effect-test-pattern.md`, `schema-decode.md`, and `composition-root.md` exist and that CLAUDE.md "When in doubt" references each slash command name. Currently all six assertions fail (files absent, CLAUDE.md not updated) — test FAILS.
-
----
-
-## P39 — `try/catch` in `packages/host/src/` — the second half of the hard rule has no enforcement
-
-**Severity:** slows
-
-**Symptom:** CLAUDE.md hard rule: "No `async`/`await` **or `try`/`catch`**" in `packages/host/`. P35 addresses `async`/`await` and raw `Promise` (TODO 10.1). The `try/catch` half is completely unenforced: no oxlint rule, no hook check, no tsgo diagnostic. Current violation: `packages/host/src/domain/ceremony.ts:64-69` — `verifySignature` uses `try { return verify(...) } catch { return false }` to catch Node.js crypto exceptions inside `domain/`, which must be a pure Effect layer. A developer can add any `try/catch` block anywhere in `src/` and all pre-commit and PostToolUse checks pass silently. Unlike the `async` case (which has a clear `Effect.tryPromise` alternative), the `try/catch` case requires understanding that the correct Effect idiom is `Effect.try(() => ...).pipe(Effect.map(() => true), Effect.orElseSucceed(() => false))`.
-
-**Candidate fix:** Add `effect-patterns/no-try-catch-in-src` rule to `.claude/oxlint-plugins/effect-patterns.js`. The rule fires on any `TryStatement` node in files matching `packages/host/src/` (same path-scope logic as `no-async-in-src`). Wire into the PostToolUse `check-effect-patterns.sh` alongside existing checks. Fix `ceremony.ts`: convert `verifySignature` to return `Effect<boolean, never>` using `Effect.try(() => verify(...)).pipe(Effect.map(() => true), Effect.orElseSucceed(() => false))`; update `checkQuorum` to return `Effect<QuorumResult, never>` via `Effect.gen`; update callers (only `ceremonyBin.integration.test.ts` and `ceremony.unit.test.ts`).
-
-**Acceptance test (red):** `packages/host/tests/unit/oxlint-rules.unit.test.ts` — "effect-patterns/no-try-catch-in-src (P39)" describe block asserts that a `try { ... } catch { }` block in a `src/` path exits non-zero with `no-try-catch-in-src` in stdout. Currently oxlint exits 0 (rule absent) — test FAILS.
 
 ---
 

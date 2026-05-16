@@ -259,13 +259,10 @@ Every item here closes a detection gap where a class of violation passes all pre
 The pattern: (1) write a failing acceptance test that proves the gap exists, (2) add the enforcement
 mechanism, (3) fix any existing violations the rule now surfaces.
 
-- [todo] **10.1** **`effect-patterns` rules: `no-async-in-src` + `no-raw-promise`** (closes P35).
-  Red: `oxlint-rules.unit.test.ts` — assert `async function foo(){}` in `src/` triggers lint error
-  (currently exits 0 — test fails). Green: add both rules to `effect-patterns.js`; exempt files
-  annotated `// promise-bridge: intentional` at file scope; annotate `OpenAiCompatLlmProvider.ts`,
-  `RecordReplayLlmProvider.ts`, `main.ts`; wire into PostToolUse hook alongside existing checks.
-  The annotation is the machine-readable distinction between a legitimate bridge zone and an
-  accidental violation.
+- [done] **10.1** **`effect-patterns` rules: `no-async-in-src` + `no-raw-promise`** (closes P35).
+  Added both rules to `effect-patterns.js` with bridge-zone exemption (`// promise-bridge:
+intentional`). Annotated 4 bridge files. Documented pattern in `.claude/patterns/bridge-zone.md`.
+  Green gate: `oxlint-rules.unit.test.ts` — "effect-patterns/no-async-in-src (P35)" passes.
 
 - [todo] **10.2** **Frontend hook layer + dep-cruiser `components→api` deny rule** (closes P36 + P37).
   Red: `tests/unit/depCruiserBoundary.unit.test.ts` — run dep-cruiser on
@@ -289,15 +286,11 @@ mechanism, (3) fix any existing violations the rule now surfaces.
   and CLAUDE.md "When in doubt" references each (currently all fail). Green: create commands,
   update CLAUDE.md.
 
-- [todo] **10.4** **`effect-patterns/no-try-catch-in-src` rule** (closes P39).
-  The CLAUDE.md hard rule "No async/await **or try/catch**" in `packages/host/src/` — the
-  `try/catch` half has zero enforcement. `domain/ceremony.ts:64-69` has a live violation.
-  Red: `tests/unit/oxlint-rules.unit.test.ts` — "effect-patterns/no-try-catch-in-src (P39)"
-  asserts a `try { } catch { }` in a `src/` path exits non-zero (currently exits 0 — test fails).
-  Green: add `no-try-catch-in-src` rule to `effect-patterns.js`; wire into
-  `check-effect-patterns.sh`; fix `ceremony.ts` — convert `verifySignature` to return
-  `Effect<boolean, never>` via `Effect.try(...).pipe(Effect.map(() => true), Effect.orElseSucceed(() => false))`;
-  update `checkQuorum` and its callers accordingly.
+- [done] **10.4** **`effect-patterns/no-try-catch-in-src` rule** (closes P39).
+  Added `no-try-catch-in-src` to `effect-patterns.js` with bridge-zone exemption. Fixed
+  `ceremony.ts` — `verifySignature` converted to `Effect.try({ try, catch })` + `Effect.catch`;
+  `checkQuorum` uses `Effect.gen` + `yield*`. All 19 ceremony tests pass.
+  Green gate: `oxlint-rules.unit.test.ts` — "effect-patterns/no-try-catch-in-src (P39)" passes.
 
 **Exit:** `pnpm lint:ci` catches a standalone `async function` or `try/catch` in `packages/host/src/`; dep-cruiser
 reports a violation for any component that imports `api/` directly; the three promoted skills are

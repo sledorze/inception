@@ -5,6 +5,26 @@ Convention: fix → move (cut from PAIN.md, paste here in the same commit as the
 
 ---
 
+## P35 — `async`/`await` and raw `Promise` in `packages/host/src/` are CLAUDE.md-only — no lint enforcement
+
+**Severity:** slows
+
+**Symptom:** The hard rule "No async/await or try/catch in packages/host/" in CLAUDE.md had zero machine backing. Nothing caught standalone `async function` declarations, `Promise.resolve()`, `Promise.reject()`, or `new Promise()` in `src/` files. Legitimate bridge adapters carried prose comments but no machine-readable marker.
+
+FIXED 2026-05-16 in feat/design-system-enforcement — added `effect-patterns/no-async-in-src` and `effect-patterns/no-raw-promise` rules to `.claude/oxlint-plugins/effect-patterns.js`. Both rules check for `// promise-bridge: intentional` at file scope before firing. Annotated 4 bridge zone files: `OpenAiCompatLlmProvider.ts`, `RecordReplayLlmProvider.ts`, `CliUserGateway.ts`, `main.ts`. Pattern documented in `.claude/patterns/bridge-zone.md`. test: `packages/host/tests/unit/oxlint-rules.unit.test.ts` — "effect-patterns/no-async-in-src (P35)"
+
+---
+
+## P39 — `try/catch` in `packages/host/src/` — the second half of the hard rule has no enforcement
+
+**Severity:** slows
+
+**Symptom:** The `try/catch` half of the CLAUDE.md hard rule was completely unenforced. Active violation: `ceremony.ts` `verifySignature` used `try { return verify(...) } catch { return false }` inside `domain/`.
+
+FIXED 2026-05-16 in feat/design-system-enforcement — added `effect-patterns/no-try-catch-in-src` rule to `.claude/oxlint-plugins/effect-patterns.js` (bridge-zone exemption via `// promise-bridge: intentional`). Refactored `ceremony.ts` `verifySignature` to `Effect.try({ try: ..., catch: () => new CryptoVerifyError() }).pipe(Effect.catch(() => Effect.succeed(false)))` and `checkQuorum` to `Effect.gen` with `yield* verifySignature`. Updated `ceremony.unit.test.ts` and `ceremonyBin.integration.test.ts` to use `it.effect` + `yield*`. test: `packages/host/tests/unit/oxlint-rules.unit.test.ts` — "effect-patterns/no-try-catch-in-src (P39)"
+
+---
+
 ## P26 — `schemaSyncInEffect` fires false-positive inside `Effect.try` sync callbacks
 
 **Severity:** annoys (adds suppression boilerplate every time SQLite/sync decode is needed inside Effect.gen)

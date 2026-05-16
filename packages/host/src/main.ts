@@ -1,3 +1,4 @@
+// promise-bridge: intentional — top-level await at entry point; rt.runPromise bridges the runtime
 /**
  * Application entry point.
  * HTTP routing via Effect HttpRouter (higher-level than raw node:http).

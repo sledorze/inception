@@ -1,3 +1,4 @@
+// promise-bridge: intentional — node:http requestListener callback runs in Promise territory
 // @effect-diagnostics-next-line nodeBuiltinImport:off
 import { createServer } from 'node:http'
 import { Config, Effect, Layer, Queue, Schema } from 'effect'

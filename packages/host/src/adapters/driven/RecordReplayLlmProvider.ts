@@ -1,3 +1,4 @@
+// promise-bridge: intentional — satisfies typeof globalThis.fetch (Promise-based API)
 /**
  * LLM adapter: record/replay/fake cassette provider for deterministic testing.
  *
