@@ -1,4 +1,4 @@
-import { Config, ConfigProvider, Effect, FileSystem, Layer } from 'effect'
+import { Config, ConfigProvider, Effect, FileSystem, Layer, Schema } from 'effect'
 import * as NodeServices from '@effect/platform-node/NodeServices'
 import { SessionError } from '../application/session.ts'
 import { CapabilityAwareToolRegistry } from '../adapters/driven/CapabilityAwareToolRegistry.ts'
@@ -13,7 +13,10 @@ import { RecordReplayLlmProvider } from '../adapters/driven/RecordReplayLlmProvi
 import type { RecordReplayMode } from '../adapters/driven/RecordReplayLlmProvider.ts'
 import { SqliteEventStore } from '../adapters/driven/SqliteEventStore.ts'
 import { CliUserGateway } from '../adapters/driving/CliUserGateway.ts'
+import { EventStoreAdminQuery } from '../adapters/driving/EventStoreAdminQuery.ts'
 import { GeorgesToolkit, GeorgesToolkitLive } from '../adapters/driving/GeorgesToolkit.ts'
+import type { CredentialEntry } from '../adapters/driving/ScryptAuthGateway.ts'
+import { ScryptAuthGateway } from '../adapters/driving/ScryptAuthGateway.ts'
 
 export { GeorgesToolkit }
 
@@ -25,6 +28,29 @@ const FIXTURE_PATH = new URL('../bootstrap/fixtures/synthetic-001.csv', import.m
 // Capability registry persisted to disk; promoted capabilities survive restarts.
 const REGISTRY_PATH = new URL('../../data/capability-registry.json', import.meta.url).pathname
 const DATA_DIR = new URL('../../data/', import.meta.url).pathname
+const CREDENTIALS_PATH = new URL('../../data/credentials.json', import.meta.url).pathname
+
+const CredentialEntrySchema = Schema.Struct({
+  role: Schema.Literals(['admin', 'enduser']),
+  salt: Schema.String,
+  scryptHash: Schema.String,
+  subject: Schema.String,
+})
+
+const authGatewayLayer: Layer.Layer<
+  import('../ports/driving/AuthGateway.ts').AuthGateway,
+  never,
+  FileSystem.FileSystem
+> = Layer.unwrap(
+  Effect.gen(function* () {
+    const fs = yield* FileSystem.FileSystem
+    const raw = yield* fs.readFileString(CREDENTIALS_PATH).pipe(Effect.orElseSucceed(() => '[]'))
+    const parsed = yield* Schema.decodeUnknownEffect(Schema.Array(CredentialEntrySchema))(
+      JSON.parse(raw) as unknown,
+    ).pipe(Effect.orElseSucceed(() => [] as readonly CredentialEntry[]))
+    return ScryptAuthGateway.layer(parsed)
+  }),
+)
 
 // 2.8: seed agent.md into the workspace at boot so Georges can `read-workspace agent.md`
 const workspaceMountLayer = Layer.unwrap(
@@ -99,7 +125,9 @@ const toolkitLayer = GeorgesToolkitLive.pipe(
 // InMemoryCapabilityRegistry for tests that don't touch the capability flow.
 export const InMemoryCapabilityRegistryLayer = InMemoryCapabilityRegistry.layer
 
-export const appLayer = Layer.mergeAll(toolkitLayer, eventStoreLayer, capabilityRegistryLayer).pipe(
+const adminQueryLayer = EventStoreAdminQuery.layer.pipe(Layer.provide(eventStoreLayer))
+
+export const appLayer = Layer.mergeAll(toolkitLayer, eventStoreLayer, capabilityRegistryLayer, adminQueryLayer).pipe(
   Layer.provide(NodeServices.layer),
 )
 
@@ -115,11 +143,11 @@ const llmLayer = Layer.unwrap(
   }),
 )
 
-// Full runtime layer: toolkit + LLM + User gateway (used by main.ts)
+// Full runtime layer: toolkit + LLM + User gateway + Auth + AdminQuery (used by main.ts)
 // ConfigProvider.layer is provided last so all sub-layers can read env config.
 // Layer.provideMerge(NodeServices) here satisfies FileSystem needs from eventStoreLayer
 // and exposes FileSystem so main.ts can use it in rt.runPromise.
-export const fullLayer = Layer.mergeAll(appLayer, llmLayer, CliUserGateway.layer()).pipe(
+export const fullLayer = Layer.mergeAll(appLayer, llmLayer, CliUserGateway.layer(), authGatewayLayer).pipe(
   Layer.provideMerge(NodeServices.layer),
   Layer.provide(ConfigProvider.layer(ConfigProvider.fromEnv())),
 )

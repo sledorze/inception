@@ -145,6 +145,101 @@ Advances S6 (parked P.2) and S8 (placeholder) to _demonstrated_. Exit: determini
 
 ---
 
+## Phase 7 — Dual-frontend split (back-office vs consumer) + settings
+
+Two distinct users, two distinct frontends. Today's `packages/frontend` mixes builder concerns
+(proposal review, capability list, trace inspection) with consumer concerns (chat, goal submission).
+Splitting into two packages enforces the L2.14 hex boundary at the package level and makes each
+surface independently deployable.
+
+- [done] **7.A** **Kernel slice — auth + RBAC + admin driving ports**: `AuthGateway` port
+  (`login`/`verify`/`logout`) + `FakeAuthGateway` + `ScryptAuthGateway` adapters + `requireRole`
+  application service + `POST /api/login` route + `Authenticated` event (secret-free: subject+role
+  only) + L0.3 SPEC amendment (admin/enduser asymmetry named, `Authenticated` trace-visible,
+  security claim qualified as structural at bundle boundary / aspirational at in-process RBAC) +
+  L2.14 SPEC amendment (`AuthGateway` + `AdminQuery` registered as driving ports) +
+  `AdminQuery` port + `InMemoryAdminQuery` + `EventStoreAdminQuery` adapters + `AdminQuery.metrics`
+  wired to `GET /api/admin/metrics` + all enduser routes guarded with `withRole('enduser')` +
+  admin routes guarded with `withRole('admin')` + `GET /events` closed (returns 404) + replaced by
+  `GET /api/admin/trace` (admin-guarded) + full Effect `HttpRouter` rewrite of `main.ts` (SPA
+  refresh via `HttpStaticServer.layer({ spa:true })`) + `data/credentials.json` default admin
+  seed + protocol test `AdminQuery.spec.ts` (parametrised over InMemory+EventStore, L1.3 no-raw-bytes
+  invariant) + bootstrap integration test updated. All 478 tests green.
+
+- [todo] **7.B** `AdminQuery.pain()` + `AdminQuery.work()` HTTP surface (`GET /api/admin/pain`,
+  `GET /api/admin/work`); wire `painParser`/`todoParser` pure domain modules; contract-test against
+  live `docs/PAIN.md`/`docs/TODO.md`.
+
+- [todo] **7.C** Wrap remaining unguarded `/api/*` routes (tool route); add quarantine list/release
+  endpoints behind `withRole('admin')`; e2e Playwright scenarios: enduser cannot reach `/api/admin/*`,
+  admin can reach metrics/trace, `GET /events` → 404.
+
+- [todo] **7.D** Scaffold `packages/backoffice` + `packages/app`; responsive shadcn UI; move panels
+  (builder → backoffice, consumer → app); decommission `packages/frontend`; update `docs/SPEC.md §1`
+  repo layout + §13 Tech Decisions.
+
+- [todo] **7.1** **Architecture spike** (subsumed into 7.A–7.D above; retained for reference):
+  defines `packages/backoffice` (proposals, capability registry, trace replay, role management,
+  quarantine) and `packages/app` (chat/conversation, goal submission, clarify flow). Shared UI
+  primitives determination deferred to 7.D.
+
+- [todo] **7.2** **Settings subsystem**: runtime-configurable parameters (LLM base URL, model name,
+  session defaults). Define a `Settings` port + in-memory adapter (persisted to disk on change);
+  wire `GET /api/settings` + `PATCH /api/settings` HTTP surface. Back-office exposes the full
+  settings panel (including LLM endpoint + model picker); consumer frontend exposes only
+  consumer-relevant knobs (e.g. session name). Changes take effect on next request — no restart
+  required.
+
+**Exit:** two independently deployable frontends; no panel lives in both; shared primitives (if
+any) isolated in their own package; CI green on both.
+
+---
+
+## Phase 8 — Exchange review loop (observe → annotate → fix → verify)
+
+Closes the outer feedback loop so every problematic exchange drives a concrete improvement to
+agent.md, policies, or tools. The loop: observe full turn sequences in the back-office, annotate
+issues with free-text notes, detect patterns across annotations, edit and version agent.md as
+first-class events, replay affected goals against the new config and diff responses, promote if
+Supervisor + Monitor agree.
+
+- [todo] **8.1** **Exchange viewer** (back-office): paginated list of sessions; drill into a
+  session to see the full turn sequence — `GoalSubmitted` → tool calls (`ToolResultObserved`) →
+  clarify round-trips → `GoalCompleted`. Show actor, timestamp, payload. Filter by date range,
+  actor, event kind. Backed by `GET /api/sessions` + `GET /api/sessions/:id/events` (already
+  partially wired via `/turns`; extend to all event kinds).
+
+- [todo] **8.2** **Exchange annotation** (back-office): per-exchange flag UI — reject (existing)
+  - free-text note. Emits `ExchangeFlagged { correlationId, note, severity }` event. Severity
+    levels: `observation` / `issue` / `blocker`. Backed by `POST /api/exchanges/:correlationId/flag`.
+
+- [todo] **8.3** **Pattern surface** (back-office): aggregate `ExchangeFlagged` +
+  `UserRejected` events into a pattern list — group by note similarity (naive keyword bucketing
+  for v0, embedding clustering later). Display count, example exchanges, first/last seen. Backed
+  by `GET /api/patterns`. No auto-fix — human decides what to amend.
+
+- [todo] **8.4** **`agent.md` amendment surface** (back-office): read-edit-save panel for
+  `src/bootstrap/agent.md`; each save emits `AgentMdAmended { prevHash, newHash, rationale }`
+  event to the event store (rationale = free-text, linked to pattern IDs). The file on disk is
+  the current version; the event chain is the audit log. Backed by `GET /api/agent-md` +
+  `PATCH /api/agent-md`.
+
+- [todo] **8.5** **Replay-and-compare** (back-office): given a `correlationId` and the current
+  `agent.md`, re-run the original goal through the LLM (record/replay mode) and show a side-by-
+  side diff of `GoalCompleted.text` before vs after. Lets the builder verify an amendment fixed
+  the observed issue before promoting. Backed by `POST /api/exchanges/:correlationId/replay`.
+
+- [todo] **8.6** **Amendment promotion gate**: wire `AgentMdAmended` into the Supervisor signal
+  set — Supervisor checks that at least one `ExchangeFlagged` or `UserRejected` event exists as
+  rationale before allowing promotion (L2.6). Monitor recomputes the signal independently.
+  Tier-1 amendments additionally require the L0.2 quorum (Claude + User-of-record co-sign).
+
+**Exit:** one observed issue travels the full loop — flagged in the UI, a pattern detected,
+agent.md amended with rationale, replay confirms improvement, Supervisor + Monitor agree,
+amendment promoted and logged.
+
+---
+
 ## Parked / later
 
 - [parked] **P.1** S5 hard code-over-data wall implementation (waits on a clear sensitive-data fixture).

@@ -1,16 +1,30 @@
 /**
  * Application entry point.
- * Serves the inner MCP toolkit over HTTP:
- *   GET  /health            — readiness probe
- *   POST /api/tools/:name   — invoke a toolkit tool, returns HandlerResult JSON
- *   GET  /*                 — static frontend (packages/frontend/dist)
+ * HTTP routing via Effect HttpRouter (higher-level than raw node:http).
+ * SPA fallback via HttpStaticServer (spa:true → page refresh works).
  *
- * User goals are received on the UserGateway port (CliUserGateway adapter on
- * a separate HTTP server, default :3001 — see bin/user.ts).
+ *   GET  /health                      — readiness probe (no auth)
+ *   POST /api/login                   — obtain an auth session token
+ *   POST /api/goals                   — enduser: submit a goal
+ *   POST /api/goals/:id/reject        — enduser: reject a goal
+ *   GET  /api/sessions/:id/turns      — enduser: conversation history
+ *   POST /api/sessions/:id/respond    — enduser: answer clarification
+ *   GET  /api/proposals               — admin: list pending proposals
+ *   POST /api/proposals/:id/promote   — admin: promote a proposal
+ *   POST /api/tools/:name             — invoke a toolkit tool (internal)
+ *   GET  /api/admin/metrics           — admin: loop health
+ *   GET  /api/admin/trace             — admin: event trace (replaces GET /events)
+ *   GET  /events                      — 404 (leak closed)
+ *   GET  /*                           — static SPA (spa:true makes refresh work)
  */
 // @effect-diagnostics-next-line nodeBuiltinImport:off
 import { createServer } from 'node:http'
-import { Config, Effect, FileSystem, ManagedRuntime, Option, Random, Result, Schema, Stream } from 'effect'
+import * as NodeHttpServer from '@effect/platform-node/NodeHttpServer'
+import { Config, Effect, Layer, ManagedRuntime, Option, Random, Schema, Stream } from 'effect'
+import * as HttpRouter from 'effect/unstable/http/HttpRouter'
+import * as HttpServerRequest from 'effect/unstable/http/HttpServerRequest'
+import * as HttpServerResponse from 'effect/unstable/http/HttpServerResponse'
+import * as HttpStaticServer from 'effect/unstable/http/HttpStaticServer'
 import {
   ClarifyAnsweredPayload,
   ClarifyRequestedPayload,
@@ -26,30 +40,302 @@ import { makeRespondToGoal } from './application/respondToGoal.ts'
 import { recordRejection } from './application/rejectionPattern.ts'
 import { registerCapability } from './application/registerCapability.ts'
 import { listPendingProposals, promoteProposal } from './application/reviewProposals.ts'
+import { login } from './application/login.ts'
+import { requireRole } from './application/authorize.ts'
 import { EventStore } from './ports/driven/EventStore.ts'
+import { AdminQuery } from './ports/driving/AdminQuery.ts'
+import { SessionExpiredTag, SessionNotFoundTag } from './ports/driving/AuthGateway.ts'
 import { GeorgesToolkit, fullLayer } from './runtime/bind.ts'
 import { UserGateway } from './ports/driving/UserGateway.ts'
 
 // URL-based path avoids node:path import (P24).
 const DIST = new URL('../../frontend/dist', import.meta.url).pathname
 
-const MIME: Record<string, string> = {
-  '.css': 'text/css',
-  '.html': 'text/html; charset=utf-8',
-  '.js': 'application/javascript',
-  '.json': 'application/json',
-  '.svg': 'image/svg+xml',
-}
+// ─── RBAC guard ───────────────────────────────────────────────────────────────
 
-const extname = (filePath: string): string => {
-  const dot = filePath.lastIndexOf('.')
-  return dot > filePath.lastIndexOf('/') ? filePath.slice(dot) : ''
-}
+const extractBearer = Effect.gen(function* () {
+  const req = yield* HttpServerRequest.HttpServerRequest
+  const auth = (req.headers['authorization'] as string | undefined) ?? ''
+  return auth.startsWith('Bearer ') ? auth.slice(7) : undefined
+})
 
-const rt = ManagedRuntime.make(fullLayer)
+/** Returns 401/403 when auth fails; otherwise runs the handler. */
+const withRole =
+  (role: 'admin' | 'enduser') =>
+  <E, R>(
+    handler: Effect.Effect<HttpServerResponse.HttpServerResponse, E, R>,
+  ): Effect.Effect<HttpServerResponse.HttpServerResponse, E, R | HttpServerRequest.HttpServerRequest> =>
+    Effect.gen(function* () {
+      const token = yield* extractBearer
+      return yield* requireRole(token, role).pipe(
+        Effect.matchEffect({
+          onFailure: err =>
+            Effect.succeed(
+              err._tag === SessionNotFoundTag || err._tag === SessionExpiredTag ?
+                HttpServerResponse.text('unauthorized', { status: 401 })
+              : HttpServerResponse.text('forbidden', { status: 403 }),
+            ),
+          onSuccess: () => handler,
+        }),
+      )
+    }) as Effect.Effect<HttpServerResponse.HttpServerResponse, E, R | HttpServerRequest.HttpServerRequest>
+
+// ─── Route helpers ────────────────────────────────────────────────────────────
+
+const jsonOk = (data: unknown): HttpServerResponse.HttpServerResponse => HttpServerResponse.jsonUnsafe(data)
+
+const textErr = (msg: string, status: number): HttpServerResponse.HttpServerResponse =>
+  HttpServerResponse.text(msg, { status })
+
+// Parse the request JSON body against a schema; returns null on parse failure.
+const parseBody = <A>(schema: Schema.Schema<A>) =>
+  HttpServerRequest.schemaBodyJson(schema).pipe(Effect.orElseSucceed(() => null as A | null))
+
+// ─── Routes ───────────────────────────────────────────────────────────────────
+
+const healthRoute = HttpRouter.add('GET', '/health', Effect.succeed(HttpServerResponse.text('ok')))
+
+const loginRoute = HttpRouter.add(
+  'POST',
+  '/api/login',
+  Effect.gen(function* () {
+    const LoginBody = Schema.Struct({ password: Schema.String, username: Schema.String })
+    const body = yield* parseBody(LoginBody)
+    if (body === null) return textErr('missing username or password', 422)
+    return yield* login(body.username, body.password).pipe(
+      Effect.matchEffect({
+        onFailure: err =>
+          Effect.succeed(
+            err._tag === '@app/host/InvalidCredentials' ?
+              textErr('invalid credentials', 401)
+            : textErr('server error', 500),
+          ),
+        onSuccess: session => Effect.succeed(jsonOk(session)),
+      }),
+    )
+  }),
+)
+
+const submitGoalRoute = HttpRouter.add(
+  'POST',
+  '/api/goals',
+  withRole('enduser')(
+    Effect.gen(function* () {
+      const body = yield* parseBody(SubmitGoalBody)
+      if (body === null) return textErr('missing or invalid goal/handleId', 422)
+      const { goal, handleId, sessionId: reqSessionId } = body
+      const toolkit = yield* GeorgesToolkit
+      const sessionId = reqSessionId ?? (yield* Random.nextUUIDv4)
+      const { correlationId } = yield* makeSubmitGoal(toolkit)({ goal, handleId, sessionId })
+      const store = yield* EventStore
+      const events = yield* store.query({ correlationId })
+      const clarifyEvent = events.findLast(e => e.kind === EventKind.ClarifyRequested)
+      if (clarifyEvent !== undefined) {
+        const { question } = yield* Schema.decodeUnknownEffect(ClarifyRequestedPayload)(clarifyEvent.payload).pipe(
+          Effect.orDie,
+        )
+        return jsonOk({ clarifyQuestion: question, correlationId, sessionId })
+      }
+      const completedEvent = events.findLast(e => e.kind === EventKind.GoalCompleted)
+      const completedPayload =
+        completedEvent !== undefined ?
+          yield* Schema.decodeUnknownEffect(GoalCompletedPayload)(completedEvent.payload).pipe(Effect.orDie)
+        : undefined
+      return jsonOk({ correlationId, sessionId, ...completedPayload })
+    }),
+  ),
+)
+
+const rejectGoalRoute = HttpRouter.add(
+  'POST',
+  '/api/goals/:correlationId/reject',
+  withRole('enduser')(
+    Effect.gen(function* () {
+      const { correlationId } = yield* HttpRouter.schemaPathParams(Schema.Struct({ correlationId: Schema.String }))
+      const body = yield* parseBody(RejectGoalBody)
+      const { reason = 'no reason given', sessionId = 'bootstrap' } = body ?? {}
+      yield* recordRejection({ correlationId, reason, sessionId, storyRef: 'S3' })
+      return HttpServerResponse.empty({ status: 204 })
+    }),
+  ),
+)
+
+const sessionTurnsRoute = HttpRouter.add(
+  'GET',
+  '/api/sessions/:sessionId/turns',
+  withRole('enduser')(
+    Effect.gen(function* () {
+      const { sessionId } = yield* HttpRouter.schemaPathParams(Schema.Struct({ sessionId: Schema.String }))
+      const store = yield* EventStore
+      const events = yield* store.query({ sessionId })
+      const goals = new Map<string, string>()
+      const replies = new Map<string, string>()
+      const clarifyQuestions = new Map<string, string>()
+      const clarifyAnswers = new Map<string, string>()
+      const order: string[] = []
+      for (const e of events) {
+        if (e.kind === EventKind.GoalSubmitted) {
+          const p = yield* Schema.decodeUnknownEffect(GoalSubmittedPayload)(e.payload).pipe(Effect.orDie)
+          goals.set(e.correlationId, p.goal)
+          order.push(e.correlationId)
+        } else if (e.kind === EventKind.GoalCompleted) {
+          const p = yield* Schema.decodeUnknownEffect(GoalCompletedPayload)(e.payload).pipe(Effect.orDie)
+          replies.set(e.correlationId, p.text)
+        } else if (e.kind === EventKind.ClarifyAnswered) {
+          const p = yield* Schema.decodeUnknownEffect(ClarifyAnsweredPayload)(e.payload).pipe(Effect.orDie)
+          clarifyAnswers.set(e.correlationId, p.answer)
+        }
+      }
+      for (const cid of order) {
+        const cidEvents = yield* store.query({ correlationId: cid })
+        const ce = cidEvents.findLast(e => e.kind === EventKind.ClarifyRequested)
+        if (ce !== undefined) {
+          const p = yield* Schema.decodeUnknownEffect(ClarifyRequestedPayload)(ce.payload).pipe(Effect.orDie)
+          clarifyQuestions.set(cid, p.question)
+        }
+      }
+      let idx = 0
+      const turns = order
+        .filter(cid => replies.has(cid) || clarifyQuestions.has(cid))
+        .map(cid => {
+          const turn: Record<string, unknown> = { correlationId: cid, goal: goals.get(cid) ?? '', turnIndex: idx++ }
+          const reply = replies.get(cid)
+          const clarifyQuestion = clarifyQuestions.get(cid)
+          const clarifyAnswer = clarifyAnswers.get(cid)
+          if (reply !== undefined) {
+            turn['reply'] = reply
+          }
+          if (clarifyQuestion !== undefined) {
+            turn['clarifyQuestion'] = clarifyQuestion
+          }
+          if (clarifyAnswer !== undefined) {
+            turn['clarifyAnswer'] = clarifyAnswer
+          }
+          return turn
+        })
+      return jsonOk(turns)
+    }),
+  ),
+)
+
+const sessionRespondRoute = HttpRouter.add(
+  'POST',
+  '/api/sessions/:sessionId/respond',
+  withRole('enduser')(
+    Effect.gen(function* () {
+      const body = yield* parseBody(RespondBody)
+      if (body === null) return textErr('missing correlationId or answer', 422)
+      const { sessionId } = yield* HttpRouter.schemaPathParams(Schema.Struct({ sessionId: Schema.String }))
+      const { correlationId, answer } = body
+      const toolkit = yield* GeorgesToolkit
+      const result = yield* makeRespondToGoal(toolkit)(correlationId, answer, sessionId)
+      return jsonOk(result)
+    }),
+  ),
+)
+
+const listProposalsRoute = HttpRouter.add(
+  'GET',
+  '/api/proposals',
+  withRole('admin')(
+    Effect.gen(function* () {
+      const proposals = yield* listPendingProposals
+      return jsonOk(proposals)
+    }),
+  ),
+)
+
+const promoteProposalRoute = HttpRouter.add(
+  'POST',
+  '/api/proposals/:proposalId/promote',
+  withRole('admin')(
+    Effect.gen(function* () {
+      const { proposalId } = yield* HttpRouter.schemaPathParams(Schema.Struct({ proposalId: Schema.String }))
+      yield* promoteProposal(proposalId, undefined)
+      const version = yield* registerCapability(proposalId)
+      return jsonOk({ version })
+    }),
+  ),
+)
+
+const adminMetricsRoute = HttpRouter.add(
+  'GET',
+  '/api/admin/metrics',
+  withRole('admin')(
+    Effect.gen(function* () {
+      const adminQuery = yield* AdminQuery
+      const metrics = yield* adminQuery.metrics()
+      return jsonOk(metrics)
+    }),
+  ),
+)
+
+const adminTraceRoute = HttpRouter.add(
+  'GET',
+  '/api/admin/trace',
+  withRole('admin')(
+    Effect.gen(function* () {
+      const adminQuery = yield* AdminQuery
+      const events = yield* adminQuery.trace({})
+      return jsonOk(events)
+    }),
+  ),
+)
+
+const toolRoute = HttpRouter.add(
+  'POST',
+  '/api/tools/:toolName',
+  Effect.gen(function* () {
+    const { toolName } = yield* HttpRouter.schemaPathParams(Schema.Struct({ toolName: Schema.String }))
+    const params = yield* parseBody(Schema.Unknown)
+    const toolkit = yield* GeorgesToolkit
+    const stream = yield* toolkit.handle(toolName as 'list-tools', params as { role: string })
+    const last = yield* Stream.runLast(stream)
+    return jsonOk(Option.getOrNull(last))
+  }),
+)
+
+// Closed leak — GET /events is replaced by guarded /api/admin/trace.
+const closedLeakRoute = HttpRouter.add('GET', '/events', Effect.succeed(textErr('not found', 404)))
+
+// SPA static files — spa:true means unmatched paths serve index.html (refresh works).
+// HttpStaticServer.layer adds GET /* to the router directly.
+// Fallback to a 503 if the frontend hasn't been built yet (PlatformError → caught → fallback).
+const spaRoute = HttpStaticServer.layer({ root: DIST, spa: true }).pipe(
+  Layer.catchTag('PlatformError', () =>
+    HttpRouter.add(
+      'GET',
+      '/*',
+      Effect.succeed(textErr('frontend not built — run pnpm build in packages/frontend', 503)),
+    ),
+  ),
+)
+
+// ─── Compose all routes ───────────────────────────────────────────────────────
+
+const allRoutes: Layer.Layer<never, never, never> = Layer.mergeAll(
+  healthRoute,
+  loginRoute,
+  submitGoalRoute,
+  rejectGoalRoute,
+  sessionTurnsRoute,
+  sessionRespondRoute,
+  listProposalsRoute,
+  promoteProposalRoute,
+  adminMetricsRoute,
+  adminTraceRoute,
+  toolRoute,
+  closedLeakRoute,
+  spaRoute,
+) as Layer.Layer<never, never, never>
+
+// ─── Runtime setup ────────────────────────────────────────────────────────────
+
+const rt = ManagedRuntime.make(fullLayer.pipe(Layer.provideMerge(NodeHttpServer.layerHttpServices)))
+
 const PORT = await rt.runPromise(Config.int('PORT').pipe(Config.withDefault(3000)))
 
-// Start the UserGateway listener as a background fiber — processes goals on :3001
+// Start the UserGateway listener as a background fiber — processes goals on :3001.
 rt.runFork(
   Effect.gen(function* () {
     const gw = yield* UserGateway
@@ -58,327 +344,24 @@ rt.runFork(
   }),
 )
 
-const TOOL_ROUTE = /^\/api\/tools\/([^/?]+)/u
-const PROMOTE_ROUTE = /^\/api\/proposals\/([^/?]+)\/promote$/u
-const REJECT_GOAL_ROUTE = /^\/api\/goals\/([^/?]+)\/reject$/u
-const SESSION_TURNS_ROUTE = /^\/api\/sessions\/([^/?]+)\/turns$/u
-const SESSION_RESPOND_ROUTE = /^\/api\/sessions\/([^/?]+)\/respond$/u
+// Compile routes into an HTTP effect.
+// Effect.scoped handles the Scope requirement of Layer.build inside toHttpEffect.
+// The app services (AuthGateway, EventStore, etc.) are provided at request time by the runtime.
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+const httpApp = (await rt.runPromise(HttpRouter.toHttpEffect(allRoutes).pipe(Effect.scoped) as any)) as Effect.Effect<
+  HttpServerResponse.HttpServerResponse,
+  unknown,
+  HttpServerRequest.HttpServerRequest
+>
 
-const server = createServer((req, res) => {
-  const url = req.url ?? '/'
+// makeHandler requires a Scope to manage per-request resource cleanup.
+// We reuse the ManagedRuntime's root scope so handler lifetimes are bound to the server.
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+const handler = await (rt.runPromise(NodeHttpServer.makeHandler(httpApp, { scope: rt.scope }) as any) as Promise<
+  Parameters<typeof createServer>[0]
+>)
 
-  if (url === '/health') {
-    res.writeHead(200).end('ok')
-    return
-  }
-
-  if (url === '/api/goals' && req.method === 'POST') {
-    let body = ''
-    req.on('data', (chunk: Buffer) => {
-      body += chunk.toString()
-    })
-    req.on('end', () => {
-      let rawParsed: unknown
-      try {
-        rawParsed = JSON.parse(body) as unknown
-      } catch {
-        res.writeHead(400).end('invalid json')
-        return
-      }
-      const bodyResult = Schema.decodeUnknownResult(SubmitGoalBody)(rawParsed)
-      if (Result.isFailure(bodyResult)) {
-        res.writeHead(422).end('missing or invalid goal/handleId')
-        return
-      }
-      const { goal, handleId, sessionId: reqSessionId } = bodyResult.success
-      rt.runPromise(
-        Effect.gen(function* () {
-          const toolkit = yield* GeorgesToolkit
-          const sessionId = reqSessionId ?? (yield* Random.nextUUIDv4)
-          const { correlationId } = yield* makeSubmitGoal(toolkit)({ goal, handleId, sessionId })
-          const store = yield* EventStore
-          // Query by correlationId only: ClarifyRequested uses sessionId='bootstrap' (toolkit context).
-          const events = yield* store.query({ correlationId })
-          const clarifyEvent = events.findLast(e => e.kind === EventKind.ClarifyRequested)
-          if (clarifyEvent !== undefined) {
-            const { question } = yield* Schema.decodeUnknownEffect(ClarifyRequestedPayload)(clarifyEvent.payload).pipe(
-              Effect.orDie,
-            )
-            return { clarifyQuestion: question, correlationId, sessionId }
-          }
-          const completedEvent = events.findLast(e => e.kind === EventKind.GoalCompleted)
-          const completedPayload =
-            completedEvent !== undefined ?
-              yield* Schema.decodeUnknownEffect(GoalCompletedPayload)(completedEvent.payload).pipe(Effect.orDie)
-            : undefined
-          return { correlationId, sessionId, ...completedPayload }
-        }),
-      )
-        .then(payload => {
-          res.writeHead(200, { 'Content-Type': 'application/json' }).end(JSON.stringify(payload))
-        })
-        .catch((error: unknown) => {
-          res.writeHead(500).end(String(error))
-        })
-    })
-    return
-  }
-
-  const rejectMatch = REJECT_GOAL_ROUTE.exec(url)
-  if (rejectMatch !== null && req.method === 'POST') {
-    const correlationId = decodeURIComponent(rejectMatch[1] ?? '')
-    let body = ''
-    req.on('data', (chunk: Buffer) => {
-      body += chunk.toString()
-    })
-    req.on('end', () => {
-      let rawParsed: unknown
-      try {
-        rawParsed = JSON.parse(body) as unknown
-      } catch {
-        res.writeHead(400).end('invalid json')
-        return
-      }
-      const rejectBody = Schema.decodeUnknownResult(RejectGoalBody)(rawParsed)
-      const { reason = 'no reason given', sessionId = 'bootstrap' } =
-        Result.isSuccess(rejectBody) ? rejectBody.success : {}
-      rt.runPromise(
-        recordRejection({
-          correlationId,
-          reason,
-          sessionId,
-          storyRef: 'S3',
-        }),
-      )
-        .then(() => {
-          res.writeHead(204).end()
-        })
-        .catch((error: unknown) => {
-          res.writeHead(500).end(String(error))
-        })
-    })
-    return
-  }
-
-  if (url === '/api/proposals' && req.method === 'GET') {
-    rt.runPromise(listPendingProposals)
-      .then(proposals => {
-        res.writeHead(200, { 'Content-Type': 'application/json' }).end(JSON.stringify(proposals))
-      })
-      .catch((error: unknown) => {
-        res.writeHead(500).end(String(error))
-      })
-    return
-  }
-
-  const promoteMatch = PROMOTE_ROUTE.exec(url)
-  if (promoteMatch !== null && req.method === 'POST') {
-    const proposalId = decodeURIComponent(promoteMatch[1] ?? '')
-    rt.runPromise(
-      Effect.gen(function* () {
-        yield* promoteProposal(proposalId, undefined)
-        return yield* registerCapability(proposalId)
-      }),
-    )
-      .then(version => {
-        res.writeHead(200, { 'Content-Type': 'application/json' }).end(JSON.stringify({ version }))
-      })
-      .catch((error: unknown) => {
-        res.writeHead(500).end(String(error))
-      })
-    return
-  }
-
-  const sessionTurnsMatch = SESSION_TURNS_ROUTE.exec(url)
-  if (sessionTurnsMatch !== null && req.method === 'GET') {
-    const sessionId = decodeURIComponent(sessionTurnsMatch[1] ?? '')
-    rt.runPromise(
-      Effect.gen(function* () {
-        const store = yield* EventStore
-        const events = yield* store.query({ sessionId })
-        const goals = new Map<string, string>()
-        const replies = new Map<string, string>()
-        const clarifyQuestions = new Map<string, string>()
-        const clarifyAnswers = new Map<string, string>()
-        const order: string[] = []
-        for (const e of events) {
-          if (e.kind === EventKind.GoalSubmitted) {
-            const p = yield* Schema.decodeUnknownEffect(GoalSubmittedPayload)(e.payload).pipe(Effect.orDie)
-            goals.set(e.correlationId, p.goal)
-            order.push(e.correlationId)
-          } else if (e.kind === EventKind.GoalCompleted) {
-            const p = yield* Schema.decodeUnknownEffect(GoalCompletedPayload)(e.payload).pipe(Effect.orDie)
-            replies.set(e.correlationId, p.text)
-          } else if (e.kind === EventKind.ClarifyAnswered) {
-            const p = yield* Schema.decodeUnknownEffect(ClarifyAnsweredPayload)(e.payload).pipe(Effect.orDie)
-            clarifyAnswers.set(e.correlationId, p.answer)
-          }
-        }
-        // ClarifyRequested is stored with sessionId='bootstrap' by the toolkit handler
-        // (sessionId not yet propagated into tool context). Supplement per-correlationId.
-        for (const cid of order) {
-          const cidEvents = yield* store.query({ correlationId: cid })
-          const ce = cidEvents.findLast(e => e.kind === EventKind.ClarifyRequested)
-          if (ce !== undefined) {
-            const p = yield* Schema.decodeUnknownEffect(ClarifyRequestedPayload)(ce.payload).pipe(Effect.orDie)
-            clarifyQuestions.set(cid, p.question)
-          }
-        }
-        let idx = 0
-        return order
-          .filter(cid => replies.has(cid) || clarifyQuestions.has(cid))
-          .map(cid => {
-            const turn: Record<string, unknown> = {
-              correlationId: cid,
-              goal: goals.get(cid) ?? '',
-              turnIndex: idx++,
-            }
-            const reply = replies.get(cid)
-            const clarifyQuestion = clarifyQuestions.get(cid)
-            const clarifyAnswer = clarifyAnswers.get(cid)
-            if (reply !== undefined) {
-              turn['reply'] = reply
-            }
-            if (clarifyQuestion !== undefined) {
-              turn['clarifyQuestion'] = clarifyQuestion
-            }
-            if (clarifyAnswer !== undefined) {
-              turn['clarifyAnswer'] = clarifyAnswer
-            }
-            return turn
-          })
-      }),
-    )
-      .then(turns => {
-        res.writeHead(200, { 'Content-Type': 'application/json' }).end(JSON.stringify(turns))
-      })
-      .catch((error: unknown) => {
-        res.writeHead(500).end(String(error))
-      })
-    return
-  }
-
-  const sessionRespondMatch = SESSION_RESPOND_ROUTE.exec(url)
-  if (sessionRespondMatch !== null && req.method === 'POST') {
-    const sessionId = decodeURIComponent(sessionRespondMatch[1] ?? '')
-    let body = ''
-    req.on('data', (chunk: Buffer) => {
-      body += chunk.toString()
-    })
-    req.on('end', () => {
-      let rawParsed: unknown
-      try {
-        rawParsed = JSON.parse(body) as unknown
-      } catch {
-        res.writeHead(400).end('invalid json')
-        return
-      }
-      const respondResult = Schema.decodeUnknownResult(RespondBody)(rawParsed)
-      if (Result.isFailure(respondResult)) {
-        res.writeHead(422).end('missing correlationId or answer')
-        return
-      }
-      const { correlationId, answer } = respondResult.success
-      rt.runPromise(
-        Effect.gen(function* () {
-          const toolkit = yield* GeorgesToolkit
-          return yield* makeRespondToGoal(toolkit)(correlationId, answer, sessionId)
-        }),
-      )
-        .then(result => {
-          res.writeHead(200, { 'Content-Type': 'application/json' }).end(JSON.stringify(result))
-        })
-        .catch((error: unknown) => {
-          const tag =
-            typeof error === 'object' && error !== null ? (error as Record<string, unknown>)['_tag'] : undefined
-          if (tag === '@app/host/ClarifyNotFoundError') {
-            res.writeHead(404).end('no pending clarification for this correlationId')
-          } else {
-            res.writeHead(500).end(String(error))
-          }
-        })
-    })
-    return
-  }
-
-  if (url === '/events' && req.method === 'GET') {
-    rt.runPromise(
-      Effect.gen(function* () {
-        const store = yield* EventStore
-        return yield* store.query({})
-      }),
-    )
-      .then(events => {
-        res.writeHead(200, { 'Content-Type': 'application/json' }).end(JSON.stringify(events, null, 2))
-      })
-      .catch((error: unknown) => {
-        res.writeHead(500).end(String(error))
-      })
-    return
-  }
-
-  const toolMatch = TOOL_ROUTE.exec(url)
-  if (toolMatch !== null && req.method === 'POST') {
-    const toolName = decodeURIComponent(toolMatch[1] ?? '')
-    let body = ''
-    req.on('data', (chunk: Buffer) => {
-      body += chunk.toString()
-    })
-    req.on('end', () => {
-      let params: unknown
-      try {
-        params = JSON.parse(body) as unknown
-      } catch {
-        res.writeHead(400).end('invalid json')
-        return
-      }
-      rt.runPromise(
-        Effect.gen(function* () {
-          const toolkit = yield* GeorgesToolkit
-          const stream = yield* toolkit.handle(toolName as 'list-tools', params as { role: string })
-          return yield* Stream.runLast(stream)
-        }),
-      )
-        .then(last => {
-          res.writeHead(200, { 'Content-Type': 'application/json' }).end(JSON.stringify(Option.getOrNull(last)))
-        })
-        .catch((error: unknown) => {
-          res.writeHead(500).end(String(error))
-        })
-    })
-    return
-  }
-
-  // Static files — SPA fallback to index.html
-  const urlPath = url === '/' ? '/index.html' : (url.split('?')[0] ?? '/index.html')
-  const filePath = `${DIST}${urlPath}`
-  void rt
-    .runPromise(
-      Effect.gen(function* () {
-        const fs = yield* FileSystem.FileSystem
-        return yield* fs.readFile(filePath).pipe(Effect.orDie)
-      }),
-    )
-    .then(data => {
-      res.writeHead(200, { 'Content-Type': MIME[extname(filePath)] ?? 'application/octet-stream' }).end(data)
-    })
-    .catch(() => {
-      void rt
-        .runPromise(
-          Effect.gen(function* () {
-            const fs = yield* FileSystem.FileSystem
-            return yield* fs.readFile(`${DIST}/index.html`).pipe(Effect.orDie)
-          }),
-        )
-        .then(fallback => {
-          res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8' }).end(fallback)
-        })
-        .catch(() => {
-          res.writeHead(404).end('not found')
-        })
-    })
-})
-
+const server = createServer(handler)
 server.listen(PORT, () => {
   process.stdout.write(`host server on :${String(PORT)}\n`)
 })

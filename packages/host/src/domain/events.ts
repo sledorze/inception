@@ -4,6 +4,8 @@ import { Schema } from 'effect'
 // All `store.append({ kind: ... })` and `e.kind === ...` comparisons must use
 // these constants so renaming a kind is one change, not a grep hunt.
 export const EventKind = {
+  // L0.3: emitted on every successful login; payload = {subject, role} — NO token/password.
+  Authenticated: 'Authenticated',
   CapabilityProposed: 'CapabilityProposed',
   CapabilityRejected: 'CapabilityRejected',
   ClarifyAnswered: 'ClarifyAnswered',
@@ -59,6 +61,11 @@ export const CapabilityProposedPayload = Schema.Struct({
 export const DecisionPayload = Schema.Struct({
   notes: Schema.optional(Schema.String),
   proposalId: Schema.String,
+})
+
+export const AuthenticatedPayload = Schema.Struct({
+  role: Schema.Literals(['admin', 'enduser']),
+  subject: Schema.String,
 })
 
 // ─── HTTP request body schemas ─────────────────────────────────────────────────
