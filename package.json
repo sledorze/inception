@@ -11,6 +11,7 @@
     "check:test-conventions": "node --import tsx packages/host/src/checks/check-test-conventions.ts",
     "deps:check": "depcruise --validate .dependency-cruiser.cjs packages/host/src/ packages/app/src/ packages/backoffice/src/",
     "dev": "tsx watch packages/host/src/main.ts",
+    "dev:all": "pnpm dev & pnpm dev:app & pnpm dev:backoffice & wait",
     "dev:app": "cd packages/app && vite --host",
     "dev:backoffice": "cd packages/backoffice && vite --host --port 3001",
     "format": "prettier --write .",

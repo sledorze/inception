@@ -29,6 +29,9 @@ const LLM_MODEL = Config.string('LLM_MODEL').pipe(Config.withDefault('local-mode
 
 export type RecordReplayMode = 'record' | 'replay' | 'fake'
 
+/** Seed phrase that triggers a clarify tool call in fake mode. Import in e2e tests to keep in sync. */
+export const FAKE_CLARIFY_TRIGGER = 'help me'
+
 function makeFakeResponse(body: Record<string, unknown>): Response {
   const messages = Array.isArray(body['messages']) ? (body['messages'] as Array<Record<string, unknown>>) : []
   const hasToolResult = messages.some(m => m['role'] === 'tool')
@@ -37,7 +40,7 @@ function makeFakeResponse(body: Record<string, unknown>): Response {
     .toLowerCase()
     .trim()
 
-  const callClarify = !hasToolResult && userMsgs.length === 1 && lastUserContent === 'help me'
+  const callClarify = !hasToolResult && userMsgs.length === 1 && lastUserContent === FAKE_CLARIFY_TRIGGER
   const responseBody =
     callClarify ?
       {
@@ -111,8 +114,12 @@ function computeRequestHash(body: Record<string, unknown>): string {
 // This helper decodes it correctly so the hash (and fake-mode detection) work.
 function decodeBody(init: RequestInit | undefined): string {
   const body = init?.body
-  if (typeof body === 'string') return body
-  if (body instanceof Uint8Array) return new TextDecoder().decode(body)
+  if (typeof body === 'string') {
+    return body
+  }
+  if (body instanceof Uint8Array) {
+    return new TextDecoder().decode(body)
+  }
   return '{}'
 }
 

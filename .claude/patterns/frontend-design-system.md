@@ -76,7 +76,7 @@ const plugin = {
 3. Install command if the component might not be present (`npx shadcn add <slug>`)
 4. Rule rationale link: `Rule rationale: .claude/rules/frontend.md.`
 
-### Step 2 — Wire in `packages/frontend/.oxlintrc.json`
+### Step 2 — Wire in `packages/app/.oxlintrc.json` (and `packages/backoffice/.oxlintrc.json`)
 
 Add to BOTH overrides (error on app code, off on ui/ internals):
 
@@ -106,17 +106,13 @@ Minimum matrix per rule (follow `lint-test-pattern.md` — assert BEHAVIOUR, not
 ```ts
 describe('design-system/no-foo — description', () => {
   it('raw <foo> in src/ → error', () => {
-    const { stdout } = lint(
-      'packages/frontend/src/ProbeFoo.tsx',
-      `export const X = () => <foo>x</foo>\n`,
-      FRONTEND_CONFIG,
-    )
+    const { stdout } = lint('packages/app/src/ProbeFoo.tsx', `export const X = () => <foo>x</foo>\n`, FRONTEND_CONFIG)
     expect(stdout).toContain('no-foo')
   })
 
   it('shadcn <Foo> in src/ → allowed', () => {
     const { stdout } = lint(
-      'packages/frontend/src/ProbeFooOk.tsx',
+      'packages/app/src/ProbeFooOk.tsx',
       `import { Foo } from '@/components/ui/foo'\nexport const X = () => <Foo>x</Foo>\n`,
       FRONTEND_CONFIG,
     )
@@ -125,7 +121,7 @@ describe('design-system/no-foo — description', () => {
 
   it('raw <foo> in src/components/ui/ → allowed (shadcn wraps it)', () => {
     const { stdout } = lint(
-      'packages/frontend/src/components/ui/probe-foo.tsx',
+      'packages/app/src/components/ui/probe-foo.tsx',
       `export const X = () => <foo>x</foo>\n`,
       FRONTEND_CONFIG,
     )
@@ -134,7 +130,7 @@ describe('design-system/no-foo — description', () => {
 
   it('diagnostic invites the shadcn component', () => {
     const { stdout } = lint(
-      'packages/frontend/src/ProbeFooMsg.tsx',
+      'packages/app/src/ProbeFooMsg.tsx',
       `export const X = () => <foo>x</foo>\n`,
       FRONTEND_CONFIG,
     )
@@ -150,20 +146,20 @@ The `FRONTEND_CONFIG` constant is already defined in the file:
 const FRONTEND_CONFIG = join(REPO_ROOT, 'packages', 'frontend', '.oxlintrc.json')
 ```
 
-The `beforeAll` creates `packages/frontend/src/components/ui/` in the fixture dir.
+The `beforeAll` creates `packages/app/src/components/ui/` in the fixture dir.
 
 ### Step 4 — Find and fix existing violations, then verify
 
 ```bash
 # Find all violations in the frontend src
-./node_modules/.bin/oxlint --config packages/frontend/.oxlintrc.json packages/frontend/src
+./node_modules/.bin/oxlint --config packages/app/.oxlintrc.json packages/app/src
 
 # Migrate: replace raw elements with shadcn equivalents
 # If the shadcn component isn't installed yet:
 cd packages/frontend && npx shadcn@latest add <slug> && cd ../..
 
 # Re-run until clean
-./node_modules/.bin/oxlint --config packages/frontend/.oxlintrc.json packages/frontend/src
+./node_modules/.bin/oxlint --config packages/app/.oxlintrc.json packages/app/src
 # → Found 0 warnings and 0 errors.
 ```
 
@@ -177,14 +173,14 @@ cd packages/frontend && npx shadcn@latest add <slug> && cd ../..
 
 ## Files touched per extension
 
-| File                                                    | Change                              |
-| ------------------------------------------------------- | ----------------------------------- |
-| `.claude/oxlint-plugins/design-system.js`               | Add rule or COMPONENT_MAP entry     |
-| `packages/frontend/.oxlintrc.json`                      | Wire rule in both overrides         |
-| `packages/host/tests/unit/oxlint-rules.unit.test.ts`    | Add describe block with 3-4 cases   |
-| `packages/frontend/src/main.tsx` (or other views)       | Migrate existing violations         |
-| `packages/frontend/src/index.css` (if new token needed) | Add `--color-<token>` to `@theme`   |
-| `packages/frontend/src/components/ui/<slug>.tsx`        | Install via `npx shadcn add <slug>` |
+| File                                                                 | Change                              |
+| -------------------------------------------------------------------- | ----------------------------------- |
+| `.claude/oxlint-plugins/design-system.js`                            | Add rule or COMPONENT_MAP entry     |
+| `packages/app/.oxlintrc.json` + `packages/backoffice/.oxlintrc.json` | Wire rule in both overrides         |
+| `packages/host/tests/unit/oxlint-rules.unit.test.ts`                 | Add describe block with 3-4 cases   |
+| `packages/app/src/` (or `backoffice/src/`) views                     | Migrate existing violations         |
+| `packages/app/src/index.css` (if new token needed)                   | Add `--color-<token>` to `@theme`   |
+| `packages/app/src/components/ui/<slug>.tsx`                          | Install via `npx shadcn add <slug>` |
 
 ---
 
@@ -192,5 +188,5 @@ cd packages/frontend && npx shadcn@latest add <slug> && cd ../..
 
 - `.claude/rules/frontend.md` — shadcn/ui install, cn() usage, semantic token catalogue
 - `.claude/patterns/lint-test-pattern.md` — assert behaviour (exitCode/rule-name), not prose
-- `packages/frontend/src/index.css` — current `@theme` token set
+- `packages/app/src/index.css` + `packages/backoffice/src/index.css` — current `@theme` token sets
 - `packages/host/tests/unit/oxlint-rules.unit.test.ts` — all fixture tests live here

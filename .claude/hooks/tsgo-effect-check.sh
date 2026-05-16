@@ -52,8 +52,9 @@ fi
 # Pick tsconfig based on which package the file belongs to.
 tsconfig=""
 case "$file_path" in
-  "$repo_root/packages/host/"*)     tsconfig="$repo_root/packages/host/tsconfig.json" ;;
-  "$repo_root/packages/frontend/"*) tsconfig="$repo_root/packages/frontend/tsconfig.json" ;;
+  "$repo_root/packages/host/"*)        tsconfig="$repo_root/packages/host/tsconfig.json" ;;
+  "$repo_root/packages/app/"*)         tsconfig="$repo_root/packages/app/tsconfig.json" ;;
+  "$repo_root/packages/backoffice/"*)  tsconfig="$repo_root/packages/backoffice/tsconfig.json" ;;
   *) exit 0 ;;
 esac
 
