@@ -1,19 +1,11 @@
-import { useState } from 'react'
 import { Button } from '@app/design-system/button'
 import { Card } from '@app/design-system/card'
-import type { PainItem } from '../../api/admin.ts'
-import { getPain } from '../../api/admin.ts'
+import type { PainItem } from '../../hooks/admin.ts'
+import { getPain } from '../../hooks/admin.ts'
+import { useAsyncFetch } from '../../hooks/useAsyncFetch.ts'
 
 export function PainBoard() {
-  const [items, setItems] = useState<readonly PainItem[]>([])
-  const [error, setError] = useState<string | null>(null)
-
-  const refresh = () => {
-    setError(null)
-    getPain()
-      .then(setItems)
-      .catch((err: unknown) => setError(String(err)))
-  }
+  const { data: items, error, refresh } = useAsyncFetch<readonly PainItem[]>(getPain)
 
   return (
     <Card className="space-y-2 p-4">
@@ -23,14 +15,15 @@ export function PainBoard() {
           Refresh
         </Button>
       </div>
-      {items.length === 0 && <p className="text-sm text-muted-foreground">No open PAIN items.</p>}
-      {items.map(item => (
-        <div className="flex items-start gap-2 rounded border p-2 text-sm" key={item.id}>
-          <span className="font-mono font-medium">{item.id}</span>
-          <span className="flex-1">{item.title}</span>
-          <span className="rounded bg-secondary px-1 text-xs text-secondary-foreground">{item.severity}</span>
-        </div>
-      ))}
+      {(items === null || items.length === 0) && <p className="text-sm text-muted-foreground">No open PAIN items.</p>}
+      {items !== null &&
+        items.map(item => (
+          <div className="flex items-start gap-2 rounded border p-2 text-sm" key={item.id}>
+            <span className="font-mono font-medium">{item.id}</span>
+            <span className="flex-1">{item.title}</span>
+            <span className="rounded bg-secondary px-1 text-xs text-secondary-foreground">{item.severity}</span>
+          </div>
+        ))}
       {error && <p className="text-sm text-destructive">{error}</p>}
     </Card>
   )

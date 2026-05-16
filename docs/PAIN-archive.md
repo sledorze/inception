@@ -25,6 +25,26 @@ FIXED 2026-05-16 in feat/design-system-enforcement — added `effect-patterns/no
 
 ---
 
+## P36 — Frontend components couple data-fetching, state management, and rendering in one unit
+
+**Severity:** slows
+
+**Symptom:** 20 components in `packages/app/src/components/` and `packages/backoffice/src/components/` imported directly from `../../api/` and owned the full data lifecycle. No `hooks/` mediation layer existed; no dep-cruiser deny rule blocked the coupling.
+
+FIXED 2026-05-16 in feat/design-system-enforcement — created `hooks/useAsyncFetch.ts` in both packages; created hooks/ facade files re-exporting api/ modules; migrated all 20 components to import from `../../hooks/`; applied `useAsyncFetch` to 5 simple read-pattern components (Metrics, PainBoard, Patterns, WorkBoard, Sessions); added dep-cruiser `no-frontend-component-api-import` deny rule. test: `packages/host/tests/unit/depCruiserBoundary.unit.test.ts` (3 tests pass)
+
+---
+
+## P37 — Dep-cruiser `packages/(app|backoffice)` rule was allow-all — no sub-directory boundaries enforced
+
+**Severity:** annoys
+
+**Symptom:** No dep-cruiser deny rules for app/backoffice internal topology. components→api and api→components imports were structurally invisible to CI.
+
+FIXED 2026-05-16 in feat/design-system-enforcement — same fix as P36: added `no-frontend-component-api-import` deny rule to `.dependency-cruiser.cjs`. test: `packages/host/tests/unit/depCruiserBoundary.unit.test.ts`
+
+---
+
 ## P38 — Critical `.claude/patterns/` files are passive docs not surfaced at the point of decision
 
 **Severity:** annoys
@@ -32,6 +52,16 @@ FIXED 2026-05-16 in feat/design-system-enforcement — added `effect-patterns/no
 **Symptom:** `effect-test-pattern.md`, `schema-decode.md`, and `composition-root.md` were discovered only if the developer explicitly knew to look in `.claude/patterns/`. No "When in doubt" link pointed to them at the relevant decision points.
 
 FIXED 2026-05-16 in feat/design-system-enforcement — created `.claude/commands/effect-test-pattern.md`, `.claude/commands/schema-decode.md`, `.claude/commands/composition-root.md` as project slash commands. Added three decision-point entries to CLAUDE.md "When in doubt" section (`/effect-test-pattern`, `/schema-decode`, `/composition-root`). test: `packages/host/tests/unit/enforce-conventions.unit.test.ts` — "P38" (6 assertions)
+
+---
+
+## P40 — Cross-package quality standards drift — no single-source enforcement
+
+**Severity:** slows
+
+**Symptom:** `app/`, `backoffice/`, and `host/` package oxlint configs grew independently with no shared base — a new rule or convention had to be added to each separately, and drift was structurally invisible.
+
+FIXED 2026-05-16 in feat/design-system-enforcement — created `packages/design-system/.oxlintrc-base.json` as the shared base; added `"extends": ["../design-system/.oxlintrc-base.json"]` to `app/`, `backoffice/`, and `host/` `.oxlintrc.json` files. test: `packages/host/tests/unit/enforce-conventions.unit.test.ts` — "P40" (1 assertion, 3 packages verified)
 
 ---
 

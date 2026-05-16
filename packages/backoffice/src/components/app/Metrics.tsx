@@ -1,19 +1,11 @@
-import { useState } from 'react'
 import { Button } from '@app/design-system/button'
 import { Card } from '@app/design-system/card'
-import type { LoopHealth } from '../../api/admin.ts'
-import { getMetrics } from '../../api/admin.ts'
+import type { LoopHealth } from '../../hooks/admin.ts'
+import { getMetrics } from '../../hooks/admin.ts'
+import { useAsyncFetch } from '../../hooks/useAsyncFetch.ts'
 
 export function Metrics() {
-  const [health, setHealth] = useState<LoopHealth | null>(null)
-  const [error, setError] = useState<string | null>(null)
-
-  const refresh = () => {
-    setError(null)
-    getMetrics()
-      .then(setHealth)
-      .catch((err: unknown) => setError(String(err)))
-  }
+  const { data: health, error, refresh } = useAsyncFetch<LoopHealth>(getMetrics)
 
   return (
     <Card className="space-y-2 p-4">

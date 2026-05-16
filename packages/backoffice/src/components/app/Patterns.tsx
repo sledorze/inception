@@ -1,28 +1,20 @@
-import { useState } from 'react'
 import { Button } from '@app/design-system/button'
-import type { Pattern } from '../../api/admin.ts'
-import { getPatterns } from '../../api/admin.ts'
+import type { Pattern } from '../../hooks/admin.ts'
+import { getPatterns } from '../../hooks/admin.ts'
+import { useAsyncFetch } from '../../hooks/useAsyncFetch.ts'
 
 export function Patterns() {
-  const [patterns, setPatterns] = useState<readonly Pattern[] | null>(null)
-  const [err, setErr] = useState<string | null>(null)
-
-  const load = () => {
-    setErr(null)
-    getPatterns()
-      .then(setPatterns)
-      .catch((e: unknown) => setErr(String(e)))
-  }
+  const { data: patterns, error, refresh } = useAsyncFetch<readonly Pattern[]>(getPatterns)
 
   return (
     <div className="space-y-2">
       <div className="flex items-center justify-between">
         <h3 className="text-sm font-semibold">Rejection Patterns</h3>
-        <Button onClick={load} size="sm" type="button" variant="secondary">
+        <Button onClick={refresh} size="sm" type="button" variant="secondary">
           Refresh
         </Button>
       </div>
-      {err && <p className="text-sm text-destructive">{err}</p>}
+      {error && <p className="text-sm text-destructive">{error}</p>}
       {patterns !== null && patterns.length === 0 && <p className="text-sm text-muted-foreground">No patterns yet.</p>}
       {patterns !== null &&
         patterns.map(p => (

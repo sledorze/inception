@@ -41,13 +41,10 @@ describe('P38 — critical pattern files promoted to .claude/commands/', () => {
   })
 })
 
-// ── P40 red-step acceptance tests ─────────────────────────────────────────────
-// Cross-package quality standards drift: packages diverge because there's no
-// shared baseline config contract.
-// Fix: extract shared .oxlintrc-base.json; assert all packages extend it.
-//
-// Skipped: base config does not exist yet. Remove .skip when baseline lands.
-describe.skip('P40 red step — every package oxlint config extends shared baseline', () => {
+// ── P40 green-step acceptance tests ──────────────────────────────────────────
+// Shared base config now exists; all package oxlintrc files extend it.
+
+describe('P40 — every package oxlint config extends shared baseline', () => {
   it('each packages/* directory has .oxlintrc.json extending a shared base', () => {
     const packagesDir = join(REPO_ROOT, 'packages')
     const packages = readdirSync(packagesDir, { withFileTypes: true })

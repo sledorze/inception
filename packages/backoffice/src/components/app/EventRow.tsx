@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { Button } from '@app/design-system/button'
-import type { ReplayResult, SessionEvent } from '../../api/admin.ts'
-import { replayExchange } from '../../api/admin.ts'
+import type { ReplayResult, SessionEvent } from '../../hooks/admin.ts'
+import { replayExchange } from '../../hooks/admin.ts'
 import { FlagForm } from './FlagForm.tsx'
 
 export function EventRow({ event }: { event: SessionEvent }) {

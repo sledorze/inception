@@ -1,4 +1,4 @@
-import type { HandlerResult } from '../../api/toolkit.ts'
+import type { HandlerResult } from '../../hooks/toolkit.ts'
 
 export function ResultBox({ result }: { result: HandlerResult | null }) {
   if (!result) {

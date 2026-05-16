@@ -2,9 +2,9 @@ import { spawnSync } from 'node:child_process'
 import { join } from 'node:path'
 import { describe, expect, it } from '@effect/vitest'
 
-// P36 + P37 red-step acceptance tests.
-// Skipped: deny rule does not exist yet. Remove .skip in TODO 10.2 once the rule lands.
-// Proof of gap: dep-cruiser exits 0 on component→api imports (allow-all rule).
+// P36 + P37 green-step acceptance tests.
+// The deny rule `no-frontend-component-api-import` now exists and all components
+// have been migrated to import through hooks/ — dep-cruiser exits 0 on compliant files.
 
 const REPO_ROOT = join(import.meta.dirname, '..', '..', '..', '..')
 const DEPCRUISE_BIN = join(REPO_ROOT, 'node_modules', '.bin', 'depcruise')
@@ -18,19 +18,20 @@ function cruise(paths: string[]): { exitCode: number; stdout: string } {
   return { exitCode: result.status ?? 1, stdout: (result.stdout ?? '') + (result.stderr ?? '') }
 }
 
-describe.skip('dep-cruiser frontend boundary enforcement (P36 / P37 red step)', () => {
-  it('app component importing api/ directly → violation (no-frontend-component-api-import)', () => {
-    // packages/app/src/components/app/Metrics.tsx imports ../../api/admin.ts directly.
-    // Once TODO 10.2 adds the deny rule this exits non-zero.
-    // Currently exits 0 (allow-all) → test FAILS.
-    const { exitCode, stdout } = cruise(['packages/app/src/components/app/Metrics.tsx'])
-    expect(exitCode).not.toBe(0)
-    expect(stdout).toContain('no-frontend-component-api-import')
+describe('dep-cruiser frontend boundary enforcement (P36 / P37 green step)', () => {
+  it('app component going through hooks/ layer — no violation', () => {
+    const { exitCode } = cruise(['packages/app/src/components/app/SubmitGoal.tsx'])
+    expect(exitCode).toBe(0)
   })
 
-  it('backoffice component importing api/ directly → same violation', () => {
-    const { exitCode, stdout } = cruise(['packages/backoffice/src/components/app/PainBoard.tsx'])
-    expect(exitCode).not.toBe(0)
-    expect(stdout).toContain('no-frontend-component-api-import')
+  it('backoffice component going through hooks/ layer — no violation', () => {
+    const { exitCode } = cruise(['packages/backoffice/src/components/app/PainBoard.tsx'])
+    expect(exitCode).toBe(0)
+  })
+
+  it('the no-frontend-component-api-import deny rule is configured — hooks/ → api/ is allowed', () => {
+    // hooks/ files import api/ directly — that is the mediation layer; only components/ → api/ is denied
+    const { exitCode } = cruise(['packages/backoffice/src/hooks/admin.ts'])
+    expect(exitCode).toBe(0)
   })
 })

@@ -2,7 +2,7 @@ import { useState } from 'react'
 import { Button } from '@app/design-system/button'
 import { Card } from '@app/design-system/card'
 import { Input } from '@app/design-system/input'
-import { login, setToken } from '../../api/auth.ts'
+import { login, setToken } from '../../hooks/auth.ts'
 
 interface LoginProps {
   onSuccess: () => void

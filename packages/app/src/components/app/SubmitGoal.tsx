@@ -3,8 +3,8 @@ import { Button } from '@app/design-system/button'
 import { Card } from '@app/design-system/card'
 import { Input } from '@app/design-system/input'
 import { Textarea } from '@app/design-system/textarea'
-import { submitGoal } from '../../api/goals.ts'
-import type { GoalResult } from '../../api/goals.ts'
+import { submitGoal } from '../../hooks/goals.ts'
+import type { GoalResult } from '../../hooks/goals.ts'
 
 export function SubmitGoal() {
   const [goal, setGoal] = useState('')

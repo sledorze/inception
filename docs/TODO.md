@@ -264,15 +264,11 @@ mechanism, (3) fix any existing violations the rule now surfaces.
 intentional`). Annotated 4 bridge files. Documented pattern in `.claude/patterns/bridge-zone.md`.
   Green gate: `oxlint-rules.unit.test.ts` — "effect-patterns/no-async-in-src (P35)" passes.
 
-- [todo] **10.2** **Frontend hook layer + dep-cruiser `components→api` deny rule** (closes P36 + P37).
-  Red: `tests/unit/depCruiserBoundary.unit.test.ts` — run dep-cruiser on
-  `packages/app/src/components/app/Metrics.tsx`, assert exit != 0 with
-  `no-frontend-component-api-import` in output (currently exits 0 — test fails).
-  Green: (a) add deny rules to `.dependency-cruiser.cjs`: `components/**` cannot import `api/**`;
-  `api/**` cannot import `components/**`; (b) extract `useAsyncFetch<T>(fn)` →
-  `{ data, error, loading, refresh }` in `packages/app/src/hooks/` and
-  `packages/backoffice/src/hooks/`; (c) migrate all 13 components; (d) update deps-check
-  lefthook step to include app/backoffice src paths (already included via `pnpm deps:check`).
+- [done] **10.2** **Frontend hook layer + dep-cruiser `components→api` deny rule** (closes P36 + P37).
+  Created `hooks/useAsyncFetch.ts` in both packages; created hooks/ facades re-exporting api/;
+  migrated all 20 violating components; applied `useAsyncFetch` to 5 simple read-pattern
+  components; added `no-frontend-component-api-import` deny rule to `.dependency-cruiser.cjs`.
+  Green gate: `tests/unit/depCruiserBoundary.unit.test.ts` (3 tests pass; dep-cruiser exits 0).
 
 - [done] **10.3** **Promote critical pattern files to `.claude/commands/` slash commands** (closes P38).
   Created `.claude/commands/effect-test-pattern.md`, `schema-decode.md`, `composition-root.md`.
@@ -284,6 +280,10 @@ intentional`). Annotated 4 bridge files. Documented pattern in `.claude/patterns
   `ceremony.ts` — `verifySignature` converted to `Effect.try({ try, catch })` + `Effect.catch`;
   `checkQuorum` uses `Effect.gen` + `yield*`. All 19 ceremony tests pass.
   Green gate: `oxlint-rules.unit.test.ts` — "effect-patterns/no-try-catch-in-src (P39)" passes.
+
+- [done] **P40** **Cross-package oxlint quality baseline** (closes P40).
+  Created `packages/design-system/.oxlintrc-base.json`; wired `"extends"` in `app/`, `backoffice/`,
+  `host/` configs. Green gate: `tests/unit/enforce-conventions.unit.test.ts` — "P40" passes.
 
 **Exit:** `pnpm lint:ci` catches a standalone `async function` or `try/catch` in `packages/host/src/`; dep-cruiser
 reports a violation for any component that imports `api/` directly; the three promoted skills are

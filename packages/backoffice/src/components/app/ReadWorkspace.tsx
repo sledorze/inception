@@ -2,8 +2,8 @@ import { useState } from 'react'
 import { Button } from '@app/design-system/button'
 import { Card } from '@app/design-system/card'
 import { Input } from '@app/design-system/input'
-import { callTool } from '../../api/toolkit.ts'
-import type { HandlerResult } from '../../api/toolkit.ts'
+import { callTool } from '../../hooks/toolkit.ts'
+import type { HandlerResult } from '../../hooks/toolkit.ts'
 import { ResultBox } from './ResultBox.tsx'
 
 export function ReadWorkspace() {

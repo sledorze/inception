@@ -1,30 +1,15 @@
 import { useState } from 'react'
 import { Button } from '@app/design-system/button'
 import { Card } from '@app/design-system/card'
-import type { SessionSummary } from '../../api/admin.ts'
-import { getSessions } from '../../api/admin.ts'
+import type { SessionSummary } from '../../hooks/admin.ts'
+import { getSessions } from '../../hooks/admin.ts'
+import { useAsyncFetch } from '../../hooks/useAsyncFetch.ts'
 import { SessionDetail } from './SessionDetail.tsx'
 import { Patterns } from './Patterns.tsx'
 
 export function Sessions() {
-  const [sessions, setSessions] = useState<readonly SessionSummary[] | null>(null)
+  const { data: sessions, error, loading, refresh } = useAsyncFetch<readonly SessionSummary[]>(getSessions)
   const [selected, setSelected] = useState<string | null>(null)
-  const [err, setErr] = useState<string | null>(null)
-  const [loading, setLoading] = useState(false)
-
-  const load = () => {
-    setLoading(true)
-    setErr(null)
-    getSessions()
-      .then(s => {
-        setSessions(s)
-        setLoading(false)
-      })
-      .catch((e: unknown) => {
-        setErr(String(e))
-        setLoading(false)
-      })
-  }
 
   if (selected !== null) {
     return (
@@ -41,7 +26,7 @@ export function Sessions() {
         <Button
           data-testid="sessions-refresh"
           disabled={loading}
-          onClick={load}
+          onClick={refresh}
           size="sm"
           type="button"
           variant="secondary"
@@ -49,7 +34,7 @@ export function Sessions() {
           {loading ? 'Loading…' : 'Refresh'}
         </Button>
       </div>
-      {err && <p className="text-sm text-destructive">{err}</p>}
+      {error && <p className="text-sm text-destructive">{error}</p>}
       {sessions !== null && sessions.length === 0 && <p className="text-sm text-muted-foreground">No sessions yet.</p>}
       {sessions !== null && (
         <div className="space-y-1">

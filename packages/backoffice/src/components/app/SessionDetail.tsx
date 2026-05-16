@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { Button } from '@app/design-system/button'
-import type { SessionEvent } from '../../api/admin.ts'
-import { getSessionEvents } from '../../api/admin.ts'
+import type { SessionEvent } from '../../hooks/admin.ts'
+import { getSessionEvents } from '../../hooks/admin.ts'
 import { EventRow } from './EventRow.tsx'
 
 export function SessionDetail({ sessionId, onBack }: { sessionId: string; onBack: () => void }) {

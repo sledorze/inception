@@ -52,6 +52,15 @@ module.exports = {
   allowedSeverity: 'error',
 
   forbidden: [
+    // ── P36/P37: Components must not import api/ directly ─────────────────
+    {
+      comment: 'Components must not import api/ directly — use hooks/ as the mediation layer (P36/P37).',
+      from: { path: '^packages/(app|backoffice)/src/components/' },
+      name: 'no-frontend-component-api-import',
+      severity: 'error',
+      to: { path: '^packages/(app|backoffice)/src/api/' },
+    },
+
     // ── L2.14: Non-adapter code cannot import from adapters/ ──────────────
     {
       comment:

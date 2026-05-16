@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { Button } from '@app/design-system/button'
 import { Textarea } from '@app/design-system/textarea'
-import { flagExchange } from '../../api/admin.ts'
+import { flagExchange } from '../../hooks/admin.ts'
 
 type Severity = 'observation' | 'issue' | 'blocker'
 

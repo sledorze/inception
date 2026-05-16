@@ -2,7 +2,7 @@ import { useState } from 'react'
 import { Button } from '@app/design-system/button'
 import { Card } from '@app/design-system/card'
 import { Textarea } from '@app/design-system/textarea'
-import { getAgentMd, patchAgentMd } from '../../api/admin.ts'
+import { getAgentMd, patchAgentMd } from '../../hooks/admin.ts'
 
 export function AgentMd() {
   const [content, setContent] = useState<string | null>(null)

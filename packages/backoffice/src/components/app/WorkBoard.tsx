@@ -1,8 +1,8 @@
-import { useState } from 'react'
 import { Button } from '@app/design-system/button'
 import { Card } from '@app/design-system/card'
-import type { TodoItem } from '../../api/admin.ts'
-import { getWork } from '../../api/admin.ts'
+import type { TodoItem } from '../../hooks/admin.ts'
+import { getWork } from '../../hooks/admin.ts'
+import { useAsyncFetch } from '../../hooks/useAsyncFetch.ts'
 
 const STATUS_COLOR: Record<string, string> = {
   blocked: 'bg-destructive/20 text-destructive',
@@ -13,15 +13,7 @@ const STATUS_COLOR: Record<string, string> = {
 }
 
 export function WorkBoard() {
-  const [items, setItems] = useState<readonly TodoItem[]>([])
-  const [error, setError] = useState<string | null>(null)
-
-  const refresh = () => {
-    setError(null)
-    getWork()
-      .then(setItems)
-      .catch((err: unknown) => setError(String(err)))
-  }
+  const { data: items, error, refresh } = useAsyncFetch<readonly TodoItem[]>(getWork)
 
   return (
     <Card className="space-y-2 p-4">
@@ -31,18 +23,19 @@ export function WorkBoard() {
           Refresh
         </Button>
       </div>
-      {items.length === 0 && <p className="text-sm text-muted-foreground">No TODO items loaded.</p>}
-      {items.map(item => (
-        <div className="flex items-start gap-2 rounded border p-2 text-sm" key={item.id}>
-          <span className="font-mono font-medium">{item.id}</span>
-          <span className="flex-1">{item.title}</span>
-          <span
-            className={`rounded px-1 text-xs ${STATUS_COLOR[item.status] ?? 'bg-secondary text-secondary-foreground'}`}
-          >
-            {item.status}
-          </span>
-        </div>
-      ))}
+      {(items === null || items.length === 0) && <p className="text-sm text-muted-foreground">No TODO items loaded.</p>}
+      {items !== null &&
+        items.map(item => (
+          <div className="flex items-start gap-2 rounded border p-2 text-sm" key={item.id}>
+            <span className="font-mono font-medium">{item.id}</span>
+            <span className="flex-1">{item.title}</span>
+            <span
+              className={`rounded px-1 text-xs ${STATUS_COLOR[item.status] ?? 'bg-secondary text-secondary-foreground'}`}
+            >
+              {item.status}
+            </span>
+          </div>
+        ))}
       {error && <p className="text-sm text-destructive">{error}</p>}
     </Card>
   )

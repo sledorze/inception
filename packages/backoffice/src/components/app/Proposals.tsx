@@ -1,8 +1,8 @@
 import { useState } from 'react'
 import { Button } from '@app/design-system/button'
 import { Card } from '@app/design-system/card'
-import { listProposals, promoteProposal } from '../../api/proposals.ts'
-import type { Proposal } from '../../api/proposals.ts'
+import { listProposals, promoteProposal } from '../../hooks/proposals.ts'
+import type { Proposal } from '../../hooks/proposals.ts'
 
 export function Proposals() {
   const [proposals, setProposals] = useState<readonly Proposal[]>([])

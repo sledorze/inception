@@ -1,5 +1,6 @@
 {
   "$schema": "../../node_modules/oxlint/configuration_schema.json",
+  "extends": ["../design-system/.oxlintrc-base.json"],
   "jsPlugins": ["../../.claude/oxlint-plugins/design-system.js"],
   "overrides": [
     {

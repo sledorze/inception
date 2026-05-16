@@ -2,8 +2,8 @@ import { useState } from 'react'
 import { Button } from '@app/design-system/button'
 import { Card } from '@app/design-system/card'
 import { Input } from '@app/design-system/input'
-import type { AppSettings } from '../../api/admin.ts'
-import { getSettings, patchSettings } from '../../api/admin.ts'
+import type { AppSettings } from '../../hooks/admin.ts'
+import { getSettings, patchSettings } from '../../hooks/admin.ts'
 
 export function Settings() {
   const [settings, setSettings] = useState<AppSettings | null>(null)
