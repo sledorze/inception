@@ -253,6 +253,43 @@ Brings law-test coverage from 28% (13/46) to 100% and adds PR-blocking enforceme
 
 ---
 
+## Phase 10 — Enforcement hardening (make violation detection structural, not doc-based)
+
+Every item here closes a detection gap where a class of violation passes all pre-commit checks silently.
+The pattern: (1) write a failing acceptance test that proves the gap exists, (2) add the enforcement
+mechanism, (3) fix any existing violations the rule now surfaces.
+
+- [todo] **10.1** **`effect-patterns` rules: `no-async-in-src` + `no-raw-promise`** (closes P35).
+  Red: `oxlint-rules.unit.test.ts` — assert `async function foo(){}` in `src/` triggers lint error
+  (currently exits 0 — test fails). Green: add both rules to `effect-patterns.js`; exempt files
+  annotated `// promise-bridge: intentional` at file scope; annotate `OpenAiCompatLlmProvider.ts`,
+  `RecordReplayLlmProvider.ts`, `main.ts`; wire into PostToolUse hook alongside existing checks.
+  The annotation is the machine-readable distinction between a legitimate bridge zone and an
+  accidental violation.
+
+- [todo] **10.2** **Frontend hook layer + dep-cruiser `components→api` deny rule** (closes P36 + P37).
+  Red: `tests/unit/depCruiserBoundary.unit.test.ts` — run dep-cruiser on
+  `packages/app/src/components/app/Metrics.tsx`, assert exit != 0 with
+  `no-frontend-component-api-import` in output (currently exits 0 — test fails).
+  Green: (a) add deny rules to `.dependency-cruiser.cjs`: `components/**` cannot import `api/**`;
+  `api/**` cannot import `components/**`; (b) extract `useAsyncFetch<T>(fn)` →
+  `{ data, error, loading, refresh }` in `packages/app/src/hooks/` and
+  `packages/backoffice/src/hooks/`; (c) migrate all 13 components; (d) update deps-check
+  lefthook step to include app/backoffice src paths (already included via `pnpm deps:check`).
+
+- [todo] **10.3** **Promote critical pattern files to invocable skills** (closes P38).
+  Promote `.claude/patterns/effect-test-pattern.md`, `schema-decode.md`, `composition-root.md`
+  to `.agents/skills/` following the `effect-ts` skill structure (each gets a `skill.md` +
+  `references/` subdir with the pattern content). Update CLAUDE.md "When in doubt" to map each
+  decision point to the skill name so future sessions find them in one lookup. Repurpose the
+  `patterns/` files as thin redirects pointing to the skills.
+
+**Exit:** `pnpm lint:ci` catches a standalone `async function` in `packages/host/src/`; dep-cruiser
+reports a violation for any component that imports `api/` directly; the three promoted skills are
+invocable and linked from CLAUDE.md.
+
+---
+
 ## Parked / later
 
 - [parked] **P.1** S5 hard code-over-data wall implementation (waits on a clear sensitive-data fixture).

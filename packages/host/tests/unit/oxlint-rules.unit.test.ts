@@ -529,3 +529,28 @@ describe('design-system/no-raw-interactive-element — <section> invitation', ()
     expect(stdout).not.toContain('no-raw-interactive-element')
   })
 })
+
+// ── effect-patterns/no-async-in-src (P35 red step) ───────────────────────────
+// These tests FAIL on the current code because the rule does not exist yet.
+// They become the green gate for TODO 10.1.
+
+// Skipped: rule does not exist yet. Remove .skip in TODO 10.1 once no-async-in-src lands.
+describe.skip('effect-patterns/no-async-in-src (P35) — async keyword banned in host/src/', () => {
+  it('async function declaration in src/ → error', () => {
+    const { exitCode, stdout } = lint(
+      'packages/host/src/application/probe_async_fn.ts',
+      `async function foo(): Promise<void> { await Promise.resolve() }\n`,
+    )
+    expect(exitCode).not.toBe(0)
+    expect(stdout).toContain('no-async-in-src')
+  })
+
+  it('async arrow in src/ → error', () => {
+    const { exitCode, stdout } = lint(
+      'packages/host/src/application/probe_async_arrow.ts',
+      `const bar = async (): Promise<string> => 'ok'\n`,
+    )
+    expect(exitCode).not.toBe(0)
+    expect(stdout).toContain('no-async-in-src')
+  })
+})
