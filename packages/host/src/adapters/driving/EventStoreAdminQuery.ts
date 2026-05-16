@@ -1,5 +1,5 @@
 import { Effect, FileSystem, Layer } from 'effect'
-import type { LoopHealth } from '../../domain/loopHealth.ts'
+import type { LoopHealth, PainItem, TodoItem } from '../../domain/loopHealth.ts'
 import { parsePainMd } from '../../domain/painParser.ts'
 import { parseTodoMd } from '../../domain/todoParser.ts'
 import { EventStore } from '../../ports/driven/EventStore.ts'

@@ -45,8 +45,8 @@ const authGatewayLayer: Layer.Layer<
   Effect.gen(function* () {
     const fs = yield* FileSystem.FileSystem
     const raw = yield* fs.readFileString(CREDENTIALS_PATH).pipe(Effect.orElseSucceed(() => '[]'))
-    const parsed = yield* Schema.decodeUnknownEffect(Schema.Array(CredentialEntrySchema))(
-      JSON.parse(raw) as unknown,
+    const parsed = yield* Schema.decodeUnknownEffect(Schema.fromJsonString(Schema.Array(CredentialEntrySchema)))(
+      raw,
     ).pipe(Effect.orElseSucceed(() => [] as readonly CredentialEntry[]))
     return ScryptAuthGateway.layer(parsed)
   }),

@@ -1,4 +1,4 @@
-import { Clock, Effect, Random } from 'effect'
+import { DateTime, Effect, Random } from 'effect'
 import { EventKind } from '../domain/events.ts'
 import { AuthGateway } from '../ports/driving/AuthGateway.ts'
 import { EventStore } from '../ports/driven/EventStore.ts'
@@ -13,13 +13,12 @@ export const login = Effect.fn('login.login')(function* (username: string, passw
 
   // Emit trace-visible asymmetry disclosure (L0.3).
   const store = yield* EventStore
-  const nowMs = yield* Clock.currentTimeMillis
   const correlationId = yield* Random.nextUUIDv4
   yield* store.append({
     actor: 'host',
     correlationId,
     kind: EventKind.Authenticated,
-    occurredAt: new Date(nowMs).toISOString(),
+    occurredAt: DateTime.formatIso(yield* DateTime.now),
     payload: { role: session.role, subject: session.subject },
     schemaV: 1,
     sessionId: 'auth',

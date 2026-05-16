@@ -8,12 +8,12 @@ import { AuthGateway, Forbidden, SessionNotFound } from '../ports/driving/AuthGa
  */
 export const requireRole = Effect.fn('authorize.requireRole')(function* (token: string | undefined, required: Role) {
   if (token === undefined) {
-    return yield* Effect.fail(new SessionNotFound())
+    return yield* new SessionNotFound()
   }
   const auth = yield* AuthGateway
   const principal: Principal = yield* auth.verify(token)
   if (required === 'admin' && principal.role !== 'admin') {
-    return yield* Effect.fail(new Forbidden({ required, subject: principal.subject }))
+    return yield* new Forbidden({ required, subject: principal.subject })
   }
   return principal
 })

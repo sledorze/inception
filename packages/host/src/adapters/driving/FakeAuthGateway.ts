@@ -24,7 +24,7 @@ export const FakeAuthGateway = {
             Effect.gen(function* () {
               const cred = creds.find(c => c.username === username && c.password === password)
               if (cred === undefined) {
-                return yield* Effect.fail(new InvalidCredentials({ subject: username }))
+                return yield* new InvalidCredentials({ subject: username })
               }
               const now = yield* Clock.currentTimeMillis
               const token = randomBytes(32).toString('hex')
@@ -48,11 +48,11 @@ export const FakeAuthGateway = {
             Effect.gen(function* () {
               const session = sessions.get(token)
               if (session === undefined) {
-                return yield* Effect.fail(new SessionNotFound())
+                return yield* new SessionNotFound()
               }
               const now = yield* Clock.currentTimeMillis
               if (now > session.expiresAtMs) {
-                return yield* Effect.fail(new SessionExpired())
+                return yield* new SessionExpired()
               }
               return { role: session.role, subject: session.subject }
             }),

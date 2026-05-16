@@ -31,7 +31,7 @@ export const ScryptAuthGateway = {
             Effect.gen(function* () {
               const cred = credentials.find(c => c.subject === username)
               if (cred === undefined) {
-                return yield* Effect.fail(new InvalidCredentials({ subject: username }))
+                return yield* new InvalidCredentials({ subject: username })
               }
               // Constant-time comparison; crypto errors treated as auth failure.
               const match = yield* Effect.try({
@@ -42,7 +42,7 @@ export const ScryptAuthGateway = {
                 },
               })
               if (!match) {
-                return yield* Effect.fail(new InvalidCredentials({ subject: username }))
+                return yield* new InvalidCredentials({ subject: username })
               }
               const now = yield* Clock.currentTimeMillis
               const token = randomBytes(32).toString('hex')
@@ -66,11 +66,11 @@ export const ScryptAuthGateway = {
             Effect.gen(function* () {
               const session = sessions.get(token)
               if (session === undefined) {
-                return yield* Effect.fail(new SessionNotFound())
+                return yield* new SessionNotFound()
               }
               const now = yield* Clock.currentTimeMillis
               if (now > session.expiresAtMs) {
-                return yield* Effect.fail(new SessionExpired())
+                return yield* new SessionExpired()
               }
               return { role: session.role, subject: session.subject }
             }),

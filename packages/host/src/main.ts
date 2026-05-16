@@ -46,6 +46,7 @@ import { login } from './application/login.ts'
 import { requireRole } from './application/authorize.ts'
 import { EventStore } from './ports/driven/EventStore.ts'
 import { AdminQuery } from './ports/driving/AdminQuery.ts'
+import type { AuthGateway } from './ports/driving/AuthGateway.ts'
 import { SessionExpiredTag, SessionNotFoundTag } from './ports/driving/AuthGateway.ts'
 import { GeorgesToolkit, fullLayer } from './runtime/bind.ts'
 import { UserGateway } from './ports/driving/UserGateway.ts'
@@ -66,7 +67,7 @@ const withRole =
   (role: 'admin' | 'enduser') =>
   <E, R>(
     handler: Effect.Effect<HttpServerResponse.HttpServerResponse, E, R>,
-  ): Effect.Effect<HttpServerResponse.HttpServerResponse, E, R | HttpServerRequest.HttpServerRequest> =>
+  ): Effect.Effect<HttpServerResponse.HttpServerResponse, E, R | HttpServerRequest.HttpServerRequest | AuthGateway> =>
     Effect.gen(function* () {
       const token = yield* extractBearer
       return yield* requireRole(token, role).pipe(
@@ -80,7 +81,7 @@ const withRole =
           onSuccess: () => handler,
         }),
       )
-    }) as Effect.Effect<HttpServerResponse.HttpServerResponse, E, R | HttpServerRequest.HttpServerRequest>
+    })
 
 // ─── Route helpers ────────────────────────────────────────────────────────────
 
@@ -90,8 +91,10 @@ const textErr = (msg: string, status: number): HttpServerResponse.HttpServerResp
   HttpServerResponse.text(msg, { status })
 
 // Parse the request JSON body against a schema; returns null on parse failure.
-const parseBody = <A>(schema: Schema.Schema<A>) =>
-  HttpServerRequest.schemaBodyJson(schema).pipe(Effect.orElseSucceed(() => null as A | null))
+const parseBody = <A, I, RD, RE>(
+  schema: Schema.Codec<A, I, RD, RE>,
+): Effect.Effect<A | null, never, HttpServerRequest.HttpServerRequest | RD> =>
+  HttpServerRequest.schemaBodyJson(schema).pipe(Effect.orElseSucceed(() => null))
 
 // ─── Routes ───────────────────────────────────────────────────────────────────
 
@@ -343,7 +346,7 @@ const spaRoute = HttpStaticServer.layer({ root: DIST, spa: true }).pipe(
 
 // ─── Compose all routes ───────────────────────────────────────────────────────
 
-const allRoutes: Layer.Layer<never, never, never> = Layer.mergeAll(
+const allRoutes = Layer.mergeAll(
   healthRoute,
   loginRoute,
   submitGoalRoute,
@@ -359,7 +362,7 @@ const allRoutes: Layer.Layer<never, never, never> = Layer.mergeAll(
   toolRoute,
   closedLeakRoute,
   spaRoute,
-) as Layer.Layer<never, never, never>
+)
 
 // ─── Runtime setup ────────────────────────────────────────────────────────────
 
@@ -379,16 +382,19 @@ rt.runFork(
 // Compile routes into an HTTP effect.
 // Effect.scoped handles the Scope requirement of Layer.build inside toHttpEffect.
 // The app services (AuthGateway, EventStore, etc.) are provided at request time by the runtime.
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
+// Routes carry service requirements in R; the ManagedRuntime satisfies them at dispatch time.
+// The intermediate `as any` bridges the gap between static route types and the runtime's dynamic
+// service provision — a structural limitation of the current Effect HTTP routing API.
+// @effect-diagnostics-next-line unsafeEffectTypeAssertion:off anyUnknownInErrorContext:off
 const httpApp = (await rt.runPromise(HttpRouter.toHttpEffect(allRoutes).pipe(Effect.scoped) as any)) as Effect.Effect<
   HttpServerResponse.HttpServerResponse,
-  unknown,
+  never,
   HttpServerRequest.HttpServerRequest
 >
 
 // makeHandler requires a Scope to manage per-request resource cleanup.
 // We reuse the ManagedRuntime's root scope so handler lifetimes are bound to the server.
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
+// @effect-diagnostics-next-line unsafeEffectTypeAssertion:off
 const handler = await (rt.runPromise(NodeHttpServer.makeHandler(httpApp, { scope: rt.scope }) as any) as Promise<
   Parameters<typeof createServer>[0]
 >)
