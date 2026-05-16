@@ -2,10 +2,6 @@ import { Effect } from 'effect'
 import type { Principal, Role } from '../ports/driving/AuthGateway.ts'
 import { AuthGateway, Forbidden, SessionNotFound } from '../ports/driving/AuthGateway.ts'
 
-/** Extract Bearer token from an Authorization header value. */
-export const extractBearer = (authHeader: string | undefined): string | undefined =>
-  authHeader?.startsWith('Bearer ') === true ? authHeader.slice(7) : undefined
-
 /**
  * Verify the token and assert the caller holds the required role.
  * Yields `Principal` on success; fails with `SessionNotFound`, `SessionExpired`, or `Forbidden`.

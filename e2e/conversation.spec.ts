@@ -8,6 +8,7 @@
  * Skipped automatically when LLM_MODE != 'replay' (cassette not yet committed).
  */
 import { expect, test } from '@playwright/test'
+import { FAKE_CLARIFY_TRIGGER } from '../packages/host/src/adapters/driven/RecordReplayLlmProvider.ts'
 
 // Runs with LLM_MODE=fake (default) or LLM_MODE=replay (cassette).
 // Skip only when neither is set (e.g. LLM_MODE=record — capturing a real cassette).
@@ -55,7 +56,7 @@ test('conversation: Georges asks for clarification, User answers, final reply ap
   const sendBtn = page.getByTestId('conv-send')
 
   // Use a vague goal to encourage Georges to ask for clarification
-  await goalInput.fill('help me')
+  await goalInput.fill(FAKE_CLARIFY_TRIGGER)
   await sendBtn.click()
 
   await expect(sendBtn).toHaveText('Thinking…')

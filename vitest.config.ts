@@ -23,7 +23,6 @@ export default defineConfig({
         'packages/**/*.d.ts',
         'packages/host/src/main.ts',
         'packages/app/src/setupTests.ts',
-        'packages/backoffice/src/setupTests.ts',
       ],
       include: ['packages/host/src/**/*.ts', 'packages/app/src/**/*.{ts,tsx}', 'packages/backoffice/src/**/*.{ts,tsx}'],
       provider: 'v8',

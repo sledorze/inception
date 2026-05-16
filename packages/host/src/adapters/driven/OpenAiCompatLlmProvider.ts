@@ -11,8 +11,8 @@ import { FetchHttpClient } from 'effect/unstable/http'
 import { EventKind } from '../../domain/events.ts'
 import { EventStore } from '../../ports/driven/EventStore.ts'
 
-const LLM_BASE_URL = Config.string('LLM_BASE_URL').pipe(Config.withDefault('http://192.168.0.15:1235/v1'))
-const LLM_MODEL = Config.string('LLM_MODEL').pipe(Config.withDefault('local-model'))
+const LLM_BASE_URL = Config.string('LLM_BASE_URL').pipe(Config.withDefault('http://172.15.8.149:1235/v1'))
+const LLM_MODEL = Config.string('LLM_MODEL').pipe(Config.withDefault('qwopus3.6-35b-a3b-v1@q4_k_s'))
 
 // Schema for the subset of the LMStudio/OpenAI-compat message shape we care about (P7).
 const LmMessage = Schema.Struct({

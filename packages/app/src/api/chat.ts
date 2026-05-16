@@ -46,13 +46,3 @@ export const respondToGoal = (sessionId: string, correlationId: string, answer: 
     }
     return res.json() as Promise<RespondResult>
   })
-
-export const getTurns = (sessionId: string): Promise<Turn[]> =>
-  authedFetch(`/api/sessions/${encodeURIComponent(sessionId)}/turns`, { method: 'GET' }).then(res => {
-    if (!res.ok) {
-      return res.text().then(t => {
-        throw new Error(`${res.status}: ${t}`)
-      })
-    }
-    return res.json() as Promise<Turn[]>
-  })
