@@ -277,12 +277,14 @@ mechanism, (3) fix any existing violations the rule now surfaces.
   `packages/backoffice/src/hooks/`; (c) migrate all 13 components; (d) update deps-check
   lefthook step to include app/backoffice src paths (already included via `pnpm deps:check`).
 
-- [todo] **10.3** **Promote critical pattern files to invocable skills** (closes P38).
-  Promote `.claude/patterns/effect-test-pattern.md`, `schema-decode.md`, `composition-root.md`
-  to `.agents/skills/` following the `effect-ts` skill structure (each gets a `skill.md` +
-  `references/` subdir with the pattern content). Update CLAUDE.md "When in doubt" to map each
-  decision point to the skill name so future sessions find them in one lookup. Repurpose the
-  `patterns/` files as thin redirects pointing to the skills.
+- [todo] **10.3** **Promote critical pattern files to `.claude/commands/` slash commands** (closes P38).
+  `.agents/skills/` requires external FleetView registration; `.claude/commands/` is always
+  discoverable (same mechanism as `/hunt`, `/enforcement-audit`). Promote
+  `effect-test-pattern.md`, `schema-decode.md`, `composition-root.md` to
+  `.claude/commands/effect-test-pattern.md`, `.claude/commands/schema-decode.md`,
+  `.claude/commands/composition-root.md` — immediately invocable as slash commands.
+  Update CLAUDE.md "When in doubt" to name each slash command at its decision point.
+  Repurpose `patterns/` files as thin redirects ("see /effect-test-pattern").
 
 **Exit:** `pnpm lint:ci` catches a standalone `async function` in `packages/host/src/`; dep-cruiser
 reports a violation for any component that imports `api/` directly; the three promoted skills are
