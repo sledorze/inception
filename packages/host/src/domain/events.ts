@@ -6,10 +6,12 @@ import { Schema } from 'effect'
 export const EventKind = {
   // L0.3: emitted on every successful login; payload = {subject, role} — NO token/password.
   Authenticated: 'Authenticated',
+  AgentMdAmended: 'AgentMdAmended',
   CapabilityProposed: 'CapabilityProposed',
   CapabilityRejected: 'CapabilityRejected',
   ClarifyAnswered: 'ClarifyAnswered',
   ClarifyRequested: 'ClarifyRequested',
+  ExchangeFlagged: 'ExchangeFlagged',
   GoalCompleted: 'GoalCompleted',
   GoalSubmitted: 'GoalSubmitted',
   HandleExhausted: 'HandleExhausted',
@@ -68,6 +70,19 @@ export const AuthenticatedPayload = Schema.Struct({
   subject: Schema.String,
 })
 
+export const ExchangeFlaggedPayload = Schema.Struct({
+  correlationId: Schema.String,
+  note: Schema.String,
+  severity: Schema.Literals(['observation', 'issue', 'blocker']),
+})
+
+export const AgentMdAmendedPayload = Schema.Struct({
+  newHash: Schema.String,
+  patternIds: Schema.optional(Schema.Array(Schema.String)),
+  prevHash: Schema.String,
+  rationale: Schema.String,
+})
+
 // ─── HTTP request body schemas ─────────────────────────────────────────────────
 
 export const SubmitGoalBody = Schema.Struct({
@@ -84,4 +99,15 @@ export const RejectGoalBody = Schema.Struct({
 export const RespondBody = Schema.Struct({
   answer: Schema.String,
   correlationId: Schema.String,
+})
+
+export const FlagExchangeBody = Schema.Struct({
+  note: Schema.String,
+  severity: Schema.Literals(['observation', 'issue', 'blocker']),
+})
+
+export const AmendAgentMdBody = Schema.Struct({
+  content: Schema.String,
+  patternIds: Schema.optional(Schema.Array(Schema.String)),
+  rationale: Schema.String,
 })

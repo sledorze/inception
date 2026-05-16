@@ -9,6 +9,8 @@ import { CallCapability } from './components/app/CallCapability.tsx'
 import { ListTools } from './components/app/ListTools.tsx'
 import { ReadWorkspace } from './components/app/ReadWorkspace.tsx'
 import { WriteWorkspace } from './components/app/WriteWorkspace.tsx'
+import { Sessions } from './components/app/Sessions.tsx'
+import { AgentMd } from './components/app/AgentMd.tsx'
 import { Button } from '@/components/ui/button'
 
 export function App() {
@@ -39,6 +41,8 @@ export function App() {
       <ListTools />
       <ReadWorkspace />
       <WriteWorkspace />
+      <Sessions />
+      <AgentMd />
     </div>
   )
 }

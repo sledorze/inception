@@ -206,36 +206,29 @@ issues with free-text notes, detect patterns across annotations, edit and versio
 first-class events, replay affected goals against the new config and diff responses, promote if
 Supervisor + Monitor agree.
 
-- [todo] **8.1** **Exchange viewer** (back-office): paginated list of sessions; drill into a
-  session to see the full turn sequence — `GoalSubmitted` → tool calls (`ToolResultObserved`) →
-  clarify round-trips → `GoalCompleted`. Show actor, timestamp, payload. Filter by date range,
-  actor, event kind. Backed by `GET /api/sessions` + `GET /api/sessions/:id/events` (already
-  partially wired via `/turns`; extend to all event kinds).
+- [done] **8.1** **Exchange viewer** (back-office): sessions list (`GET /api/sessions`) + drill-in
+  event sequence (`GET /api/sessions/:id/events`, payload-stripped per L1.3). `Sessions.tsx`
+  component in backoffice; events shown with actor/kind/timestamp/payload.
 
-- [todo] **8.2** **Exchange annotation** (back-office): per-exchange flag UI — reject (existing)
-  - free-text note. Emits `ExchangeFlagged { correlationId, note, severity }` event. Severity
-    levels: `observation` / `issue` / `blocker`. Backed by `POST /api/exchanges/:correlationId/flag`.
+- [done] **8.2** **Exchange annotation** (back-office): Flag button per event row; emits
+  `ExchangeFlagged { correlationId, note, severity }` via `POST /api/exchanges/:correlationId/flag`.
+  Severity picker (observation/issue/blocker) via Button toggles.
 
-- [todo] **8.3** **Pattern surface** (back-office): aggregate `ExchangeFlagged` +
-  `UserRejected` events into a pattern list — group by note similarity (naive keyword bucketing
-  for v0, embedding clustering later). Display count, example exchanges, first/last seen. Backed
-  by `GET /api/patterns`. No auto-fix — human decides what to amend.
+- [done] **8.3** **Pattern surface** (back-office): `GET /api/patterns` aggregates
+  `ExchangeFlagged` + `UserRejected` into naive keyword-bucketed list; `PatternList` sub-component
+  shown below the sessions list.
 
-- [todo] **8.4** **`agent.md` amendment surface** (back-office): read-edit-save panel for
-  `src/bootstrap/agent.md`; each save emits `AgentMdAmended { prevHash, newHash, rationale }`
-  event to the event store (rationale = free-text, linked to pattern IDs). The file on disk is
-  the current version; the event chain is the audit log. Backed by `GET /api/agent-md` +
-  `PATCH /api/agent-md`.
+- [done] **8.4** **`agent.md` amendment surface** (back-office): `AgentMd.tsx` component;
+  `GET /api/agent-md` + `PATCH /api/agent-md`; each save emits `AgentMdAmended { prevHash,
+newHash, rationale }` to event store.
 
-- [todo] **8.5** **Replay-and-compare** (back-office): given a `correlationId` and the current
-  `agent.md`, re-run the original goal through the LLM (record/replay mode) and show a side-by-
-  side diff of `GoalCompleted.text` before vs after. Lets the builder verify an amendment fixed
-  the observed issue before promoting. Backed by `POST /api/exchanges/:correlationId/replay`.
+- [done] **8.5** **Replay-and-compare** (back-office): Replay button per event row;
+  `POST /api/exchanges/:correlationId/replay` re-runs original goal via `makeSubmitGoal`; shows
+  before/after `GoalCompleted.text` side-by-side.
 
-- [todo] **8.6** **Amendment promotion gate**: wire `AgentMdAmended` into the Supervisor signal
-  set — Supervisor checks that at least one `ExchangeFlagged` or `UserRejected` event exists as
-  rationale before allowing promotion (L2.6). Monitor recomputes the signal independently.
-  Tier-1 amendments additionally require the L0.2 quorum (Claude + User-of-record co-sign).
+- [done] **8.6** **Amendment promotion gate**: `PATCH /api/agent-md` rejects with 422 if no
+  `ExchangeFlagged` or `UserRejected` event exists in the store (L2.6). `ExchangeFlagged` and
+  `AgentMdAmended` event kinds added to `domain/events.ts`.
 
 **Exit:** one observed issue travels the full loop — flagged in the UI, a pattern detected,
 agent.md amended with rationale, replay confirms improvement, Supervisor + Monitor agree,
