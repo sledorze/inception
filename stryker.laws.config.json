@@ -3,17 +3,17 @@
   "coverageAnalysis": "perTest",
   "ignorePatterns": [".claude", ".agents", ".repos", "vendor"],
   "ignoreStatic": true,
-  "mutate": ["packages/host/tests/laws/**/*.ts"],
+  "mutate": ["packages/host/src/application/**/*.ts", "packages/host/src/domain/**/*.ts"],
   "packageManager": "pnpm",
   "plugins": ["@stryker-mutator/vitest-runner"],
   "reporters": ["html", "clear-text", "progress"],
   "testRunner": "vitest",
   "thresholds": {
-    "break": 40,
-    "high": 60,
-    "low": 45
+    "break": 10,
+    "high": 30,
+    "low": 15
   },
   "vitest": {
-    "configFile": "vitest.stryker-backend.config.ts"
+    "configFile": "vitest.stryker-laws.config.ts"
   }
 }

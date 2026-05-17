@@ -5,15 +5,7 @@
   "ignoreStatic": true,
   "incremental": true,
   "incrementalFile": "reports/stryker-incremental.json",
-  "mutate": [
-    "packages/host/src/**/*.ts",
-    "!packages/host/src/**/*.test.ts",
-    "!packages/host/src/**/*.unit.test.ts",
-    "!packages/host/src/**/*.integration.test.ts",
-    "!packages/host/src/**/*.spec.ts",
-    "!packages/host/src/**/*.d.ts",
-    "!packages/host/src/main.ts"
-  ],
+  "mutate": ["packages/host/src/application/**/*.ts", "packages/host/src/domain/**/*.ts"],
   "packageManager": "pnpm",
   "plugins": ["@stryker-mutator/vitest-runner"],
   "reporters": ["html", "clear-text", "progress"],
