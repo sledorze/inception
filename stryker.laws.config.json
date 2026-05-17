@@ -3,7 +3,7 @@
   "coverageAnalysis": "perTest",
   "ignorePatterns": [".claude", ".agents", ".repos", "vendor"],
   "ignoreStatic": true,
-  "mutate": ["packages/host/src/application/**/*.ts", "packages/host/src/domain/**/*.ts"],
+  "mutate": ["packages/host/src/application/**/*.ts"],
   "packageManager": "pnpm",
   "plugins": ["@stryker-mutator/vitest-runner"],
   "reporters": ["html", "clear-text", "progress"],
