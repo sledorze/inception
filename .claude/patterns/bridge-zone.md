@@ -94,10 +94,30 @@ The problem: `.then()` chains bypass Effect's typed error channel, TestClock, an
 Each file carries `// promise-bridge: intentional` as its first line. The annotation is the
 machine-readable marker that `no-async-in-src` and `no-raw-promise` use to exempt the file.
 
-**P47 note:** `src/checks/check-test-conventions.ts` and `src/checks/check-file-structure.ts`
-currently use unannotated `await Effect.runPromise(...)`. They are NOT valid bridge zones
-(no third-party Promise API is being wrapped). The P47 fix converts them to
-`NodeRuntime.runMain` instead of adding an annotation.
+These two files use `NodeRuntime.runMain` (not `await Effect.runPromise`) and carry
+`/** @effect-diagnostics strictEffectProvide:off */` — see the tsgo suppressions section below.
+
+---
+
+## tsgo diagnostic suppressions (separate from bridge zones)
+
+`tsgo` emits project-specific diagnostics on top of standard TypeScript. Two kinds appear in this repo:
+
+| Directive                                                | Scope                              | When to use                                                                                                                                                    |
+| -------------------------------------------------------- | ---------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `/** @effect-diagnostics strictEffectProvide:off */`     | whole file (JSDoc block at line 1) | CLI entry-point scripts that call `Effect.provide(Layer)` at top level — `main.ts`, `src/checks/check-*.ts`. **Not** for adapters.                             |
+| `// @effect-diagnostics-next-line nodeBuiltinImport:off` | next line only                     | A single `node:*` import that is structurally necessary (e.g., `createServer`, `createHash` in entry points). Prefer `@effect/platform-node` subpaths instead. |
+
+**Decision rule:** if you see `TS377032: Effect.provide with a Layer should only be used at application entry points`, add `/** @effect-diagnostics strictEffectProvide:off */` as the first line of the file — and add a comment confirming it is an entry point.
+
+```ts
+/** @effect-diagnostics strictEffectProvide:off */
+// Entry point: NodeRuntime.runMain wires the Layer at process startup.
+import { Effect, Layer } from 'effect'
+import * as NodeRuntime from '@effect/platform-node/NodeRuntime'
+```
+
+These suppressions are NOT bridge zone annotations. A file can need both (e.g., `main.ts` has `// promise-bridge: intentional` for top-level await AND could need `strictEffectProvide:off`). A file can need one but not the other (check scripts need only `strictEffectProvide:off`).
 
 ---
 

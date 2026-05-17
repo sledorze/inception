@@ -23,6 +23,8 @@ CONTEXT="Session started: $DATE | Branch: $BRANCH | Status: $STATUS"
 [ -n "$PAIN_TOP" ] && CONTEXT="$CONTEXT | Top PAIN: $PAIN_TOP"
 [ -n "$TODO_NEXT" ] && CONTEXT="$CONTEXT | Next TODO: $TODO_NEXT"
 [ "$PAIN_COUNT" -ge 3 ] && CONTEXT="$CONTEXT | ($PAIN_COUNT PAIN items open — consider /hunt)"
+# When both PAIN and TODO are empty the session has no built-in orientation; prompt the agent.
+[ -z "$PAIN_TOP" ] && [ -z "$TODO_NEXT" ] && CONTEXT="$CONTEXT | No open items — open next phase in docs/TODO.md or run /hunt"
 
 cat <<EOF
 {

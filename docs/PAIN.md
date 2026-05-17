@@ -85,3 +85,41 @@ Candidates:
 Stopped because: 3 candidates surfaced and mechanized.
 All three findings resolved in commit 5030e00c — no open PAIN items added.
 -->
+
+<!-- Hunt log 2026-05-17 (second pass)
+Triggers that fired: explicit /hunt invocation
+Hunt start time: 16:05
+
+Candidates:
+  1. Target: session-context.sh — when PAIN.md and TODO.md are both empty the hook emits only
+     date/branch/status with no orientation; loop-health L6 warning confirms the gap
+     | Heuristic: #8 context-priming | Output channel: .claude/hooks/session-context.sh (fallback line added)
+  2. Target: @effect-diagnostics strictEffectProvide:off — caused a two-commit round-trip this
+     session (removed in 9fd1ca98, restored in c3233cdf); pattern undocumented; tsgo suppression
+     distinct from promise-bridge annotation but absent from bridge-zone.md
+     | Heuristic: #5 pattern absence | Output channel: .claude/patterns/bridge-zone.md (new section added)
+  3. Target: P44 rate-limit HTTP wiring — unit tests prove rate-limiter logic but the wiring in
+     main.ts (IP from HttpServerRequest.remoteAddress, 429 + Retry-After header) has no test coverage;
+     review flagged; IP fallback to 'unknown' under a proxy would gate all traffic
+     | Heuristic: #1 detection-stage drift | Output channel: docs/PAIN.md (new item P49)
+
+Stopped because: 3 candidates surfaced and landed.
+-->
+
+## P49 — Rate-limit HTTP wiring untested (IP extraction + 429 path not covered)
+
+**Severity:** slows
+
+**Symptom:** `makeLoginRateLimiter` has 5 unit tests covering the pure sliding-window logic, but
+the `main.ts` wiring — IP extracted via `HttpServerRequest.remoteAddress`, falling back to
+`'unknown'` on `Option.none()`, emitting 429 with `Retry-After: 60` — has no test coverage.
+Behind a reverse proxy (Nginx, Caddy), `remoteAddress` returns the proxy IP, so a single IP
+counter would gate all traffic without any indication in tests. Flagged in PR #8 code review.
+
+**Candidate fix:** HTTP-level integration test (or e2e test) that posts N+1 `/api/login` requests
+with wrong credentials and asserts the (N+1)th returns 429 with a `Retry-After` header. Also
+assert the counter resets on a successful login (existing unit test logic, now at HTTP level).
+
+**Acceptance test:** integration test in `packages/host/tests/integration/` or extend e2e/rbac.spec.ts.
+
+---
