@@ -5,6 +5,18 @@ Convention: fix → move (cut from PAIN.md, paste here in the same commit as the
 
 ---
 
+## P52 — Settings.llmBaseUrl consumed by nothing (moved LLM endpoint unrecoverable from UI)
+
+**Severity:** blocks work
+
+**Symptom:** Persisted `Settings.llmBaseUrl` is never consumed — `bind.ts` and `OpenAiCompatLlmProvider` both read the `LLM_BASE_URL` env var at layer-build time. Changing the URL in the backoffice Settings panel writes to `data/settings.json` and the in-memory `Ref`, but the LLM adapter ignores it. When the LLM endpoint IP moves, the only recovery is editing env/code + restarting the server. The UI label "Takes effect on next server restart" is also wrong (a restart re-reads the env var, not the persisted setting).
+
+**Candidate fix:** Reuse the existing `makeReasoningAwareFetch` / `Effect.runPromiseWith(ctx)` bridge pattern in `OpenAiCompatLlmProvider.ts` to read `Settings.llmBaseUrl` per request and rewrite the outgoing URL. `FileBackedSettings` holds the value in a `Ref` updated synchronously on patch — no layer rebuild or restart needed.
+
+FIXED 2026-05-17 in feat/design-system-enforcement (TODO 10.17) — test: packages/host/tests/integration/llmBaseUrlLive.integration.test.ts (1 test: reads llmBaseUrl from Settings per request — no server restart needed).
+
+---
+
 ## P51 — In-memory auth sessions lost on every server restart (forced re-auth)
 
 **Severity:** blocks work (dev loop: every `tsx watch` reload logs the user out)

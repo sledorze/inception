@@ -62,7 +62,7 @@ export function Settings() {
               type="text"
               value={draft.llmBaseUrl ?? settings.llmBaseUrl}
             />
-            <p className="text-xs text-muted-foreground">Takes effect on next server restart</p>
+            <p className="text-xs text-muted-foreground">Takes effect on next request</p>
           </div>
 
           <div className="space-y-1">

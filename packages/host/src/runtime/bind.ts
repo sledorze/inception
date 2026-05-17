@@ -159,9 +159,8 @@ const llmLayer = Layer.unwrap(
       yield* Effect.logInfo(`LLM mode: ${mode} (cassette dir: ${CASSETTE_DIR})`)
       return RecordReplayLlmProvider.layer({ cassetteDir: CASSETTE_DIR, mode: mode as RecordReplayMode })
     }
-    const baseUrl = yield* Config.string('LLM_BASE_URL').pipe(Config.withDefault('http://172.15.8.149:1235/v1'))
-    yield* Effect.logInfo(`LLM mode: live → ${baseUrl}`)
-    return OpenAiCompatLlmProvider.layer().pipe(Layer.provide(eventStoreLayer))
+    yield* Effect.logInfo('LLM mode: live (base URL resolved from Settings per request)')
+    return OpenAiCompatLlmProvider.layer().pipe(Layer.provide(eventStoreLayer), Layer.provide(settingsLayer))
   }),
 )
 

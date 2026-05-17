@@ -1,9 +1,9 @@
 /**
  * Settings driven port (§7.2).
  *
- * Runtime-configurable parameters for the Host. Changes to session settings
- * take effect on the next request. LLM connection settings (baseUrl, model)
- * are persisted by the adapter and consumed at next server start.
+ * Runtime-configurable parameters for the Host. Changes to session settings and
+ * llmBaseUrl take effect on the next request. llmModel is baked into the
+ * language-model layer at boot and requires a restart (tracked as TODO P.5).
  */
 import type { Effect } from 'effect'
 import { Context, Schema } from 'effect'

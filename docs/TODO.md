@@ -346,6 +346,10 @@ intentional`). Annotated 4 bridge files. Documented pattern in `.claude/patterns
 
 - [done] **10.15** **P50 — HTTP observability: Logger + global error handler + GoalFailed event** (2026-05-17).
 
+- [done] **10.17** **P52 — Live LLM base URL from Settings (no restart)** (2026-05-17).
+  `makeReasoningAwareFetch` reads `Settings.llmBaseUrl` per request via `Context.getOption` + `Effect.runPromise`; `bind.ts` provides `settingsLayer` to `llmLayer`; Settings.tsx helper text corrected to "Takes effect on next request".
+  test: `packages/host/tests/integration/llmBaseUrlLive.integration.test.ts` (1 test GREEN).
+
 - [done] **10.16** **P51 — Persistent auth sessions (7-day sliding TTL + graceful frontend 401)** (2026-05-17).
   Red step: `authSessionPersistence.integration.test.ts` (fails before `fileBackedLayer` exists).
   Green step: `ScryptAuthGateway.fileBackedLayer` + `bind.ts` wiring + 401 → `auth:expired` event in `shared-api` + listener in both `App.tsx` files + `.gitignore` + `AuthGateway.spec.ts` TTL update.
@@ -364,6 +368,7 @@ invocable and linked from CLAUDE.md.
 
 ## Parked / later
 
+- [parked] **P.5** Live LLM model selection — `llmModel` from Settings applied without restart. Model is baked into `OpenAiLanguageModel.layer({ model })` at build time; making it live requires the language-model layer to be dynamic (per-request model param or layer rebuild). Scoped separately from the base-URL fix (10.17).
 - [parked] **P.1** S5 hard code-over-data wall implementation (waits on a clear sensitive-data fixture).
 - [parked] **P.2** S6 long-session recall heuristics (adaptive beyond bounded last-N; MVP kernel is in Phase 6 items 6.1–6.7).
 - [parked] **P.3** S9 multi-Georges; revisit only when single-Georges is boring.
