@@ -124,6 +124,46 @@ Risk and Supervisor:
 
 ---
 
+## Generating UI
+
+When producing React component code for the Host's frontend packages, apply
+these constraints unconditionally. They match the lint rules enforced at commit
+time — violating them requires a re-generation cycle.
+
+**Component inventory — use these, add nothing:**
+
+| Raw element  | Use instead  | Import                        |
+| ------------ | ------------ | ----------------------------- |
+| `<button>`   | `<Button>`   | `@app/design-system/button`   |
+| `<input>`    | `<Input>`    | `@app/design-system/input`    |
+| `<textarea>` | `<Textarea>` | `@app/design-system/textarea` |
+| `<section>`  | `<Card>`     | `@app/design-system/card`     |
+
+Use `cn()` from `@app/design-system/utils` for all conditional `className`
+composition. Never concatenate class-name strings dynamically — the scanner
+cannot see them.
+
+**Tokens — semantic names only, no raw palette:**  
+`bg-background`, `bg-card`, `bg-primary`, `bg-muted`, `bg-destructive`,
+`bg-success`, `text-foreground`, `text-muted-foreground`, `text-primary-foreground`,
+`text-destructive-foreground`, `border-border`, `ring-ring`.  
+No `bg-gray-500`, `text-blue-700`, `#3b82f6`, `p-[13px]`, `style={{}}`.
+
+**Every component must handle all states:** empty, loading, error, success,
+disabled. Designing only the happy path is the most common generation failure.
+
+**Accessibility:** semantic HTML first; ARIA only where no native equivalent;
+keyboard-operable; `focus-visible:ring-2 ring-ring` on every interactive element;
+touch targets ≥44px; WCAG 2.2 AA contrast.
+
+**Responsive:** mobile-first; works from 375px to 1920px.
+
+**Scope:** one component at a time. Propose the layout before writing the full
+implementation on complex compositions. Do not add new dependencies; surface the
+need explicitly and wait for approval.
+
+---
+
 ## Maintenance note (for Claude, not Georges)
 
 This file is maintained by Claude (the Host builder) in `packages/host/src/bootstrap/agent.md`.
@@ -133,3 +173,8 @@ and prepended as the system message (wired in `application/session.ts`).
 To add a behavioral constraint for Georges: edit this file.
 To add a constraint for Claude: edit `.claude/rules/` or `CLAUDE.md`.
 Never mix the two.
+
+The "Generating UI" section above is a distillation of the full pattern at
+`.claude/patterns/frontend-llm-ui-generation.md`, which contains the complete
+prompt checklist, anti-pattern catalogue, concerns, and UX/UI rationale. Update
+both in sync when the design system or token set changes.

@@ -227,16 +227,17 @@ Mutation report runs nightly (`mutation-report.yml`), not on PRs.
 
 Annotated code patterns for the codebase's recurring constructs. Check here **before** writing code that touches hex boundaries, test structure, or layer wiring — violations are caught at commit time by lefthook and cost a cycle to fix.
 
-| File                        | When to read                                                                                               |
-| --------------------------- | ---------------------------------------------------------------------------------------------------------- |
-| `dep-boundary.md`           | Importing anything across `domain/`, `application/`, `ports/`, `adapters/`, `runtime/`                     |
-| `application-vs-domain.md`  | Deciding where a new function or module lives                                                              |
-| `composition-root.md`       | Adding an adapter or changing the Layer wiring                                                             |
-| `effect-test-pattern.md`    | Writing or modifying any test under `packages/host/tests/`                                                 |
-| `cycle-hunt.md`             | End of slice/phase, or when friction repeats — proactive scan for cycle-time + token-cost waste            |
-| `frontend-design-system.md` | Adding a new design-system oxlint rule or migrating a violation in `packages/frontend/`                    |
-| `breakdown-strategy.md`     | Planning a multi-slice task — when to spike, how to map blast radius, when to trigger a strategic refactor |
-| `schema-decode.md`          | Decoding `unknown` data at any boundary — which API (`decodeUnknownEffect` / `Result` / generics) and why  |
+| File                            | When to read                                                                                                          |
+| ------------------------------- | --------------------------------------------------------------------------------------------------------------------- |
+| `dep-boundary.md`               | Importing anything across `domain/`, `application/`, `ports/`, `adapters/`, `runtime/`                                |
+| `application-vs-domain.md`      | Deciding where a new function or module lives                                                                         |
+| `composition-root.md`           | Adding an adapter or changing the Layer wiring                                                                        |
+| `effect-test-pattern.md`        | Writing or modifying any test under `packages/host/tests/`                                                            |
+| `cycle-hunt.md`                 | End of slice/phase, or when friction repeats — proactive scan for cycle-time + token-cost waste                       |
+| `frontend-design-system.md`     | Adding a new design-system oxlint rule or migrating a violation in `packages/frontend/`                               |
+| `frontend-llm-ui-generation.md` | Prompting any LLM to generate UI in `packages/app/` or `packages/backoffice/` — constraints, checklist, anti-patterns |
+| `breakdown-strategy.md`         | Planning a multi-slice task — when to spike, how to map blast radius, when to trigger a strategic refactor            |
+| `schema-decode.md`              | Decoding `unknown` data at any boundary — which API (`decodeUnknownEffect` / `Result` / generics) and why             |
 
 ## When in doubt
 
@@ -252,6 +253,7 @@ Annotated code patterns for the codebase's recurring constructs. Check here **be
 - "How do I add a new adapter or wire a new Layer?" → `/composition-root` (bind.ts is the only adapter importer; Layer.provide chain; AppServices derived automatically).
 - "What code pattern should I follow here?" → `.claude/patterns/` (hex boundaries, test structure, composition root).
 - "Is this async/Promise usage in `packages/host/src/` a legitimate bridge or a violation?" → `.claude/patterns/bridge-zone.md` (annotation marker, which files qualify, when NOT to annotate).
+- "How do I prompt an LLM to generate UI that won't fail the lint gate?" → `.claude/patterns/frontend-llm-ui-generation.md` (constraints, checklist, anti-patterns, workflow)
 - "Is there waste I'm not seeing?" → `/hunt`
 - "Where do Georges' behavioral instructions live?" → `packages/host/src/bootstrap/agent.md` (never in `.claude/`)
 - "Are the self-improving loops healthy?" → `docs/META-LOOPS.md` (metrics + degradation signals for L1–L7)
