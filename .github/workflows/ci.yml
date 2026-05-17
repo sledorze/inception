@@ -120,7 +120,7 @@ jobs:
             --logLevel warn \
             --reporters progress,json \
             --coverageAnalysis perTest \
-            --ignoreStatic true
+            --ignoreStatic
       - uses: actions/upload-artifact@v4
         if: always()
         with:

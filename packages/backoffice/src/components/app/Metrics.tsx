@@ -1,11 +1,16 @@
+import { useAtomRefresh, useAtomValue } from '@effect/atom-react'
+import * as AsyncResult from 'effect/unstable/reactivity/AsyncResult'
+import * as Cause from 'effect/Cause'
 import { Button } from '@app/design-system/button'
 import { Card } from '@app/design-system/card'
 import type { LoopHealth } from '../../hooks/admin.ts'
-import { getMetrics } from '../../hooks/admin.ts'
-import { useAsyncFetch } from '../../hooks/useAsyncFetch.ts'
+import { metricsAtom } from '../../atoms.ts'
 
 export function Metrics() {
-  const { data: health, error, refresh } = useAsyncFetch<LoopHealth>(getMetrics)
+  const result = useAtomValue(metricsAtom)
+  const refresh = useAtomRefresh(metricsAtom)
+  const health = AsyncResult.isSuccess(result) ? result.value : null
+  const error = AsyncResult.isFailure(result) ? String(Cause.squash(result.cause)) : null
 
   return (
     <Card className="space-y-2 p-4">

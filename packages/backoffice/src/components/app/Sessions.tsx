@@ -1,14 +1,20 @@
 import { useState } from 'react'
+import { useAtomRefresh, useAtomValue } from '@effect/atom-react'
+import * as AsyncResult from 'effect/unstable/reactivity/AsyncResult'
+import * as Cause from 'effect/Cause'
 import { Button } from '@app/design-system/button'
 import { Card } from '@app/design-system/card'
 import type { SessionSummary } from '../../hooks/admin.ts'
-import { getSessions } from '../../hooks/admin.ts'
-import { useAsyncFetch } from '../../hooks/useAsyncFetch.ts'
+import { sessionsAtom } from '../../atoms.ts'
 import { SessionDetail } from './SessionDetail.tsx'
 import { Patterns } from './Patterns.tsx'
 
 export function Sessions() {
-  const { data: sessions, error, loading, refresh } = useAsyncFetch<readonly SessionSummary[]>(getSessions)
+  const result = useAtomValue(sessionsAtom)
+  const refresh = useAtomRefresh(sessionsAtom)
+  const sessions = AsyncResult.isSuccess(result) ? result.value : null
+  const error = AsyncResult.isFailure(result) ? String(Cause.squash(result.cause)) : null
+  const loading = result.waiting
   const [selected, setSelected] = useState<string | null>(null)
 
   if (selected !== null) {

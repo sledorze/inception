@@ -1,10 +1,15 @@
+import { useAtomRefresh, useAtomValue } from '@effect/atom-react'
+import * as AsyncResult from 'effect/unstable/reactivity/AsyncResult'
+import * as Cause from 'effect/Cause'
 import { Button } from '@app/design-system/button'
 import type { Pattern } from '../../hooks/admin.ts'
-import { getPatterns } from '../../hooks/admin.ts'
-import { useAsyncFetch } from '../../hooks/useAsyncFetch.ts'
+import { patternsAtom } from '../../atoms.ts'
 
 export function Patterns() {
-  const { data: patterns, error, refresh } = useAsyncFetch<readonly Pattern[]>(getPatterns)
+  const result = useAtomValue(patternsAtom)
+  const refresh = useAtomRefresh(patternsAtom)
+  const patterns = AsyncResult.isSuccess(result) ? result.value : null
+  const error = AsyncResult.isFailure(result) ? String(Cause.squash(result.cause)) : null
 
   return (
     <div className="space-y-2">

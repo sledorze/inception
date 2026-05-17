@@ -1,8 +1,10 @@
+import { useAtomRefresh, useAtomValue } from '@effect/atom-react'
+import * as AsyncResult from 'effect/unstable/reactivity/AsyncResult'
+import * as Cause from 'effect/Cause'
 import { Button } from '@app/design-system/button'
 import { Card } from '@app/design-system/card'
 import type { TodoItem } from '../../hooks/admin.ts'
-import { getWork } from '../../hooks/admin.ts'
-import { useAsyncFetch } from '../../hooks/useAsyncFetch.ts'
+import { workAtom } from '../../atoms.ts'
 
 const STATUS_COLOR: Record<string, string> = {
   blocked: 'bg-destructive/20 text-destructive',
@@ -13,7 +15,10 @@ const STATUS_COLOR: Record<string, string> = {
 }
 
 export function WorkBoard() {
-  const { data: items, error, refresh } = useAsyncFetch<readonly TodoItem[]>(getWork)
+  const result = useAtomValue(workAtom)
+  const refresh = useAtomRefresh(workAtom)
+  const items = AsyncResult.isSuccess(result) ? result.value : null
+  const error = AsyncResult.isFailure(result) ? String(Cause.squash(result.cause)) : null
 
   return (
     <Card className="space-y-2 p-4">

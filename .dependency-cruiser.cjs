@@ -61,6 +61,15 @@ module.exports = {
       to: { path: '^packages/(app|backoffice)/src/api/' },
     },
 
+    // ── Atom API: Components must use atoms.ts, not useAsyncFetch ────────
+    {
+      comment: 'Frontend components must not import useAsyncFetch — use @effect/atom-react + atoms.ts instead.',
+      from: { path: '^packages/(app|backoffice)/src/' },
+      name: 'no-useAsyncFetch-import',
+      severity: 'error',
+      to: { path: 'useAsyncFetch' },
+    },
+
     // ── L2.14: Non-adapter code cannot import from adapters/ ──────────────
     {
       comment:

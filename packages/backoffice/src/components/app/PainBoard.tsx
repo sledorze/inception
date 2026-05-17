@@ -1,11 +1,16 @@
+import { useAtomRefresh, useAtomValue } from '@effect/atom-react'
+import * as AsyncResult from 'effect/unstable/reactivity/AsyncResult'
+import * as Cause from 'effect/Cause'
 import { Button } from '@app/design-system/button'
 import { Card } from '@app/design-system/card'
 import type { PainItem } from '../../hooks/admin.ts'
-import { getPain } from '../../hooks/admin.ts'
-import { useAsyncFetch } from '../../hooks/useAsyncFetch.ts'
+import { painAtom } from '../../atoms.ts'
 
 export function PainBoard() {
-  const { data: items, error, refresh } = useAsyncFetch<readonly PainItem[]>(getPain)
+  const result = useAtomValue(painAtom)
+  const refresh = useAtomRefresh(painAtom)
+  const items = AsyncResult.isSuccess(result) ? result.value : null
+  const error = AsyncResult.isFailure(result) ? String(Cause.squash(result.cause)) : null
 
   return (
     <Card className="space-y-2 p-4">

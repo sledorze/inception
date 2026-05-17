@@ -41,6 +41,19 @@ describe('P38 — critical pattern files promoted to .claude/commands/', () => {
   })
 })
 
+// ── Atom API enforcement ──────────────────────────────────────────────────────
+// useAsyncFetch deleted; @effect/atom-react is the canonical async-data pattern.
+
+describe('Atom API enforcement — useAsyncFetch must not exist', () => {
+  it('packages/app does not contain a useAsyncFetch file', () => {
+    expect(existsSync(join(REPO_ROOT, 'packages', 'app', 'src', 'hooks', 'useAsyncFetch.ts'))).toBe(false)
+  })
+
+  it('packages/backoffice does not contain a useAsyncFetch file', () => {
+    expect(existsSync(join(REPO_ROOT, 'packages', 'backoffice', 'src', 'hooks', 'useAsyncFetch.ts'))).toBe(false)
+  })
+})
+
 // ── P40 green-step acceptance tests ──────────────────────────────────────────
 // Shared base config now exists; all package oxlintrc files extend it.
 
