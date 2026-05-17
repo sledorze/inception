@@ -12,10 +12,9 @@ import { AGENT_MD_PATH, readAgentMd } from './session.ts'
 const MAX_AGENT_ROUNDS = 4
 
 // Agentic loop: calls the LLM up to MAX_AGENT_ROUNDS times, appending tool results
-// back into the prompt when the LLM returns only tool calls with no text content.
-// Stops early when: (a) LLM returns non-empty text, (b) request-clarification is called,
-// or (c) no tool calls remain.
-// This enables patterns like list-tools → propose-capability within a single goal.
+// back into the prompt each round. Stops when the model makes no more tool calls or
+// calls request-clarification. Models may emit reasoning text alongside tool calls
+// (finish_reason=tool_calls) — text alone is not a stop signal.
 const runAgentLoop = <Tools extends Record<string, Tool.Any>>(
   agentMd: string,
   goal: string,
