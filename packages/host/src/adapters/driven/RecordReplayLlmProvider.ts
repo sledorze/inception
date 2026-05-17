@@ -156,12 +156,14 @@ function makeRecordReplayFetch(
 
     // record: serve existing cassette when present (allows hand-crafted seeds); otherwise call the
     // real LLM with temperature=0 + seed=42 for determinism and write the response to a cassette.
-    // Spread rawParsed (not the schema-decoded subset) to preserve all original request fields.
-    // Use a fresh Request (not ...init) to avoid stale Content-Length from the original body.
+    // Effect.runPromise is safe here: `fs` was captured at layer-build time with no context
+    // requirements (Effect<A, E, never>), so it runs without a full Effect runtime.
     return Effect.runPromise(fs.readFileString(cassettePath).pipe(Effect.option)).then(contentOpt => {
       if (Option.isSome(contentOpt)) {
         return new Response(contentOpt.value, { headers: { 'Content-Type': 'application/json' }, status: 200 })
       }
+      // cast-ok: spreading all original request fields for determinism; schema-decoded
+      // `body` is only used for the hash and fake-mode trigger detection above.
       const deterministicBody = { ...(rawParsed as Record<string, unknown>), seed: 42, temperature: 0 }
       const url =
         typeof input === 'string' ? input

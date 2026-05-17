@@ -89,6 +89,8 @@ export const CliUserGateway = {
           Effect.succeed(
             UserGateway.of({
               listen: onGoal => makeListenEffect(resolvedPort, onGoal),
+              // CLI path is receive-only: goal submissions arrive on :3001, but the
+              // HTTP app layer owns reply delivery. CLI respond is intentionally a no-op.
               respond: (_correlationId, _text, _sessionId) => Effect.void,
             }),
           ),

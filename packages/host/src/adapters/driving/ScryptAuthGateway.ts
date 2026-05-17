@@ -24,6 +24,8 @@ export const ScryptAuthGateway = {
     Layer.effect(
       AuthGateway,
       Effect.sync(() => {
+        // NOTE: sessions are in-memory — a server restart invalidates all active tokens.
+        // Acceptable for the prototype; production path would persist tokens in the EventStore.
         const sessions = new Map<string, AuthSession>()
 
         return AuthGateway.of({

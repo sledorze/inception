@@ -3,20 +3,23 @@ import { LanguageModel } from 'effect/unstable/ai'
 import type { LanguageModel as LanguageModelNS, Tool } from 'effect/unstable/ai'
 import { ClarifyRequestedPayload, EventKind, GoalSubmittedPayload } from '../domain/events.ts'
 import { CurrentCorrelationId } from '../domain/tracing.ts'
+import { DataHandleRegistry } from '../ports/driven/DataHandle.ts'
 import { EventStore } from '../ports/driven/EventStore.ts'
 import type { StoredEvent } from '../ports/driven/EventStore.ts'
+import { ToolRegistry } from '../ports/driven/ToolRegistry.ts'
 import { AGENT_MD_PATH, readAgentMd } from './session.ts'
+import { buildInitialMessages } from './submitGoal.ts'
 
 export class ClarifyNotFoundError extends Schema.TaggedErrorClass<ClarifyNotFoundError>()(
   '@app/host/ClarifyNotFoundError',
   { correlationId: Schema.String },
 ) {}
 
-// Returns decoded { goal, question } wrapped in Some, or None when either event is absent.
+// Returns decoded { goal, handleId, question } wrapped in Some, or None when either event is absent.
 // Malformed payloads are defects (die), not business errors.
 const findClarifyContext = (
   events: readonly StoredEvent[],
-): Effect.Effect<Option.Option<{ readonly goal: string; readonly question: string }>> => {
+): Effect.Effect<Option.Option<{ readonly goal: string; readonly handleId: string; readonly question: string }>> => {
   const goalEvent = events.find(e => e.kind === EventKind.GoalSubmitted)
   const clarifyEvent = events.findLast(e => e.kind === EventKind.ClarifyRequested)
   if (goalEvent === undefined || clarifyEvent === undefined) {
@@ -27,7 +30,7 @@ const findClarifyContext = (
     goalPayload: Schema.decodeUnknownEffect(GoalSubmittedPayload)(goalEvent.payload).pipe(Effect.orDie),
   }).pipe(
     Effect.map(({ goalPayload, clarifyPayload }) =>
-      Option.some({ goal: goalPayload.goal, question: clarifyPayload.question }),
+      Option.some({ goal: goalPayload.goal, handleId: goalPayload.handleId, question: clarifyPayload.question }),
     ),
   )
 }
@@ -45,7 +48,7 @@ export const makeRespondToGoal = <Tools extends Record<string, Tool.Any>>(
       return yield* new ClarifyNotFoundError({ correlationId })
     }
 
-    const { goal, question } = ctxOpt.value
+    const { goal, handleId, question } = ctxOpt.value
 
     yield* store.append({
       actor: 'user',
@@ -59,15 +62,33 @@ export const makeRespondToGoal = <Tools extends Record<string, Tool.Any>>(
     })
 
     const agentMd = yield* readAgentMd({ path: AGENT_MD_PATH })
+
+    // Rebuild the same brief as submitGoal so the model has full tool/handle context
+    // on the clarification-answer turn (same root cause as P42 if omitted).
+    const registry = yield* ToolRegistry
+    const handleReg = yield* DataHandleRegistry
+    const tools = yield* registry.listTools('enduser')
+    const handleShape = yield* handleReg.get(handleId).pipe(
+      Effect.flatMap(h => h.fetchShape()),
+      Effect.map(shape => [{ id: handleId, redactedSample: shape.redactedSample, schema: shape.schema }]),
+      Effect.orElseSucceed(() => [] as { id: string; schema: unknown; redactedSample: unknown }[]),
+    )
+    const initialMessages = buildInitialMessages({
+      agentMd,
+      goal,
+      handles: handleShape,
+      role: 'enduser',
+      tools: tools.map(t => ({ description: t.description, name: t.name })),
+    })
+
     const newCorrelationId = yield* Random.nextUUIDv4
     const response = yield* Effect.provideService(
       LanguageModel.generateText({
         prompt: [
-          { content: agentMd, role: 'system' },
-          { content: goal, role: 'user' },
+          ...initialMessages,
           { content: question, role: 'assistant' },
-          { content: answer, role: 'user' },
-        ],
+          { content: [{ text: answer, type: 'text' }], role: 'user' },
+        ] as Parameters<typeof LanguageModel.generateText>[0]['prompt'],
         toolkit,
       }),
       CurrentCorrelationId,

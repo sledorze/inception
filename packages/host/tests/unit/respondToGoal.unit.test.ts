@@ -12,7 +12,9 @@ import { describe, expect, it } from '@effect/vitest'
 import { DateTime, Effect, Layer } from 'effect'
 import { LanguageModel } from 'effect/unstable/ai'
 import * as NodeFileSystem from '@effect/platform-node/NodeFileSystem'
+import { InMemoryDataHandleRegistry } from '../../src/adapters/driven/InMemoryDataHandleRegistry.ts'
 import { InMemoryEventStore } from '../../src/adapters/driven/InMemoryEventStore.ts'
+import { InMemoryToolRegistry } from '../../src/adapters/driven/InMemoryToolRegistry.ts'
 import { ClarifyNotFoundError, makeRespondToGoal } from '../../src/application/respondToGoal.ts'
 import { EventKind } from '../../src/domain/events.ts'
 import { EventStore } from '../../src/ports/driven/EventStore.ts'
@@ -58,7 +60,13 @@ const fakeLanguageModelLayer = Layer.succeed(
   }),
 )
 
-const testLayer = Layer.mergeAll(InMemoryEventStore.layer, fakeLanguageModelLayer, NodeFileSystem.layer)
+const testLayer = Layer.mergeAll(
+  InMemoryEventStore.layer,
+  fakeLanguageModelLayer,
+  NodeFileSystem.layer,
+  InMemoryToolRegistry.layer([]),
+  InMemoryDataHandleRegistry.layer(),
+)
 
 describe(makeRespondToGoal, () => {
   it.effect('raises ClarifyNotFoundError when no pending clarification exists', () =>

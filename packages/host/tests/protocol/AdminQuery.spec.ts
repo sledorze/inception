@@ -100,7 +100,10 @@ runContract('InMemoryAdminQuery', () =>
 )
 
 const eventStoreAdminQueryLayer = () =>
-  EventStoreAdminQuery.layer.pipe(
+  EventStoreAdminQuery.layer({
+    painMd: new URL('../../../../docs/PAIN.md', import.meta.url).pathname,
+    todoMd: new URL('../../../../docs/TODO.md', import.meta.url).pathname,
+  }).pipe(
     Layer.provide(InMemoryEventStore.layer),
     Layer.provide(NodeFileSystem.layer),
     Layer.provide(NodeServices.layer),

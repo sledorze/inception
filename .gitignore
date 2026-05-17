@@ -42,6 +42,7 @@ test-results/
 # Claude Code local settings
 .claude/settings.local.json
 .claude/logs/
+.claude/scheduled_tasks.lock
 
 # Lalph (agent orchestrator — if used)
 .lalph/

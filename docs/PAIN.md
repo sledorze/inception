@@ -98,3 +98,36 @@ machine-checked boundary (enforce-conventions assertion or dep-cruiser deny rule
 
 **Acceptance test.** `packages/host/tests/unit/enforce-conventions.unit.test.ts` —
 "Frontend presentation components must not interpret async state (P41)"
+
+---
+
+## P44 — `POST /api/login` has no rate limiting (brute-force possible)
+
+**Severity:** slows (security gap before external deployment)
+
+**Symptom:** `POST /api/login` in `main.ts` has no throttle, delay, or account-lockout after
+failed attempts. `scryptSync` slows each individual check (~100 ms) but does not prevent parallel
+brute-force. For the prototype this is acceptable, but it blocks any external deployment.
+
+**Candidate fix:** In-process per-IP attempt counter in the auth middleware (`withRole` / `login`
+application service) with a configurable window and lockout threshold. Or: defer to an ingress-layer
+rate limiter (nginx/Caddy). File a TODO for Phase 8 (outer observability) or Phase 11 security hardening.
+
+**Acceptance test.** Integration test: send N+1 login attempts with wrong password and assert the
+N+1th returns 429 or has a measurable delay — cite in PAIN closure.
+
+---
+
+## P45 — `archivedPainItems` always returns 0 (PAIN-archive.md not parsed)
+
+**Severity:** annoys
+
+**Symptom:** `EventStoreAdminQuery.metrics()` hardcodes `archivedPainItems: 0` with a TODO comment.
+The backoffice metrics panel always shows 0 archived items regardless of how many have been closed.
+
+**Candidate fix:** Add `parsePainArchiveMd` domain function (similar to `parsePainMd`); parse
+`PAIN-archive.md` for FIXED items and return the count. The `AdminQueryPaths` struct already has the
+slot for the archive path.
+
+**Acceptance test.** Unit test for `parsePainArchiveMd` asserting it counts `## P…` entries that
+contain a `FIXED` line — cite in PAIN closure.

@@ -127,7 +127,12 @@ const toolkitLayer = GeorgesToolkitLive.pipe(
 // InMemoryCapabilityRegistry for tests that don't touch the capability flow.
 export const InMemoryCapabilityRegistryLayer = InMemoryCapabilityRegistry.layer
 
-const adminQueryLayer = EventStoreAdminQuery.layer.pipe(Layer.provide(eventStoreLayer))
+const PAIN_MD_PATH = new URL('../../../../docs/PAIN.md', import.meta.url).pathname
+const TODO_MD_PATH = new URL('../../../../docs/TODO.md', import.meta.url).pathname
+
+const adminQueryLayer = EventStoreAdminQuery.layer({ painMd: PAIN_MD_PATH, todoMd: TODO_MD_PATH }).pipe(
+  Layer.provide(eventStoreLayer),
+)
 
 const settingsLayer = FileBackedSettings.layer(SETTINGS_PATH)
 
