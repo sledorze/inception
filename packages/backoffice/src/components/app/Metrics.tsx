@@ -3,7 +3,6 @@ import * as AsyncResult from 'effect/unstable/reactivity/AsyncResult'
 import * as Cause from 'effect/Cause'
 import { Button } from '@app/design-system/button'
 import { Card } from '@app/design-system/card'
-import type { LoopHealth } from '../../hooks/admin.ts'
 import { metricsAtom } from '../../atoms.ts'
 
 export function Metrics() {

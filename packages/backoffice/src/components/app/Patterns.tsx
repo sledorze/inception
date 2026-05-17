@@ -2,7 +2,6 @@ import { useAtomRefresh, useAtomValue } from '@effect/atom-react'
 import * as AsyncResult from 'effect/unstable/reactivity/AsyncResult'
 import * as Cause from 'effect/Cause'
 import { Button } from '@app/design-system/button'
-import type { Pattern } from '../../hooks/admin.ts'
 import { patternsAtom } from '../../atoms.ts'
 
 export function Patterns() {

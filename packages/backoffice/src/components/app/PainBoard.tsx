@@ -3,7 +3,6 @@ import * as AsyncResult from 'effect/unstable/reactivity/AsyncResult'
 import * as Cause from 'effect/Cause'
 import { Button } from '@app/design-system/button'
 import { Card } from '@app/design-system/card'
-import type { PainItem } from '../../hooks/admin.ts'
 import { painAtom } from '../../atoms.ts'
 
 export function PainBoard() {
