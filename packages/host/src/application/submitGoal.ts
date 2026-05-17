@@ -1,5 +1,5 @@
-import { Cause, DateTime, Effect, Random } from 'effect'
-import { LanguageModel } from 'effect/unstable/ai'
+import { Cause, DateTime, Effect, Option, Random } from 'effect'
+import { AiError, LanguageModel } from 'effect/unstable/ai'
 import type { LanguageModel as LanguageModelNS, Tool } from 'effect/unstable/ai'
 import { EventKind } from '../domain/events.ts'
 import { CurrentCorrelationId } from '../domain/tracing.ts'
@@ -54,6 +54,71 @@ export const buildInitialMessages = (b: AgentBrief): MsgEntry[] => {
   ]
 }
 
+// Runs generateText and converts ToolParameterValidationError into a failed tool-result
+// message visible to Georges, so he can self-correct on the next round (P54).
+// Without this, a missing required param (e.g. "role" on list-tools) surfaces as a 500.
+const generateWithRecovery = <Tools extends Record<string, Tool.Any>>(
+  msgs: readonly MsgEntry[],
+  toolkit: LanguageModelNS.ToolkitOption<Tools, never, never>,
+  correlationId: string,
+) =>
+  Effect.provideService(
+    LanguageModel.generateText({
+      prompt: msgs as Parameters<typeof LanguageModel.generateText>[0]['prompt'],
+      toolkit,
+    }),
+    CurrentCorrelationId,
+    correlationId,
+  ).pipe(
+    Effect.catchCause(cause => {
+      const maybeErr = Cause.findErrorOption(cause)
+      if (Option.isNone(maybeErr)) return Effect.failCause(cause)
+      const err = maybeErr.value
+      if (!AiError.isAiError(err) || err.reason._tag !== 'ToolParameterValidationError') {
+        return Effect.failCause(cause)
+      }
+      const reason = err.reason
+      return Effect.gen(function* () {
+        const syntheticId = yield* Random.nextUUIDv4
+        const recovery: readonly MsgEntry[] = [
+          ...msgs,
+          {
+            content: [
+              {
+                id: syntheticId,
+                name: reason.toolName,
+                params: reason.toolParams as unknown,
+                providerExecuted: false,
+                type: 'tool-call' as const,
+              },
+            ],
+            role: 'assistant',
+          },
+          {
+            content: [
+              {
+                id: syntheticId,
+                isFailure: true,
+                name: reason.toolName,
+                result: reason.message,
+                type: 'tool-result' as const,
+              },
+            ],
+            role: 'tool',
+          },
+        ]
+        return yield* Effect.provideService(
+          LanguageModel.generateText({
+            prompt: recovery as Parameters<typeof LanguageModel.generateText>[0]['prompt'],
+            toolkit,
+          }),
+          CurrentCorrelationId,
+          correlationId,
+        )
+      })
+    }),
+  )
+
 // Agentic loop: calls the LLM up to MAX_AGENT_ROUNDS times, appending tool results
 // back into the prompt each round. Stops when the model makes no more tool calls or
 // calls request-clarification. Models may emit reasoning text alongside tool calls
@@ -66,16 +131,7 @@ const runAgentLoop = <Tools extends Record<string, Tool.Any>>(
   Effect.gen(function* () {
     let messages: MsgEntry[] = buildInitialMessages(brief)
 
-    let response = yield* Effect.provideService(
-      LanguageModel.generateText({
-        // Cast is sound: the array literal is Iterable<MessageEncoded>-compatible.
-        // The schema decoder in Prompt.make validates at runtime.
-        prompt: messages as Parameters<typeof LanguageModel.generateText>[0]['prompt'],
-        toolkit,
-      }),
-      CurrentCorrelationId,
-      correlationId,
-    )
+    let response = yield* generateWithRecovery(messages, toolkit, correlationId)
 
     for (let round = 1; round < MAX_AGENT_ROUNDS; round++) {
       // Stop when no tool calls remain (final answer) or clarification is requested.
@@ -110,14 +166,7 @@ const runAgentLoop = <Tools extends Record<string, Tool.Any>>(
         },
       ]
 
-      response = yield* Effect.provideService(
-        LanguageModel.generateText({
-          prompt: messages as Parameters<typeof LanguageModel.generateText>[0]['prompt'],
-          toolkit,
-        }),
-        CurrentCorrelationId,
-        correlationId,
-      )
+      response = yield* generateWithRecovery(messages, toolkit, correlationId)
     }
 
     return response
