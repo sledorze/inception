@@ -1,41 +1,32 @@
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useRef } from 'react'
 import { useNavigate, useParams } from 'react-router'
+import { useAtomRefresh, useAtomSet, useAtomValue } from '@effect/atom-react'
 import { Button } from '@app/design-system/button'
 import { Card } from '@app/design-system/card'
 import { cn } from '@app/design-system/utils'
-import { listProposals, promoteProposal } from '../../hooks/proposals.ts'
-import type { Proposal } from '../../hooks/proposals.ts'
+import { promoteProposalAtom, promoteProposalView, proposalsAtom, proposalsView } from '../../atoms.ts'
 
 export function Proposals() {
-  const [proposals, setProposals] = useState<readonly Proposal[]>([])
-  const [msg, setMsg] = useState<string | null>(null)
+  const listView = useAtomValue(proposalsView)
+  const refresh = useAtomRefresh(proposalsAtom)
+  const promote = useAtomSet(promoteProposalAtom) // (id: string) => void — fire-and-forget dispatch
+  const promoteView = useAtomValue(promoteProposalView)
+
   const { contentHash } = useParams()
   const navigate = useNavigate()
   const cardRefs = useRef<Record<string, HTMLDivElement | null>>({})
+
+  const proposals = listView._tag === 'Ready' ? listView.value : []
+  const listError = listView._tag === 'Error' ? listView.message : null
+  const promoteMsg = promoteView._tag === 'Ready' ? promoteView.value : null
+  const promoteError = promoteView._tag === 'Error' ? promoteView.message : null
+  const msg = promoteError ?? listError ?? promoteMsg
 
   useEffect(() => {
     if (contentHash) {
       cardRefs.current[contentHash]?.scrollIntoView({ block: 'center' })
     }
   }, [contentHash, proposals])
-
-  const refresh = () => {
-    setMsg(null)
-    listProposals()
-      .then(setProposals)
-      .catch((error: unknown) => setMsg(String(error)))
-  }
-
-  const promote = (id: string) => {
-    setMsg(null)
-    promoteProposal(id)
-      .then(({ version }) => {
-        setMsg(`Promoted → registry v${version}`)
-        return listProposals()
-      })
-      .then(setProposals)
-      .catch((error: unknown) => setMsg(String(error)))
-  }
 
   return (
     <Card className="space-y-2 p-4">
@@ -73,11 +64,12 @@ export function Proposals() {
           <div className="mt-1 flex gap-2">
             <Button
               data-testid={`promote-${p.contentHash}`}
+              disabled={promoteView.waiting}
               onClick={() => promote(p.contentHash)}
               size="sm"
               type="button"
             >
-              Promote
+              {promoteView.waiting ? 'Promoting…' : 'Promote'}
             </Button>
             <Button
               onClick={() => navigate(`/governance/proposals/${p.contentHash}`)}

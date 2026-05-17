@@ -47,35 +47,73 @@ export function Metrics() {
 }
 ```
 
-### 3. User-triggered actions — async/await, not .then()
+### 3. Mutation atoms — the dispatch half
+
+A user-triggered mutation is a **writable action atom** built with `AtomRuntime.fn`. It is the
+Flux/Redux dispatch contract: write side = the action argument, read side = the action's own
+`AsyncResult` (pending / error / success). Components dispatch via `useAtomSet` (fire-and-forget,
+never `mode:"promise"`) and render the action state via a mapped `AsyncView`.
+
+**Decoupling rule:** dependent read atoms subscribe to a Reactivity topic key. The mutation
+publishes to the same key on success. Publisher and subscriber share **only the string key** —
+neither imports the other. This is Redux's `put`/`take` seam.
+
+**Concurrency:** `AtomRuntime.fn` default = `takeLatest` (interrupt-prior run on re-dispatch).
+The stale-write race is structurally eliminated, not handled by discipline.
+
+```ts
+// atoms.ts — mutation atom publishing to the "proposals" Reactivity topic
+//
+// AtomRuntime<never> shares defaultMemoMap with Atom.withReactivity so the same
+// Reactivity instance is used; invalidation from reactivityKeys reaches the
+// withReactivity subscription on proposalsAtom.
+const atomRuntime = Atom.runtime(Layer.empty)
+
+export const promoteProposalAtom = atomRuntime.fn(
+  (id: string) =>
+    Effect.tryPromise({
+      try: () => promoteProposal(id),
+      catch: e => String(e),
+    }).pipe(Effect.map(({ version }) => `Promoted → registry v${version}`)),
+  { reactivityKeys: ['proposals'] },
+)
+export const promoteProposalView = Atom.map(promoteProposalAtom, toView) // AsyncView<string>
+
+// Read atom subscribing to the same topic — self-refreshes on publish:
+export const proposalsAtom = Atom.withReactivity(['proposals'])(fetchAtom(listProposals))
+export const proposalsView = Atom.map(proposalsAtom, toView) // AsyncView<readonly Proposal[]>
+```
 
 ```tsx
-// BAD — promise chain in component body
-const load = () => {
-  getAgentMd()
-    .then(r => setContent(r.content))
-    .catch(e => setErr(String(e)))
-}
+// component — render only, no .then(), no AsyncResult interpretation
+const promote = useAtomSet(promoteProposalAtom) // (id: string) => void
+const promoteView = useAtomValue(promoteProposalView) // AsyncView<string>
+const listView = useAtomValue(proposalsView) // AsyncView<readonly Proposal[]>
+const refresh = useAtomRefresh(proposalsAtom)
 
-// GOOD — async/await with try/finally
-const load = async () => {
-  setLoading(true)
-  try {
-    setContent((await getAgentMd()).content)
-  } catch (e: unknown) {
-    setErr(String(e))
-  } finally {
-    setLoading(false)
-  }
-}
+const msg =
+  promoteView._tag === 'Error' ? promoteView.message
+  : promoteView._tag === 'Ready' ? promoteView.value
+  : null
+
+// <Button disabled={promoteView.waiting} onClick={() => promote(id)}>
+// No .then(), no useState for data or messages, no re-fetch chain.
 ```
+
+**Backend stays source of truth.** The key-bus invalidation triggers a re-fetch
+(`GET /api/proposals`) — the frontend is a pull-based reactive read-model. Client-authoritative
+event logs (LiveStore) are rejected: they violate L1.1 (Mediation) and L1.4 (Traceability).
+
+**Deferred: watcher/saga substrate.** `PubSub` + `forkScoped` + `Stream.switchMap` are
+intentionally NOT adopted until ≥3 cross-cutting subscribers or a live-feed story exists. When
+that need is real, `EventStore.replay` is the backend seam (cursor-based tail over `rowid`).
 
 ## Boundary enforcement
 
 `packages/host/tests/unit/enforce-conventions.unit.test.ts` — "Frontend presentation components must not interpret async state (P41)" — two assertions:
 
 1. No component `.tsx` imports or calls `AsyncResult.isSuccess`, `AsyncResult.isFailure`, `Cause.squash`, or imports from `effect/unstable/reactivity/AsyncResult`.
-2. No component `.tsx` contains `.then(` (promise chaining).
+2. No component `.tsx` contains `.then(` (promise chaining). Mutations must route through `AtomRuntime.fn` action atoms dispatched via `useAtomSet` — never an imperative `.then().then(setState)` chain.
 
 These run on every CI pass. Adding a new component that violates either will fail the suite.
 
