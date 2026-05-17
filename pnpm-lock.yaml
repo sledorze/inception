@@ -198,6 +198,60 @@ importers:
         specifier: ^3.5.0
         version: 3.5.0
 
+  packages/backoffice:
+    dependencies:
+      '@app/design-system':
+        specifier: workspace:*
+        version: link:../design-system
+      '@app/shared-api':
+        specifier: workspace:*
+        version: link:../shared-api
+      '@effect/atom-react':
+        specifier: 4.0.0-beta.66
+        version: 4.0.0-beta.66(effect@4.0.0-beta.66)(react@19.2.4)(scheduler@0.27.0)
+      '@radix-ui/react-slot':
+        specifier: ^1.2.4
+        version: 1.2.4(@types/react@19.2.14)(react@19.2.4)
+      class-variance-authority:
+        specifier: ^0.7.1
+        version: 0.7.1
+      clsx:
+        specifier: ^2.1.1
+        version: 2.1.1
+      effect:
+        specifier: 4.0.0-beta.66
+        version: 4.0.0-beta.66
+      react:
+        specifier: ^19.1.0
+        version: 19.2.4
+      react-dom:
+        specifier: ^19.1.0
+        version: 19.2.4(react@19.2.4)
+      scheduler:
+        specifier: ^0.27.0
+        version: 0.27.0
+      tailwind-merge:
+        specifier: ^3.5.0
+        version: 3.5.0
+
+  packages/design-system:
+    dependencies:
+      '@radix-ui/react-slot':
+        specifier: ^1.2.4
+        version: 1.2.4(@types/react@19.2.14)(react@19.2.4)
+      class-variance-authority:
+        specifier: ^0.7.1
+        version: 0.7.1
+      clsx:
+        specifier: ^2.1.1
+        version: 2.1.1
+      react:
+        specifier: ^19.1.0
+        version: 19.2.4
+      tailwind-merge:
+        specifier: ^3.5.0
+        version: 3.5.0
+
   packages/host:
     dependencies:
       '@effect/ai-openai-compat':
