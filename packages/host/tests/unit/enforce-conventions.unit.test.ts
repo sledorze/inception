@@ -109,6 +109,35 @@ describe('App renders a single goal-submission surface (P43)', () => {
   })
 })
 
+// ── P48 RED — handleErr declared in more than one api file ───────────────────
+// Three byte-identical copies exist: backoffice/api/auth.ts, app/api/auth.ts, backoffice/api/admin.ts.
+// Remove .fails when the shared authed client is extracted (TODO 10.11 green).
+
+describe('Frontend api layer: handleErr declared in exactly one file (P48)', () => {
+  it.fails('handleErr is declared in exactly one packages/*/src/api file', () => {
+    const apiDirs = [
+      join(REPO_ROOT, 'packages', 'app', 'src', 'api'),
+      join(REPO_ROOT, 'packages', 'backoffice', 'src', 'api'),
+    ]
+    const definingFiles: string[] = []
+    for (const dir of apiDirs) {
+      if (!existsSync(dir)) {
+        continue
+      }
+      for (const entry of readdirSync(dir, { withFileTypes: true })) {
+        if (!entry.isFile() || (!entry.name.endsWith('.ts') && !entry.name.endsWith('.tsx'))) {
+          continue
+        }
+        const src = readFileSync(join(dir, entry.name), 'utf8')
+        if (src.includes('const handleErr') || src.includes('function handleErr')) {
+          definingFiles.push(join(dir, entry.name).replace(`${REPO_ROOT}/`, ''))
+        }
+      }
+    }
+    expect(definingFiles, 'handleErr defined in multiple files — extract to shared authed client').toHaveLength(1)
+  })
+})
+
 // ── P41 red-step acceptance tests ────────────────────────────────────────────
 // State interpretation belongs in atoms.ts, not in presentation components.
 // RED: both assertions fail on current code. Remove .fails when green cycle lands.

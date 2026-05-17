@@ -304,6 +304,28 @@ intentional`). Annotated 4 bridge files. Documented pattern in `.claude/patterns
   with helper copy, session label, dataset label, example empty state; e2e stays green.
   test: `packages/host/tests/unit/enforce-conventions.unit.test.ts` "App renders a single goal-submission surface (P43)" GREEN.
 
+- [done] **10.8** **P46/P47/P48 RED step — Promise-slip detection gaps** (2026-05-17).
+  PAIN P46/P47/P48 filed; TODO items 10.9–10.11 added; red acceptance tests committed
+  (`it.fails` in `oxlint-rules.unit.test.ts` for P46, `enforce-conventions.unit.test.ts`
+  for P48). No green work.
+
+- [todo] **10.9** **P46 GREEN — extend `effect-patterns` oxlint plugin**:
+  add `AwaitExpression` visitor to `no-async-in-src`; add `.then`/`.catch`/`.finally`
+  member-call visitor to `no-raw-promise`; harden `// promise-bridge: intentional` bypass to a
+  leading-file-scope-comment check. Confirm `.oxlintrc.json` Block 0 glob covers `src/checks/`.
+  Green gate: `it.fails` → plain `it` in `oxlint-rules.unit.test.ts` P46 describes.
+
+- [todo] **10.10** **P47 — convert `src/checks/*.ts` to `NodeRuntime.runMain`**:
+  `check-test-conventions.ts:68` + `check-file-structure.ts:79` → `NodeRuntime.runMain`
+  (subpath import `@effect/platform-node/NodeRuntime`). Depends on 10.9 green.
+  Green gate: `pnpm lint` passes on both converted files; add passing regression test.
+
+- [todo] **10.11** **P48 — extract shared frontend authed client**:
+  consolidate `handleErr` / `authedFetch` / `TOKEN_KEY` / token accessors into one shared module;
+  route the 5 bare `authedFetch(...).then(r.json())` endpoints through a `getJson<T>` helper that
+  always pipes `handleErr`; assert single `handleErr` declaration in `enforce-conventions.unit.test.ts`.
+  Green gate: `it.fails` → plain `it` in P48 describe.
+
 **Exit:** `pnpm lint:ci` catches a standalone `async function` or `try/catch` in `packages/host/src/`; dep-cruiser
 reports a violation for any component that imports `api/` directly; the three promoted skills are
 invocable and linked from CLAUDE.md.

@@ -559,6 +559,47 @@ describe('effect-patterns/no-async-in-src (P35) — async keyword banned in host
   })
 })
 
+// ── P46 RED — no-async-in-src misses top-level await ─────────────────────────
+// The rule has no AwaitExpression visitor; `await expr` at module scope is invisible.
+// Remove .fails when the visitor is added (TODO 10.9 green).
+
+describe('effect-patterns/no-async-in-src — top-level await (P46)', () => {
+  it.fails('flags await at module scope in src/', () => {
+    const { exitCode, stdout } = lint(
+      'packages/host/src/application/probe_toplevel_await.ts',
+      `import { Effect } from 'effect'\nawait Effect.runPromise(Effect.void)\n`,
+    )
+    expect(exitCode).not.toBe(0)
+    expect(stdout).toContain('no-async-in-src')
+  })
+})
+
+// ── P46 RED — no-raw-promise misses .then/.catch chaining ────────────────────
+// The rule has no MemberExpression-call visitor; p.then(...) is invisible.
+// The bypass marker check is a whole-file substring — a marker in a string literal silences
+// the file. Remove .fails when the visitors + bypass hardening land (TODO 10.9 green).
+
+describe('effect-patterns/no-raw-promise — .then chaining (P46)', () => {
+  it.fails('flags .then( chaining on a promise in src/', () => {
+    const { exitCode, stdout } = lint(
+      'packages/host/src/application/probe_promise_then.ts',
+      `declare const p: Promise<void>\nconst _r = p.then(() => {})\n`,
+    )
+    expect(exitCode).not.toBe(0)
+    expect(stdout).toContain('no-raw-promise')
+  })
+
+  it.fails('bypass marker embedded in a string literal must not silence the rule', () => {
+    const { exitCode } = lint(
+      'packages/host/src/application/probe_bypass_string.ts',
+      `const _s = '// promise-bridge: intentional'\ndeclare const p: Promise<void>\nconst _r = p.then(() => {})\n`,
+    )
+    // Currently the whole-file src.includes() match fires on the string, silencing the rule.
+    // After hardening, only a leading file-scope comment disables enforcement.
+    expect(exitCode).not.toBe(0)
+  })
+})
+
 // ── effect-patterns/no-try-catch-in-src (P39 green step) ────────────────────
 // These tests verify the rule that now exists (TODO 10.4 green step).
 

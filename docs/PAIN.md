@@ -87,6 +87,77 @@ N+1th returns 429 or has a measurable delay — cite in PAIN closure.
 
 ---
 
+## P46 — `effect-patterns` oxlint plugin misses top-level `await` and `.then/.catch` chaining
+
+**Severity:** slows (hard rule advertised as enforced; violations ship silently)
+
+**Symptom:** `noAsyncInSrc` in `.claude/oxlint-plugins/effect-patterns.js` has no
+`AwaitExpression` visitor, so `await expr` at module scope (or anywhere outside an explicitly
+`async`-flagged function) is never flagged. `noRawPromise` has no MemberExpression-call visitor,
+so `.then(` / `.catch(` / `.finally(` promise-chaining is never reported. The
+`// promise-bridge: intentional` bypass is checked via `src.includes(...)` over the entire raw
+source — a match anywhere in the file (string literal, far-from-scope comment) silences the rule
+file-wide, contrary to the message's claim of "at file scope."
+
+**Candidate fix (oxlint rule, PostToolUse latency):**
+
+1. `noAsyncInSrc` — add `AwaitExpression(node)` visitor; report unless the enclosing function is
+   the `try`/`catch` callback of an `Effect.tryPromise` or `Effect.promise` call.
+2. `noRawPromise` — add a `CallExpression` visitor that walks the callee: if the callee is a
+   MemberExpression with a non-computed `.then` / `.catch` / `.finally` property, report; also
+   report computed `Promise['resolve']` and Identifier references that alias `Promise`.
+3. Bypass hardening — replace `src.includes('// promise-bridge: intentional')` with a check
+   that the marker is a leading line-comment before the first statement (using
+   `context.sourceCode.getCommentsBefore(firstToken)` or first-token range inspection). A marker
+   buried in a string literal or trailing comment must not silence the file.
+4. Confirm `packages/host/.oxlintrc.json` Block 0 glob (`**/src/**/*.ts`) covers `src/checks/`.
+
+**Acceptance test.** `packages/host/tests/unit/oxlint-rules.unit.test.ts` —
+`describe('effect-patterns/no-async-in-src — top-level await (P46)')`: assert `exitCode !== 0`
+on a fixture containing `await expr` at module scope; `describe('effect-patterns/no-raw-promise
+— .then chaining (P46)')`: assert `exitCode !== 0` on `p.then(() => {})` and assert a bypass
+marker embedded in a string literal does **not** silence the rule. Currently `it.fails` (RED);
+remove `.fails` in green commit.
+test: `packages/host/tests/unit/oxlint-rules.unit.test.ts` — P46 describes (RED).
+
+---
+
+## P47 — two `src/checks/*.ts` CLI scripts use unannotated top-level `await Effect.runPromise`
+
+**Severity:** slows (genuine hard-rule violation, invisible to all tooling today)
+
+**Symptom:** `packages/host/src/checks/check-test-conventions.ts:68` and
+`packages/host/src/checks/check-file-structure.ts:79` both end with:
+
+```ts
+await Effect.runPromise(program.pipe(Effect.provide(Layer.mergeAll(NodeFileSystem.layer, NodePath.layer))))
+```
+
+The file header carries `/** @effect-diagnostics strictEffectProvide:off */` but no
+`// promise-bridge: intentional`. They are CLI entry scripts (morally equivalent to `main.ts`)
+but not compliant with the Effect-over-Promise hard rule. Invisible because the P46 gap
+(`AwaitExpression` visitor missing) means oxlint never fires. Once P46 is fixed these two files
+will be flagged until converted.
+
+**Candidate fix:** Replace the `await Effect.runPromise(...)` tail in both files with:
+
+```ts
+program.pipe(Effect.provide(Layer.mergeAll(...)), NodeRuntime.runMain)
+```
+
+using `import * as NodeRuntime from '@effect/platform-node/NodeRuntime'` (subpath import per
+`host-package.md` to avoid the barrel's `@effect/cluster` side-effect). Remove the `@effect-
+diagnostics` header; no `// promise-bridge` needed for this pattern.
+
+**Acceptance test.** `packages/host/tests/unit/oxlint-rules.unit.test.ts` — add a case after P46
+green: lint a fixture containing `await Effect.runPromise(...)` at module scope and assert
+`exitCode !== 0`; lint the real `check-test-conventions.ts` path (relative to fixture root) after
+conversion and assert `exitCode === 0`. The P46 `AwaitExpression` test already covers the
+detection side; P47's green test proves conversion eliminates the flag.
+test: `packages/host/tests/unit/oxlint-rules.unit.test.ts` — P46 AwaitExpression case covers RED.
+
+---
+
 ## P45 — `archivedPainItems` always returns 0 (PAIN-archive.md not parsed)
 
 **Severity:** annoys
@@ -100,3 +171,34 @@ slot for the archive path.
 
 **Acceptance test.** Unit test for `parsePainArchiveMd` asserting it counts `## P…` entries that
 contain a `FIXED` line — cite in PAIN closure.
+
+---
+
+## P48 — frontend api layer: `handleErr` ×3, duplicated `authedFetch`/`TOKEN_KEY`, 5 endpoints skip error handling
+
+**Severity:** annoys (correctness bug + AL.7 duplication in the frontend api layer)
+
+**Symptom:** `handleErr` (the function that throws on non-2xx responses) is declared
+byte-identically in three separate files:
+
+- `packages/backoffice/src/api/auth.ts` (source)
+- `packages/app/src/api/auth.ts` (copy)
+- `packages/backoffice/src/api/admin.ts:67` (local re-declaration)
+
+`authedFetch`, `TOKEN_KEY`, and the token accessor functions (`getToken`/`setToken`/`clearToken`)
+are duplicated across `packages/app/src/api/auth.ts` and `packages/backoffice/src/api/auth.ts`.
+`getMetrics`, `getPain`, `getWork` (`admin.ts` ~lines 25–32), `listProposals`, and `callTool`
+call `authedFetch(...).then(r => r.json())` **without `handleErr`** — a non-2xx response is
+parsed as JSON and surfaces as a confusing parse error rather than the server's error message.
+
+**Candidate fix:** extract a shared authed client (`packages/frontend-api/` workspace or a
+shared module imported by both packages) owning `TOKEN_KEY`, token accessors, `authedFetch`,
+`handleErr`, and a single `getJson<T>(url, init)` that always pipes through `handleErr` before
+decoding. Route the 5 bare endpoints through `getJson`. Guard against re-duplication with an
+acceptance test.
+
+**Acceptance test.** `packages/host/tests/unit/enforce-conventions.unit.test.ts` — add
+`it.fails('handleErr is declared in exactly one api file', ...)` scanning `packages/*/src/api/`
+for `const handleErr` or `function handleErr` and asserting exactly one match (currently fails
+because three files define it). Currently `it.fails` (RED); remove `.fails` in green commit.
+test: `packages/host/tests/unit/enforce-conventions.unit.test.ts` — "Frontend api layer: handleErr declared in exactly one file (P48)" (RED).
