@@ -2,7 +2,7 @@ import * as Atom from 'effect/unstable/reactivity/Atom'
 import * as AsyncResult from 'effect/unstable/reactivity/AsyncResult'
 import * as Cause from 'effect/Cause'
 import * as Effect from 'effect/Effect'
-import { getMetrics, getPain, getPatterns, getSessions, getWork } from './hooks/admin.ts'
+import { getMetrics, getPain, getPatterns, getSessionEvents, getSessions, getWork } from './hooks/admin.ts'
 
 export type AsyncView<T> =
   | { readonly _tag: 'Loading'; readonly waiting: boolean }
@@ -29,3 +29,6 @@ export const painView = Atom.map(painAtom, toView)
 export const patternsView = Atom.map(patternsAtom, toView)
 export const sessionsView = Atom.map(sessionsAtom, toView)
 export const workView = Atom.map(workAtom, toView)
+
+export const sessionEventsAtom = Atom.family((sessionId: string) => fetchAtom(() => getSessionEvents(sessionId)))
+export const sessionEventsView = Atom.family((sessionId: string) => Atom.map(sessionEventsAtom(sessionId), toView))

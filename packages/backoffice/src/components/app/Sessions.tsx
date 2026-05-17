@@ -1,5 +1,5 @@
-import { useState } from 'react'
 import { useAtomRefresh, useAtomValue } from '@effect/atom-react'
+import { useNavigate, useParams } from 'react-router'
 import { Button } from '@app/design-system/button'
 import { Card } from '@app/design-system/card'
 import { sessionsAtom, sessionsView } from '../../atoms.ts'
@@ -12,12 +12,13 @@ export function Sessions() {
   const sessions = view._tag === 'Ready' ? view.value : null
   const error = view._tag === 'Error' ? view.message : null
   const loading = view.waiting
-  const [selected, setSelected] = useState<string | null>(null)
+  const { sessionId } = useParams()
+  const navigate = useNavigate()
 
-  if (selected !== null) {
+  if (sessionId !== undefined) {
     return (
       <Card className="space-y-3 p-4">
-        <SessionDetail onBack={() => setSelected(null)} sessionId={selected} />
+        <SessionDetail onBack={() => navigate('/observability')} sessionId={sessionId} />
       </Card>
     )
   }
@@ -45,7 +46,7 @@ export function Sessions() {
             <Button
               className="h-auto w-full flex-col items-start gap-0 rounded border p-2 text-left text-xs"
               key={s.sessionId}
-              onClick={() => setSelected(s.sessionId)}
+              onClick={() => navigate(`/observability/sessions/${s.sessionId}`)}
               type="button"
               variant="ghost"
             >

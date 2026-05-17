@@ -32,8 +32,11 @@ export function App() {
         <Routes>
           <Route element={<Navigate replace to="/observability" />} path="/" />
           <Route element={<ObservabilitySection />} path="/observability" />
+          <Route element={<ObservabilitySection />} path="/observability/sessions/:sessionId" />
           <Route element={<GovernanceSection />} path="/governance" />
+          <Route element={<GovernanceSection />} path="/governance/proposals/:contentHash" />
           <Route element={<DevToolsSection />} path="/devtools" />
+          <Route element={<DevToolsSection />} path="/devtools/:tool" />
           <Route element={<ConfigSection />} path="/config" />
           <Route element={<Navigate replace to="/observability" />} path="*" />
         </Routes>
