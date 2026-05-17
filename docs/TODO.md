@@ -285,6 +285,13 @@ intentional`). Annotated 4 bridge files. Documented pattern in `.claude/patterns
   Created `packages/design-system/.oxlintrc-base.json`; wired `"extends"` in `app/`, `backoffice/`,
   `host/` configs. Green gate: `tests/unit/enforce-conventions.unit.test.ts` — "P40" passes.
 
+- [todo] **10.5** **View-model atoms — decouple UI-state interpretation from components** (closes P41).
+  RED: `tests/unit/enforce-conventions.unit.test.ts` —
+  "Frontend presentation components must not interpret async state (P41)" two `it.fails` assertions
+  added (this cycle). GREEN (later cycle): derived view-model atoms via `Atom.map` +
+  `AsyncResult.match` in `atoms.ts`; migrate 5 atom + ~11 legacy components; add
+  `.claude/patterns/frontend-atoms.md`; add `no-AsyncResult-in-components` boundary; remove `.fails`.
+
 **Exit:** `pnpm lint:ci` catches a standalone `async function` or `try/catch` in `packages/host/src/`; dep-cruiser
 reports a violation for any component that imports `api/` directly; the three promoted skills are
 invocable and linked from CLAUDE.md.

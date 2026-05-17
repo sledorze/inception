@@ -2,6 +2,23 @@ import { existsSync, readFileSync, readdirSync } from 'node:fs'
 import { join } from 'node:path'
 import { describe, expect, it } from '@effect/vitest'
 
+function collectTsxFiles(dir: string): string[] {
+  if (!existsSync(dir)) {
+    return []
+  }
+  const entries = readdirSync(dir, { withFileTypes: true })
+  const files: string[] = []
+  for (const entry of entries) {
+    const full = join(dir, entry.name)
+    if (entry.isDirectory()) {
+      files.push(...collectTsxFiles(full))
+    } else if (entry.isFile() && entry.name.endsWith('.tsx')) {
+      files.push(full)
+    }
+  }
+  return files
+}
+
 const REPO_ROOT = join(import.meta.dirname, '..', '..', '..', '..')
 
 // ── P38 green-step acceptance tests ──────────────────────────────────────────
@@ -75,5 +92,48 @@ describe('P40 — every package oxlint config extends shared baseline', () => {
         `packages/${pkg}/.oxlintrc.json must have an "extends" field pointing to the shared base`,
       ).toBeDefined()
     }
+  })
+})
+
+// ── P41 red-step acceptance tests ────────────────────────────────────────────
+// State interpretation belongs in atoms.ts, not in presentation components.
+// RED: both assertions fail on current code. Remove .fails when green cycle lands.
+
+describe('Frontend presentation components must not interpret async state (P41)', () => {
+  const componentDirs = [
+    join(REPO_ROOT, 'packages', 'backoffice', 'src', 'components'),
+    join(REPO_ROOT, 'packages', 'app', 'src', 'components'),
+  ]
+
+  it.fails('no component .tsx interprets AsyncResult/Cause directly', () => {
+    const forbidden = [
+      'AsyncResult.isSuccess(',
+      'AsyncResult.isFailure(',
+      "from 'effect/unstable/reactivity/AsyncResult'",
+      'Cause.squash(',
+    ]
+    const violations: string[] = []
+    for (const dir of componentDirs) {
+      for (const file of collectTsxFiles(dir)) {
+        const src = readFileSync(file, 'utf8')
+        if (forbidden.some(token => src.includes(token))) {
+          violations.push(file.replace(`${REPO_ROOT}/`, ''))
+        }
+      }
+    }
+    expect(violations, 'state-interpretation in component files — move to atoms.ts').toEqual([])
+  })
+
+  it.fails('no component .tsx contains promise chaining (.then)', () => {
+    const violations: string[] = []
+    for (const dir of componentDirs) {
+      for (const file of collectTsxFiles(dir)) {
+        const src = readFileSync(file, 'utf8')
+        if (src.includes('.then(')) {
+          violations.push(file.replace(`${REPO_ROOT}/`, ''))
+        }
+      }
+    }
+    expect(violations, 'promise chaining in component files — use atom + useAtomRefresh').toEqual([])
   })
 })
