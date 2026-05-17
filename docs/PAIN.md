@@ -105,3 +105,9 @@ Candidates:
 
 Stopped because: 3 candidates surfaced and landed.
 -->
+
+**P53** — severity: slows | Law test mutation score below quality bar
+
+- **Symptom:** `stryker.laws.config.json` `break` threshold set to 40 (baseline calibrated 2026-05-17 at 45.22%). The law tests are under-assertive — 55% of mutations in `tests/laws/**` survive, meaning many law checks can be silently weakened without any test catching it.
+- **Candidate fix:** For each survived mutant in the Stryker HTML report, add a targeted assertion in the matching `tests/laws/<id>.spec.ts` that kills it. Ratchet `break` up by 5 points per sprint until ≥ 70. Acceptance test: `stryker.laws.config.json` `break` threshold itself (CI job fails when score drops below it).
+- **Acceptance test:** CI `law mutation (scoped Stryker)` job — red when score < `break`, green when score ≥ `break`. Threshold to be ratcheted up in PAIN closure commits.
