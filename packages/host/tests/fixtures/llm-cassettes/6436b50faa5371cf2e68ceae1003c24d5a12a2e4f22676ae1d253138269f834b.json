@@ -1,0 +1,46 @@
+{
+  "choices": [
+    {
+      "finish_reason": "tool_calls",
+      "index": 0,
+      "logprobs": null,
+      "message": {
+        "content": "\n\n\n",
+        "reasoning_content": "The user is asking about \"synthetic-001\". This seems like they're referring to a data handle or some resource in the system. Let me first check what tools are available and then try to understand what this refers to.\n\nLet me start by calling list-tools as required, and also try to fetch the shape of a handle called \"synthetic-001\" if it exists.\n",
+        "role": "assistant",
+        "tool_calls": [
+          {
+            "function": {
+              "arguments": "{\"role\":\"user\"}",
+              "name": "list-tools"
+            },
+            "id": "593192777",
+            "type": "function"
+          },
+          {
+            "function": {
+              "arguments": "{\"handleId\":\"synthetic-001\",\"role\":\"user\"}",
+              "name": "fetch-handle-shape"
+            },
+            "id": "755591765",
+            "type": "function"
+          }
+        ]
+      }
+    }
+  ],
+  "created": 1779004692,
+  "id": "chatcmpl-9d6zswiuuyd2k0it52737",
+  "model": "qwopus3.6-35b-a3b-v1",
+  "object": "chat.completion",
+  "stats": {},
+  "system_fingerprint": "qwopus3.6-35b-a3b-v1",
+  "usage": {
+    "completion_tokens": 157,
+    "completion_tokens_details": {
+      "reasoning_tokens": 83
+    },
+    "prompt_tokens": 2555,
+    "total_tokens": 2712
+  }
+}

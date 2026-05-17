@@ -18,6 +18,7 @@ type MsgEntry = { role: string; content: unknown }
 export interface AgentBrief {
   readonly agentMd: string
   readonly goal: string
+  readonly role: string
   readonly tools: readonly { name: string; description: string }[]
   readonly handles: readonly { id: string; schema: unknown; redactedSample: unknown }[]
 }
@@ -33,6 +34,9 @@ export const buildInitialMessages = (b: AgentBrief): MsgEntry[] => {
     '',
     '## Session brief',
     '',
+    `Your active role in this session is: **${b.role}**`,
+    `When calling tools that require a role parameter, always pass role="${b.role}".`,
+    '',
     '### Available tools',
     ...toolLines,
     '',
@@ -40,7 +44,7 @@ export const buildInitialMessages = (b: AgentBrief): MsgEntry[] => {
     ...handleLines,
     '',
     'IMPORTANT: You MUST call tools to answer — never rely on general knowledge about the data.',
-    'Start by calling `list-tools`, then inspect the handle with `fetch-handle-shape` or `run-script`.',
+    `Start by calling list-tools with role="${b.role}", then inspect the handle with fetch-handle-shape or run-script.`,
     'If the goal is ambiguous, call `request-clarification` rather than guessing.',
   ].join('\n')
 
@@ -161,6 +165,7 @@ export const makeSubmitGoal = <Tools extends Record<string, Tool.Any>>(
       agentMd,
       goal: s.goal,
       handles: handleShape,
+      role: 'enduser',
       tools: tools.map(t => ({ description: t.description, name: t.name })),
     }
 

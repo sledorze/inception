@@ -17,6 +17,7 @@ tools:
     roles:
       - Architect
       - Implementer
+      - enduser
     inputSchema:
       type: object
       properties:
@@ -56,6 +57,7 @@ tools:
       stdoutHash, and summary only — never raw data bytes.
     roles:
       - Implementer
+      - enduser
     inputSchema:
       type: object
       properties:

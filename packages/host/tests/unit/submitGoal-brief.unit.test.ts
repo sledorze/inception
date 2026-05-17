@@ -11,6 +11,7 @@ describe('buildInitialMessages includes full agent brief (P42)', () => {
     agentMd: 'You are Georges.',
     goal: 'What is synthetic-001?',
     handles: [{ id: 'synthetic-001', redactedSample: { id: 1, value: 'x' }, schema: { columns: ['id', 'value'] } }],
+    role: 'enduser',
     tools: [
       { description: 'List the tools available to you.', name: 'list-tools' },
       { description: 'Fetch the shape of a data handle.', name: 'fetch-handle-shape' },
@@ -41,6 +42,13 @@ describe('buildInitialMessages includes full agent brief (P42)', () => {
     const user = messages.find(m => m.role === 'user')
     const content = JSON.stringify(user?.content)
     expect(content).toContain('What is synthetic-001?')
+  })
+
+  it('system message contains the active role', () => {
+    const messages = buildInitialMessages(brief)
+    const system = messages.find(m => m.role === 'system')
+    const text = system?.content as string
+    expect(text).toContain('enduser')
   })
 
   it('system message contains the MUST-call-tools directive', () => {
