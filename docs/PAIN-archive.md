@@ -627,3 +627,31 @@ inserted (duplicate), query and return the already-stored event. Applied same id
 ## P26 — `bin/ceremony.ts` and `bin/user.ts` have no integration tests
 
 FIXED 2026-05-15 in 34b865a3 — test: packages/host/tests/integration/ceremonyBin.integration.test.ts (setup + sign + verify pipeline via CeremonyKeyStore + domain; 4 tests), packages/host/tests/integration/userBin.integration.test.ts (HTTP client wiring via async spawn + in-process stub; 3 tests). Note: spawnSync blocks the event loop — HTTP stub requires async spawn.
+
+## P42 — Georges receives bare goal with no tool/handle brief (prototype unusable)
+
+**Severity:** blocks work
+
+**Symptom:** `submitGoal.ts` built the initial prompt as `[{system: agentMd}, {user: goal}]` — the bare goal with no tool listing, no handle schema, no role declaration, and no hard tool-use directive. The model received tool schemas via the Effect AI `toolkit` option but was never told in natural language what data existed or that it MUST ground answers in tools. Result: zero tool calls, generic boilerplate.
+
+FIXED 2026-05-17 in 09de2686 —
+
+- Extracted pure `buildInitialMessages(AgentBrief)` from `submitGoal.ts`; wires `yield* ToolRegistry` + `yield* DataHandleRegistry` (L2.14-clean driven ports) to populate a session brief: active role, available tools, handle schema + sample, and a hard MUST directive.
+- `tools.yaml`: granted `enduser` access to `fetch-handle-shape` and `run-script`.
+- `agent.md`: added "Hard rules — tool use" section with explicit tool-use forcing function.
+- Cassettes recorded (model `qwopus3.6-35b-a3b-v1@q4_k_s`): list-tools round → fetch-handle-shape round → grounded text reply.
+- test: `packages/host/tests/unit/submitGoal-brief.unit.test.ts` — 5 assertions (tool names, handle schema, role, MUST directive) — GREEN.
+- test: `e2e/conversation.spec.ts` — "reply is grounded — references handle columns" — GREEN in `LLM_MODE=replay`.
+
+## P43 — Two redundant goal-submission surfaces rendered stacked (UX confusion)
+
+**Severity:** slows
+
+**Symptom:** `App.tsx` rendered `<Conversation />` and `<SubmitGoal />` stacked with no routing, labels, or explanation. Both POSTed `/api/goals`. `SubmitGoal` had no clarification handling and dumped raw JSON. The e2e spec already canonised `conv-*` testIds; `SubmitGoal` (`sg-*`) was unreferenced.
+
+FIXED 2026-05-17 in 981eaf97 —
+
+- Deleted `packages/app/src/components/app/SubmitGoal.tsx` and removed its import/render from `App.tsx`.
+- Deleted unused `packages/app/src/hooks/goals.ts` and `packages/app/src/api/goals.ts`.
+- `Conversation.tsx`: added helper description, friendly session label, dataset input label, and example empty-state prompt (all `conv-*` testIds preserved).
+- test: `packages/host/tests/unit/enforce-conventions.unit.test.ts` — "App renders a single goal-submission surface (P43)" — GREEN.
