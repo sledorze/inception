@@ -95,6 +95,21 @@ describe('P40 — every package oxlint config extends shared baseline', () => {
   })
 })
 
+// ── P43 red-step acceptance tests ────────────────────────────────────────────
+// SubmitGoal is redundant — Conversation is the single conversational surface.
+// Both assertions fail on current code. Remove .fails when green cycle lands.
+
+describe('App renders a single goal-submission surface (P43)', () => {
+  it.fails('SubmitGoal.tsx does not exist (redundant surface deleted)', () => {
+    expect(existsSync(join(REPO_ROOT, 'packages', 'app', 'src', 'components', 'app', 'SubmitGoal.tsx'))).toBe(false)
+  })
+
+  it.fails('App.tsx does not import SubmitGoal', () => {
+    const appSrc = readFileSync(join(REPO_ROOT, 'packages', 'app', 'src', 'App.tsx'), 'utf8')
+    expect(appSrc).not.toContain('SubmitGoal')
+  })
+})
+
 // ── P41 red-step acceptance tests ────────────────────────────────────────────
 // State interpretation belongs in atoms.ts, not in presentation components.
 // RED: both assertions fail on current code. Remove .fails when green cycle lands.

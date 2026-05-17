@@ -58,6 +58,36 @@ test('conversation: send a goal and receive a non-empty reply', async ({ page })
  * Record: LLM_MODE=record LLM_MODEL=qwopus3.6-35b-a3b-v1 pnpm e2e
  * Replay: LLM_MODE=replay pnpm e2e
  */
+// ── P42 red-step acceptance test ─────────────────────────────────────────────
+// Skipped until a cassette is recorded after the briefing fix.
+// GREEN cycle: record with LLM_MODE=record; reply must reference 'id' or 'value'
+// (handle column names injected via buildInitialMessages). Remove skip condition
+// and cite this file in docs/PAIN-archive.md when closing P42.
+
+const hasReplayCassette = process.env['LLM_MODE'] === 'replay'
+test.skip(!hasReplayCassette, 'Grounding check requires LLM_MODE=replay cassette recorded after P42 fix')
+
+test('conversation: reply is grounded — references handle columns', async ({ page }) => {
+  await loginAsEnduser(page)
+
+  const goalInput = page.getByTestId('conv-goal')
+  const sendBtn = page.getByTestId('conv-send')
+
+  await goalInput.fill('What is synthetic-001?')
+  await sendBtn.click()
+
+  await expect(sendBtn).toHaveText('Thinking…')
+
+  const firstReply = page.getByTestId('conv-reply-0')
+  await expect(firstReply).toBeVisible({ timeout: 30_000 })
+
+  // Post-fix: Georges must ground its reply in the handle schema (injected in the
+  // system brief). At least one of the known column names must appear in the reply.
+  const replyText = await firstReply.textContent()
+  const isGrounded = (replyText ?? '').includes('id') || (replyText ?? '').includes('value')
+  expect(isGrounded, `Expected reply to reference handle columns (id/value) but got: ${replyText}`).toBe(true)
+})
+
 test.skip(!hasLlm, 'Requires LLM_MODE=fake or LLM_MODE=replay')
 
 test('conversation: Georges asks for clarification, User answers, final reply appears', async ({ page }) => {

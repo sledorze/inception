@@ -292,6 +292,20 @@ intentional`). Annotated 4 bridge files. Documented pattern in `.claude/patterns
   `AsyncResult.match` in `atoms.ts`; migrate 5 atom + ~11 legacy components; add
   `.claude/patterns/frontend-atoms.md`; add `no-AsyncResult-in-components` boundary; remove `.fails`.
 
+- [todo] **10.6** **Brief Georges with tool/handle context** (closes P42).
+  RED: `packages/host/tests/unit/submitGoal-brief.unit.test.ts` — `describe.skip`
+  asserting `buildInitialMessages` includes tool names + handle schema (symbol absent until
+  green). E2E: `e2e/conversation.spec.ts` — grounding-check test skipped until cassette.
+  GREEN: extract pure `buildInitialMessages`; `yield* ToolRegistry` + `yield* DataHandleRegistry`
+  in `makeSubmitGoal`; populate prompt with tool brief + handle schema; add tool-use forcing
+  function to `agent.md`; remove `.skip`; record+replay cassette proves grounded reply.
+
+- [todo] **10.7** **Unify Goal/Chat surface** (closes P43).
+  RED: `packages/host/tests/unit/enforce-conventions.unit.test.ts` — two `it.fails`
+  assertions: SubmitGoal.tsx absent, App.tsx does not import SubmitGoal.
+  GREEN: delete `packages/app/src/components/app/SubmitGoal.tsx`; remove from `App.tsx`;
+  add self-explanatory copy to `Conversation.tsx` (all `conv-*` testIds unchanged); e2e stays green.
+
 **Exit:** `pnpm lint:ci` catches a standalone `async function` or `try/catch` in `packages/host/src/`; dep-cruiser
 reports a violation for any component that imports `api/` directly; the three promoted skills are
 invocable and linked from CLAUDE.md.
