@@ -55,36 +55,32 @@ export function Conversation() {
       return
     }
     const pendingGoal = goal
+    const tempId = crypto.randomUUID()
+    // Optimistic: show user bubble and clear input immediately
+    setTurns(prev => [...prev, { correlationId: tempId, goal: pendingGoal, turnIndex: prev.length }])
+    setGoal('')
     setBusy(true)
     setConvError(null)
     try {
       const result = await sendMessage(sessionId, pendingGoal, handleId)
       if (result.clarifyQuestion !== undefined) {
         const q = result.clarifyQuestion
-        setTurns(prev => [
-          ...prev,
-          {
-            clarifyQuestion: q,
-            correlationId: result.correlationId,
-            goal: pendingGoal,
-            turnIndex: prev.length,
-          },
-        ])
+        setTurns(prev =>
+          prev.map(t =>
+            t.correlationId === tempId ? { ...t, clarifyQuestion: q, correlationId: result.correlationId } : t,
+          ),
+        )
         setPendingClarify({ correlationId: result.correlationId, question: q })
       } else {
-        setTurns(prev => [
-          ...prev,
-          {
-            correlationId: result.correlationId,
-            goal: pendingGoal,
-            reply: result.text ?? '',
-            turnIndex: prev.length,
-          },
-        ])
+        setTurns(prev =>
+          prev.map(t =>
+            t.correlationId === tempId ? { ...t, correlationId: result.correlationId, reply: result.text ?? '' } : t,
+          ),
+        )
       }
-      setGoal('')
     } catch (err: unknown) {
       setConvError(String(err))
+      setTurns(prev => prev.filter(t => t.correlationId !== tempId))
     } finally {
       setBusy(false)
     }
