@@ -2,6 +2,10 @@ const TOKEN_KEY = 'auth_token'
 
 export const handleErr = (res: Response): Promise<Response> => {
   if (!res.ok) {
+    if (res.status === 401) {
+      clearToken()
+      globalThis.dispatchEvent(new CustomEvent('auth:expired'))
+    }
     return res.text().then(t => {
       throw new Error(`${res.status}: ${t}`)
     })

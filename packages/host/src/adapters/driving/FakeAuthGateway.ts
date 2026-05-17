@@ -3,8 +3,8 @@ import { Clock, Effect, Layer } from 'effect'
 import type { AuthSession, Role } from '../../ports/driving/AuthGateway.ts'
 import { AuthGateway, InvalidCredentials, SessionExpired, SessionNotFound } from '../../ports/driving/AuthGateway.ts'
 
-// Session TTL: 1 hour in milliseconds.
-const SESSION_TTL_MS = 3_600_000
+// Session TTL: 7 days in milliseconds (matches ScryptAuthGateway; sliding renewal in verify).
+const SESSION_TTL_MS = 7 * 24 * 60 * 60 * 1_000
 
 export interface FakeCred {
   readonly password: string

@@ -345,6 +345,10 @@ intentional`). Annotated 4 bridge files. Documented pattern in `.claude/patterns
   test: `e2e/rbac.spec.ts` — "Rate limiting — POST /api/login (P49)" (1 assertion GREEN).
 
 - [done] **10.15** **P50 — HTTP observability: Logger + global error handler + GoalFailed event** (2026-05-17).
+
+- [done] **10.16** **P51 — Persistent auth sessions (7-day sliding TTL + graceful frontend 401)** (2026-05-17).
+  Red step: `authSessionPersistence.integration.test.ts` (fails before `fileBackedLayer` exists).
+  Green step: `ScryptAuthGateway.fileBackedLayer` + `bind.ts` wiring + 401 → `auth:expired` event in `shared-api` + listener in both `App.tsx` files + `.gitignore` + `AuthGateway.spec.ts` TTL update.
   Three gaps closed: (1) `Logger.consolePretty(stderr)` in `fullLayer` so failures reach stderr;
   (2) `tapErrorCause + catchAllCause` at `main.ts` HTTP boundary replaces the `as any` cast —
   any route failure now produces a structured JSON `{error, detail}` body instead of empty 500;

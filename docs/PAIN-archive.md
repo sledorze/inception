@@ -5,6 +5,32 @@ Convention: fix → move (cut from PAIN.md, paste here in the same commit as the
 
 ---
 
+## P51 — In-memory auth sessions lost on every server restart (forced re-auth)
+
+**Severity:** blocks work (dev loop: every `tsx watch` reload logs the user out)
+
+**Symptom:** `ScryptAuthGateway` stores sessions in a `Map` that lives only for the
+server process. A valid `localStorage` token (correctly persisted) hits `verify` on a
+fresh `Map` → `SessionNotFound` → 401. Frontend has no graceful 401 path: it shows a
+raw `Error: 401: ...` string instead of returning the user to the login screen.
+
+**Candidate fix:**
+
+- `ScryptAuthGateway.fileBackedLayer(credentials, sessionsPath)` — load sessions from a
+  JSON file on layer build (filter expired), persist on every login/logout/sliding-renewal.
+- TTL → 7 days, sliding (renew `expiresAtMs` on each successful `verify`).
+- `bind.ts` wires `fileBackedLayer` with `SESSIONS_PATH = data/sessions.json`.
+- `shared-api/handleErr`: 401 → `clearToken()` + `window.dispatchEvent(new CustomEvent('auth:expired'))`.
+- Both `App.tsx` files: listen `auth:expired` → `setAuthed(false)`.
+- `.gitignore`: `**/data/sessions.json` (bearer tokens, must not be staged).
+
+**Red-step test:** `packages/host/tests/integration/authSessionPersistence.integration.test.ts`
+(fails on current in-memory code; green after `fileBackedLayer` lands).
+
+FIXED 2026-05-17 in feat/design-system-enforcement (TODO 10.16) — test: packages/host/tests/integration/authSessionPersistence.integration.test.ts (2 tests: token survives layer rebuild, sliding renewal extends lifetime).
+
+---
+
 ## P46 — `effect-patterns` oxlint plugin misses top-level `await` and `.then` chaining
 
 **Severity:** slows

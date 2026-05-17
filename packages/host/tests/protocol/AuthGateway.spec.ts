@@ -83,8 +83,8 @@ function runContract(name: string, makeLayer: () => Layer.Layer<AuthGateway>) {
         Effect.gen(function* () {
           const auth = yield* AuthGateway
           const session = yield* auth.login('alice', 'secret')
-          // Advance the test clock past the 1-hour session TTL.
-          yield* TestClock.adjust('2 hours')
+          // Advance the test clock past the 7-day session TTL.
+          yield* TestClock.adjust('8 days')
           const err = yield* Effect.flip(auth.verify(session.token))
           expect(err._tag).toBe(SessionExpiredTag)
         }),
