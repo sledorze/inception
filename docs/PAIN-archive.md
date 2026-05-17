@@ -757,3 +757,13 @@ FIXED 2026-05-17 in pending — test: packages/host/tests/unit/loginRateLimiter.
 The backoffice metrics panel always showed 0 archived items regardless of how many had been closed.
 
 FIXED 2026-05-17 in pending — test: packages/host/tests/unit/painParser.unit.test.ts (parsePainArchiveMd suite: 5 tests including live docs/PAIN-archive.md count > 0 check).
+
+## P49 — Rate-limit HTTP wiring untested (IP extraction + 429 path not covered)
+
+**Severity:** slows
+
+**Symptom:** `makeLoginRateLimiter` had 5 unit tests covering the pure sliding-window logic, but
+the `main.ts` wiring — IP extracted via `HttpServerRequest.remoteAddress`, falling back to
+`'unknown'` on `Option.none()`, emitting 429 with `Retry-After: 60` — had no test coverage.
+
+FIXED 2026-05-17 in pending — test: e2e/rbac.spec.ts — "Rate limiting — POST /api/login (P49)" describe block; sends 10 wrong-password requests and asserts 11th returns 429 + Retry-After: 60 header at the HTTP layer (1 test, GREEN).

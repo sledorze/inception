@@ -101,3 +101,39 @@ test.describe('RBAC — HTTP-layer enforcement (L0.3)', () => {
     expect(res.status()).toBe(200)
   })
 })
+
+test.describe('Rate limiting — POST /api/login (P49)', () => {
+  // NOTE: This test intentionally exhausts the per-IP counter and leaves the rate limiter
+  // locked for 60 seconds. In CI (fresh server each run) this is harmless. In dev mode
+  // with reuseExistingServer, restart the webServer (or wait 60 s) before re-running the
+  // full e2e suite.
+  let alreadyLocked = false
+
+  test.beforeAll(async ({ request }) => {
+    // A successful admin login calls recordSuccess → resets the counter to 0.
+    // If this itself returns 429, the server is locked from a previous run; skip.
+    const setup = await request.post(`${BASE}/api/login`, {
+      data: { password: 'adminpass', username: 'admin' },
+    })
+    alreadyLocked = setup.status() === 429
+  })
+
+  test('returns 401 before limit then 429 + Retry-After header after maxAttempts failures', async ({ request }) => {
+    test.skip(alreadyLocked, 'Rate limiter locked from a previous run — wait 60 s or restart the webServer')
+
+    // 10 wrong-password attempts — each must return 401 (counter not yet at limit).
+    for (let i = 0; i < 10; i++) {
+      const res = await request.post(`${BASE}/api/login`, {
+        data: { password: 'definitely-wrong-password', username: `nonexistent-${String(i)}` },
+      })
+      expect(res.status()).toBe(401)
+    }
+
+    // 11th attempt from same IP — counter is at maxAttempts; must be blocked before credential check.
+    const blocked = await request.post(`${BASE}/api/login`, {
+      data: { password: 'definitely-wrong-password', username: 'nonexistent-final' },
+    })
+    expect(blocked.status()).toBe(429)
+    expect(blocked.headers()['retry-after']).toBe('60')
+  })
+})

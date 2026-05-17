@@ -338,6 +338,12 @@ intentional`). Annotated 4 bridge files. Documented pattern in `.claude/patterns
   via `req.remoteAddress` (Effect `HttpServerRequest`). Success clears the counter.
   test: `packages/host/tests/unit/loginRateLimiter.unit.test.ts` (5 assertions GREEN).
 
+- [done] **10.14** **P49 — rate-limit HTTP wiring test** (2026-05-17).
+  Added e2e test verifying 429 + `Retry-After: 60` at the HTTP layer: 10 wrong-password
+  logins → each 401; 11th → 429. Self-guarding: skips if server already locked from a
+  previous run (dev-mode safety). No-op cleanup via successful admin login in `beforeAll`.
+  test: `e2e/rbac.spec.ts` — "Rate limiting — POST /api/login (P49)" (1 assertion GREEN).
+
 **Exit:** `pnpm lint:ci` catches a standalone `async function` or `try/catch` in `packages/host/src/`; dep-cruiser
 reports a violation for any component that imports `api/` directly; the three promoted skills are
 invocable and linked from CLAUDE.md.

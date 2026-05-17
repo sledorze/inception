@@ -105,21 +105,3 @@ Candidates:
 
 Stopped because: 3 candidates surfaced and landed.
 -->
-
-## P49 — Rate-limit HTTP wiring untested (IP extraction + 429 path not covered)
-
-**Severity:** slows
-
-**Symptom:** `makeLoginRateLimiter` has 5 unit tests covering the pure sliding-window logic, but
-the `main.ts` wiring — IP extracted via `HttpServerRequest.remoteAddress`, falling back to
-`'unknown'` on `Option.none()`, emitting 429 with `Retry-After: 60` — has no test coverage.
-Behind a reverse proxy (Nginx, Caddy), `remoteAddress` returns the proxy IP, so a single IP
-counter would gate all traffic without any indication in tests. Flagged in PR #8 code review.
-
-**Candidate fix:** HTTP-level integration test (or e2e test) that posts N+1 `/api/login` requests
-with wrong credentials and asserts the (N+1)th returns 429 with a `Retry-After` header. Also
-assert the counter resets on a successful login (existing unit test logic, now at HTTP level).
-
-**Acceptance test:** integration test in `packages/host/tests/integration/` or extend e2e/rbac.spec.ts.
-
----
