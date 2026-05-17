@@ -56,6 +56,7 @@ import { recordRejection } from './application/rejectionPattern.ts'
 import { registerCapability } from './application/registerCapability.ts'
 import { listPendingProposals, promoteProposal } from './application/reviewProposals.ts'
 import { login } from './application/login.ts'
+import { makeLoginRateLimiter } from './application/loginRateLimiter.ts'
 import { requireRole } from './application/authorize.ts'
 import { AGENT_MD_PATH } from './application/session.ts'
 import { EventStore } from './ports/driven/EventStore.ts'
@@ -124,10 +125,20 @@ const adminGet = (path: `/${string}`, query: Effect.Effect<unknown, AdminQueryEr
 
 const healthRoute = HttpRouter.add('GET', '/health', Effect.succeed(HttpServerResponse.text('ok')))
 
+// Per-IP login rate limiter: 10 failures per 60-second window → 429 (P44).
+const loginRateLimiter = makeLoginRateLimiter()
+
 const loginRoute = HttpRouter.add(
   'POST',
   '/api/login',
   Effect.gen(function* () {
+    const req = yield* HttpServerRequest.HttpServerRequest
+    const ip = Option.getOrElse(req.remoteAddress, () => 'unknown')
+
+    if (loginRateLimiter.check(ip)) {
+      return HttpServerResponse.text('too many requests', { headers: { 'Retry-After': '60' }, status: 429 })
+    }
+
     const body = yield* parseBody(LoginBody)
     if (body === null) {
       return textErr('missing username or password', 422)
@@ -135,10 +146,18 @@ const loginRoute = HttpRouter.add(
     return yield* login(body.username, body.password).pipe(
       Effect.matchEffect({
         onFailure: err =>
-          Effect.succeed(
-            err._tag === InvalidCredentialsTag ? textErr('invalid credentials', 401) : textErr('server error', 500),
-          ),
-        onSuccess: session => Effect.succeed(jsonOk(session)),
+          Effect.sync(() => {
+            if (err._tag === InvalidCredentialsTag) {
+              loginRateLimiter.recordFailure(ip)
+              return textErr('invalid credentials', 401)
+            }
+            return textErr('server error', 500)
+          }),
+        onSuccess: session =>
+          Effect.sync(() => {
+            loginRateLimiter.recordSuccess(ip)
+            return jsonOk(session)
+          }),
       }),
     )
   }),

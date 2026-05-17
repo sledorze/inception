@@ -128,11 +128,14 @@ const toolkitLayer = GeorgesToolkitLive.pipe(
 export const InMemoryCapabilityRegistryLayer = InMemoryCapabilityRegistry.layer
 
 const PAIN_MD_PATH = new URL('../../../../docs/PAIN.md', import.meta.url).pathname
+const PAIN_ARCHIVE_MD_PATH = new URL('../../../../docs/PAIN-archive.md', import.meta.url).pathname
 const TODO_MD_PATH = new URL('../../../../docs/TODO.md', import.meta.url).pathname
 
-const adminQueryLayer = EventStoreAdminQuery.layer({ painMd: PAIN_MD_PATH, todoMd: TODO_MD_PATH }).pipe(
-  Layer.provide(eventStoreLayer),
-)
+const adminQueryLayer = EventStoreAdminQuery.layer({
+  archiveMd: PAIN_ARCHIVE_MD_PATH,
+  painMd: PAIN_MD_PATH,
+  todoMd: TODO_MD_PATH,
+}).pipe(Layer.provide(eventStoreLayer))
 
 const settingsLayer = FileBackedSettings.layer(SETTINGS_PATH)
 

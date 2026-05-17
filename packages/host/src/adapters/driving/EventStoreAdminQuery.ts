@@ -1,12 +1,13 @@
 import { Effect, FileSystem, Layer } from 'effect'
 import type { LoopHealth, PainItem, TodoItem } from '../../domain/loopHealth.ts'
-import { parsePainMd } from '../../domain/painParser.ts'
+import { parsePainArchiveMd, parsePainMd } from '../../domain/painParser.ts'
 import { parseTodoMd } from '../../domain/todoParser.ts'
 import { EventStore } from '../../ports/driven/EventStore.ts'
 import { AdminQuery, AdminQueryError } from '../../ports/driving/AdminQuery.ts'
 import type { ObservedEvent, TraceQuery } from '../../ports/driving/ObservabilityGateway.ts'
 
 export interface AdminQueryPaths {
+  readonly archiveMd: string
   readonly painMd: string
   readonly todoMd: string
 }
@@ -25,17 +26,18 @@ export const EventStoreAdminQuery = {
         const query = AdminQuery.of({
           metrics: (): Effect.Effect<LoopHealth, AdminQueryError> =>
             Effect.gen(function* () {
-              // Run both file reads and the store scan concurrently — all three are independent.
-              const [painItems, todoItems, allEvents] = yield* Effect.all(
+              // Run file reads and the store scan concurrently — all independent.
+              const [painItems, todoItems, allEvents, archiveMdContent] = yield* Effect.all(
                 [
                   query.pain(),
                   query.work(),
                   store.query({}).pipe(Effect.mapError((cause): AdminQueryError => new AdminQueryError({ cause }))),
+                  readMd(paths.archiveMd),
                 ],
                 { concurrency: 'unbounded' },
               )
               return {
-                archivedPainItems: 0, // TODO: parse PAIN-archive.md (see P44)
+                archivedPainItems: parsePainArchiveMd(archiveMdContent),
                 doneTodoItems: todoItems.filter(t => t.status === 'done').length,
                 eventCount: allEvents.length,
                 openPainItems: painItems.length,

@@ -738,3 +738,22 @@ FIXED 2026-05-17 in 981eaf97 —
 - Deleted unused `packages/app/src/hooks/goals.ts` and `packages/app/src/api/goals.ts`.
 - `Conversation.tsx`: added helper description, friendly session label, dataset input label, and example empty-state prompt (all `conv-*` testIds preserved).
 - test: `packages/host/tests/unit/enforce-conventions.unit.test.ts` — "App renders a single goal-submission surface (P43)" — GREEN.
+
+## P44 — `POST /api/login` has no rate limiting (brute-force possible)
+
+**Severity:** slows (security gap before external deployment)
+
+**Symptom:** `POST /api/login` in `main.ts` had no throttle, delay, or account-lockout after
+failed attempts. `scryptSync` slows each individual check (~100 ms) but does not prevent parallel
+brute-force.
+
+FIXED 2026-05-17 in pending — test: packages/host/tests/unit/loginRateLimiter.unit.test.ts (5 tests: does-not-block-before-limit, blocks-after-maxAttempts, clears-on-success, tracks-IPs-independently, unblocks-after-window-expires).
+
+## P45 — `archivedPainItems` always returns 0 (PAIN-archive.md not parsed)
+
+**Severity:** annoys
+
+**Symptom:** `EventStoreAdminQuery.metrics()` hardcoded `archivedPainItems: 0` with a TODO comment.
+The backoffice metrics panel always showed 0 archived items regardless of how many had been closed.
+
+FIXED 2026-05-17 in pending — test: packages/host/tests/unit/painParser.unit.test.ts (parsePainArchiveMd suite: 5 tests including live docs/PAIN-archive.md count > 0 check).

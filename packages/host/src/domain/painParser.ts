@@ -1,5 +1,11 @@
 import type { PainItem } from './loopHealth.ts'
 
+/** Count ## P<n> sections in PAIN-archive.md that contain a FIXED line. */
+export const parsePainArchiveMd = (md: string): number => {
+  const blocks = md.split(/^## /mu).slice(1)
+  return blocks.filter(block => /^P\d+/u.test(block) && /^FIXED\s/mu.test(block)).length
+}
+
 /** Minimal regex-based parser for PAIN.md open items (## P<n> — <title> blocks). */
 export const parsePainMd = (md: string): readonly PainItem[] => {
   const items: PainItem[] = []

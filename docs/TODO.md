@@ -327,6 +327,17 @@ intentional`). Annotated 4 bridge files. Documented pattern in `.claude/patterns
   duplicate `handleErr` from `admin.ts`. Fixed 5 bare endpoints through `getJson`.
   test: `packages/host/tests/unit/enforce-conventions.unit.test.ts` — P48 (2 assertions GREEN).
 
+- [done] **10.12** **P45 — `archivedPainItems` wired from PAIN-archive.md** (2026-05-17).
+  Added `parsePainArchiveMd(md)` to `domain/painParser.ts`; added `archiveMd` path to
+  `AdminQueryPaths`; metrics() now reads archive file concurrently and returns real count.
+  test: `packages/host/tests/unit/painParser.unit.test.ts` — `parsePainArchiveMd` (5 assertions GREEN).
+
+- [done] **10.13** **P44 — `POST /api/login` rate limiting** (2026-05-17).
+  Created `src/application/loginRateLimiter.ts` (`makeLoginRateLimiter`): 10 failures per
+  60-second per-IP window → 429 + `Retry-After: 60`. Wired into login route in `main.ts`
+  via `req.remoteAddress` (Effect `HttpServerRequest`). Success clears the counter.
+  test: `packages/host/tests/unit/loginRateLimiter.unit.test.ts` (5 assertions GREEN).
+
 **Exit:** `pnpm lint:ci` catches a standalone `async function` or `try/catch` in `packages/host/src/`; dep-cruiser
 reports a violation for any component that imports `api/` directly; the three promoted skills are
 invocable and linked from CLAUDE.md.

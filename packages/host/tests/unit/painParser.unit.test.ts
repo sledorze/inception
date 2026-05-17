@@ -5,9 +5,36 @@
 // @effect-diagnostics-next-line nodeBuiltinImport:off
 import { readFileSync } from 'node:fs'
 import { describe, expect, it } from 'vitest'
-import { parsePainMd } from '../../src/domain/painParser.ts'
+import { parsePainArchiveMd, parsePainMd } from '../../src/domain/painParser.ts'
 
 const PAIN_MD_PATH = new URL('../../../../docs/PAIN.md', import.meta.url).pathname
+const PAIN_ARCHIVE_MD_PATH = new URL('../../../../docs/PAIN-archive.md', import.meta.url).pathname
+
+describe('parsePainArchiveMd', () => {
+  it('returns 0 for empty content', () => {
+    expect(parsePainArchiveMd('')).toBe(0)
+  })
+
+  it('counts sections with FIXED line at line-start', () => {
+    const md = `## P1 — Something\nFIXED 2026-01-01 in abc — done.\n## P2 — Other\nFIXED 2026-01-02 in def — done.\n`
+    expect(parsePainArchiveMd(md)).toBe(2)
+  })
+
+  it('does not count sections without a FIXED line', () => {
+    const md = `## P1 — Fixed one\nFIXED 2026-01-01 in abc — done.\n## Overview\nSome intro.\n`
+    expect(parsePainArchiveMd(md)).toBe(1)
+  })
+
+  it('does not count non-P-prefixed sections', () => {
+    const md = `## SomeSection — No P prefix\nFIXED 2026-01-01 in abc — done.\n`
+    expect(parsePainArchiveMd(md)).toBe(0)
+  })
+
+  it('live docs/PAIN-archive.md has at least one fixed item', () => {
+    const md = readFileSync(PAIN_ARCHIVE_MD_PATH, 'utf-8')
+    expect(parsePainArchiveMd(md)).toBeGreaterThan(0)
+  })
+})
 
 describe('parsePainMd', () => {
   it('returns an array', () => {

@@ -101,6 +101,7 @@ runContract('InMemoryAdminQuery', () =>
 
 const eventStoreAdminQueryLayer = () =>
   EventStoreAdminQuery.layer({
+    archiveMd: new URL('../../../../docs/PAIN-archive.md', import.meta.url).pathname,
     painMd: new URL('../../../../docs/PAIN.md', import.meta.url).pathname,
     todoMd: new URL('../../../../docs/TODO.md', import.meta.url).pathname,
   }).pipe(
