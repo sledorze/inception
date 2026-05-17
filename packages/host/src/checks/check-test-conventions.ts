@@ -1,3 +1,4 @@
+/** @effect-diagnostics strictEffectProvide:off */
 import { Effect, FileSystem, Layer, Path } from 'effect'
 import * as NodeFileSystem from '@effect/platform-node/NodeFileSystem'
 import * as NodePath from '@effect/platform-node/NodePath'
