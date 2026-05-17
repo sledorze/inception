@@ -72,7 +72,9 @@ const generateWithRecovery = <Tools extends Record<string, Tool.Any>>(
   ).pipe(
     Effect.catchCause(cause => {
       const maybeErr = Cause.findErrorOption(cause)
-      if (Option.isNone(maybeErr)) return Effect.failCause(cause)
+      if (Option.isNone(maybeErr)) {
+        return Effect.failCause(cause)
+      }
       const err = maybeErr.value
       if (!AiError.isAiError(err) || err.reason._tag !== 'ToolParameterValidationError') {
         return Effect.failCause(cause)
@@ -87,7 +89,7 @@ const generateWithRecovery = <Tools extends Record<string, Tool.Any>>(
               {
                 id: syntheticId,
                 name: reason.toolName,
-                params: reason.toolParams as unknown,
+                params: reason.toolParams as unknown, // cast: Schema.Json is a subtype of unknown; safe downcast required by MsgEntry's content: unknown shape
                 providerExecuted: false,
                 type: 'tool-call' as const,
               },

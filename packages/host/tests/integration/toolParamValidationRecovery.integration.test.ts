@@ -16,7 +16,7 @@
  * Asserts: GoalCompleted (not GoalFailed) is stored, proving the loop
  * finished normally instead of surfacing as a 500.
  */
-import { Effect, Layer } from 'effect'
+import { Cause, Effect, Layer } from 'effect'
 import * as NodeFileSystem from '@effect/platform-node/NodeFileSystem'
 import { expect, layer } from '@effect/vitest'
 import { GeorgesToolkit } from '../../src/adapters/driving/GeorgesToolkit.ts'
@@ -95,7 +95,13 @@ layer(TestLayer)('P54 — ToolParameterValidationError recovery', it => {
       const toolkit = yield* GeorgesToolkit
       const store = yield* EventStore
 
-      yield* makeSubmitGoal(toolkit)({ goal: 'List available tools.', handleId: 'none' }).pipe(Effect.orDie)
+      const outcome = yield* makeSubmitGoal(toolkit)({ goal: 'List available tools.', handleId: 'none' }).pipe(
+        Effect.matchCause({
+          onFailure: cause => ({ _tag: 'Left' as const, detail: Cause.pretty(cause) }),
+          onSuccess: _ => ({ _tag: 'Right' as const }),
+        }),
+      )
+      expect(outcome._tag, `recovery must succeed, got: ${JSON.stringify(outcome)}`).toBe('Right')
 
       const events = yield* store.query({})
       const completed = events.find(e => e.kind === 'GoalCompleted')
