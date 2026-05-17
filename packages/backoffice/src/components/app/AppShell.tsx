@@ -18,7 +18,7 @@ const NAV = [
 
 const navBase =
   'inline-flex items-center whitespace-nowrap rounded-md text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 h-9 px-3 w-auto sm:w-full sm:justify-start'
-const navActive = 'bg-secondary text-secondary-foreground'
+const navActive = 'bg-muted text-foreground font-semibold sm:border-l-2 sm:border-ring'
 const navInactive = 'hover:bg-accent hover:text-accent-foreground'
 
 export function AppShell({ children, onLogout }: Props) {

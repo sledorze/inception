@@ -7,7 +7,7 @@ export function ObservabilitySection() {
   return (
     <>
       <Metrics />
-      <div className="grid gap-4 lg:grid-cols-2">
+      <div className="space-y-8">
         <PainBoard />
         <WorkBoard />
       </div>

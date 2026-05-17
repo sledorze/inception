@@ -12,9 +12,9 @@ export function SessionDetail({ sessionId, onBack }: { sessionId: string; onBack
   const loading = view.waiting
 
   return (
-    <div className="space-y-2">
+    <div className="space-y-4">
       <div className="flex items-center gap-2">
-        <Button onClick={onBack} size="sm" type="button" variant="ghost">
+        <Button className="text-ring" onClick={onBack} size="sm" type="button" variant="ghost">
           ← Back
         </Button>
         <span className="break-all font-mono text-xs text-muted-foreground">{sessionId}</span>

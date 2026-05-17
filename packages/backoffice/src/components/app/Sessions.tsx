@@ -17,16 +17,16 @@ export function Sessions() {
 
   if (sessionId !== undefined) {
     return (
-      <Card className="space-y-3 p-4">
+      <Card className="p-6">
         <SessionDetail onBack={() => navigate('/observability')} sessionId={sessionId} />
       </Card>
     )
   }
 
   return (
-    <Card className="space-y-3 p-4">
-      <div className="flex items-center justify-between">
-        <h2 className="font-semibold">Exchange Viewer</h2>
+    <Card className="p-6">
+      <div className="mb-4 flex items-center justify-between border-b border-border pb-3">
+        <h2 className="text-base font-semibold tracking-tight">Exchange Viewer</h2>
         <Button
           data-testid="sessions-refresh"
           disabled={loading}
@@ -41,10 +41,10 @@ export function Sessions() {
       {error && <p className="text-sm text-destructive">{error}</p>}
       {sessions !== null && sessions.length === 0 && <p className="text-sm text-muted-foreground">No sessions yet.</p>}
       {sessions !== null && (
-        <div className="space-y-1">
+        <div className="divide-y divide-border">
           {sessions.map(s => (
             <Button
-              className="h-auto w-full flex-col items-start gap-0 rounded border p-2 text-left text-xs"
+              className="h-auto w-full flex-col items-start gap-0 border-0 p-3 text-left text-xs"
               key={s.sessionId}
               onClick={() => navigate(`/observability/sessions/${s.sessionId}`)}
               type="button"
@@ -61,7 +61,9 @@ export function Sessions() {
           ))}
         </div>
       )}
-      <Patterns />
+      <div className="mt-6 border-t border-border pt-4">
+        <Patterns />
+      </div>
     </Card>
   )
 }

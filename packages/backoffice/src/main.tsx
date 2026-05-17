@@ -1,6 +1,7 @@
 import { StrictMode } from 'react'
 import ReactDOM from 'react-dom/client'
 import { RegistryProvider } from '@effect/atom-react'
+import '@fontsource-variable/inter'
 import './index.css'
 import { App } from './App.tsx'
 
