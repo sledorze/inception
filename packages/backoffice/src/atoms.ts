@@ -5,7 +5,6 @@ import * as Effect from 'effect/Effect'
 import * as Layer from 'effect/Layer'
 import { getMetrics, getPain, getPatterns, getSessionEvents, getSessions, getWork } from './hooks/admin.ts'
 import { listProposals, promoteProposal } from './hooks/proposals.ts'
-import type { Proposal } from './hooks/proposals.ts'
 
 export type AsyncView<T> =
   | { readonly _tag: 'Loading'; readonly waiting: boolean }
@@ -61,5 +60,3 @@ export const promoteProposalAtom = atomRuntime.fn(
   { reactivityKeys: ['proposals'] },
 )
 export const promoteProposalView = Atom.map(promoteProposalAtom, toView) // AsyncView<string>
-
-export type { Proposal }
