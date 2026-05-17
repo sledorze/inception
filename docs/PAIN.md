@@ -9,6 +9,26 @@ in the same commit as the fix. This file holds OPEN items only, severity-sorted.
 
 ---
 
+<!-- Hunt log 2026-05-17
+Triggers that fired: explicit /hunt invocation + 5 open PAIN items (≥3 threshold)
+Hunt start time: 13:58
+
+Candidates:
+  1. Target: bridge-zone.md — "Current bridge zones" table lists 3 files and says "when TODO 10.1
+     lands", but TODO 10.1 IS done and 4 files are annotated (CliUserGateway.ts missing from table)
+     | Heuristic: #6 stale doc | Output channel: .claude/patterns/bridge-zone.md (table fixed)
+  2. Target: enforce-conventions.unit.test.ts line 143 — comment says "RED: both assertions fail on
+     current code. Remove .fails when green cycle lands." but P41 is already GREEN (it.fails removed)
+     | Heuristic: #6 stale doc | Output channel: enforce-conventions.unit.test.ts (comment updated)
+  3. Target: bridge-zone.md not in CLAUDE.md "When in doubt" — relevant whenever an agent encounters
+     a Promise/async in src/ and needs to know if it's a legitimate bridge; not discoverable without
+     browsing patterns/ manually; P46/P47 both hinge on this annotation mechanism
+     | Heuristic: #5 pattern absence + #8 context-priming | Output channel: CLAUDE.md (new entry)
+
+Stopped because: 3 candidates surfaced and landed.
+All three resolved in one commit. No new PAIN items (these were direct inline fixes).
+-->
+
 <!-- Hunt log 2026-05-15 (third pass)
 Triggers that fired: explicit /hunt invocation
 Hunt start time: 23:45

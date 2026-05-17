@@ -82,15 +82,22 @@ The problem: `.then()` chains bypass Effect's typed error channel, TestClock, an
 
 ---
 
-## Current bridge zones (as of enforcement work P35/P39)
+## Current bridge zones (annotated as of TODO 10.1 / P35)
 
-| File                                         | Why                                        |
-| -------------------------------------------- | ------------------------------------------ |
-| `adapters/driven/OpenAiCompatLlmProvider.ts` | Wraps `globalThis.fetch` (Promise-based)   |
-| `adapters/driven/RecordReplayLlmProvider.ts` | Wraps `globalThis.fetch` for record/replay |
-| `src/main.ts`                                | Entry point; top-level `await` at boot     |
+| File                                         | Why                                              |
+| -------------------------------------------- | ------------------------------------------------ |
+| `src/main.ts`                                | Entry point; top-level `await` at boot           |
+| `adapters/driving/CliUserGateway.ts`         | HTTP `requestListener` callback is Promise-based |
+| `adapters/driven/OpenAiCompatLlmProvider.ts` | Wraps `globalThis.fetch` (Promise-based API)     |
+| `adapters/driven/RecordReplayLlmProvider.ts` | Wraps `globalThis.fetch` for record/replay       |
 
-These three files need the `// promise-bridge: intentional` annotation when TODO 10.1 lands.
+Each file carries `// promise-bridge: intentional` as its first line. The annotation is the
+machine-readable marker that `no-async-in-src` and `no-raw-promise` use to exempt the file.
+
+**P47 note:** `src/checks/check-test-conventions.ts` and `src/checks/check-file-structure.ts`
+currently use unannotated `await Effect.runPromise(...)`. They are NOT valid bridge zones
+(no third-party Promise API is being wrapped). The P47 fix converts them to
+`NodeRuntime.runMain` instead of adding an annotation.
 
 ---
 

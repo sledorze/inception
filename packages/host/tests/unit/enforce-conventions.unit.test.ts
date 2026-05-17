@@ -138,9 +138,9 @@ describe('Frontend api layer: handleErr declared in exactly one file (P48)', () 
   })
 })
 
-// ── P41 red-step acceptance tests ────────────────────────────────────────────
+// ── P41 green-step acceptance tests ──────────────────────────────────────────
 // State interpretation belongs in atoms.ts, not in presentation components.
-// RED: both assertions fail on current code. Remove .fails when green cycle lands.
+// GREEN as of TODO 10.5 (2026-05-17): AsyncView<T> + Atom.map + it.fails removed.
 
 describe('Frontend presentation components must not interpret async state (P41)', () => {
   const componentDirs = [
