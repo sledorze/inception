@@ -9,6 +9,7 @@ const config: KnipConfig = {
         // Stryker vitest runner configs — referenced by stryker.*.config.json, not imported
         'vitest.stryker-backend.config.ts',
         'vitest.stryker-frontend.config.ts',
+        'vitest.stryker-laws.config.ts',
       ],
       ignoreDependencies: [
         // Frontend UI packages live in root node_modules (pnpm hoisting) but are
