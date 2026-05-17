@@ -70,6 +70,17 @@ module.exports = {
       to: { path: 'useAsyncFetch' },
     },
 
+    // ── Design-system package purity ───────────────────────────────────────
+    {
+      comment:
+        'packages/design-system is a pure leaf — it must not import from app, backoffice, or host. ' +
+        'Mirrors host-domain-pure. Component primitives must be dependency-free workspace peers.',
+      from: { path: String.raw`^packages/design-system/` },
+      name: 'design-system-pure',
+      severity: 'error',
+      to: { path: String.raw`^packages/(app|backoffice|host)/` },
+    },
+
     // ── L2.14: Non-adapter code cannot import from adapters/ ──────────────
     {
       comment:

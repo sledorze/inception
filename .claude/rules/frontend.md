@@ -1,47 +1,56 @@
 ---
 paths:
-  - 'packages/frontend/**'
+  - 'packages/app/**'
+  - 'packages/backoffice/**'
+  - 'packages/design-system/**'
 ---
 
-# Frontend package — operating constraints
+# Frontend packages — operating constraints
 
-## Design system: shadcn/ui + Tailwind v4
+Applies to `packages/app/`, `packages/backoffice/`, and `packages/design-system/`.
 
-**shadcn/ui** is the component library (configured in `components.json`).
+## Design system: @app/design-system + Tailwind v4
 
-- Add a component: `npx shadcn add <name>` — this installs it under `src/components/ui/`.
-- Import from the alias: `import { Button } from '@/components/ui/button'`
-- Always prefer a shadcn component over a raw HTML element for interactive or layout primitives (Button, Input, Textarea, Card, Badge, etc.).
-- Use `cn(...)` from `src/lib/utils.ts` (wraps `clsx` + `tailwind-merge`) for all conditional className composition.
-- Do not write inline Tailwind utility soup for things shadcn already provides. Install the component, then extend with `className` only for layout/spacing overrides.
+Primitives live in `packages/design-system/src/` and are published as subpath exports
+from the `@app/design-system` package. There is no `src/components/ui/` directory and
+no shadcn CLI in this repo — primitives are hand-maintained in the design-system package.
 
-Available base-color: `neutral`. CSS variables are enabled (`cssVariables: true`). Dark-mode via the `dark` class.
+- **Import via subpath:** `import { Button } from '@app/design-system/button'`
+- **Never** use `@/components/ui/button` — that path does not resolve (no `src/components/ui/` exists).
+- Available primitives: `button` → `Button`; `card` → `Card`; `input` → `Input`; `textarea` → `Textarea`; `utils` → `cn`.
+- Always prefer a design-system primitive over a raw HTML element. The oxlint plugin enforces this at commit time.
+- Use `cn(...)` from `@app/design-system/utils` (`clsx` + `tailwind-merge`) for all conditional className composition.
+- Extend via `className` only for layout/spacing overrides — do not fork primitive source files.
+- Use semantic tokens from `@theme` (`bg-background`, `bg-card`, `text-muted-foreground`, etc.) — never raw palette colors.
 
-## Abstract UI interactions through proxy modules
+If a primitive doesn't exist yet: add it to `packages/design-system/src/` and export it
+from the package's `exports` map in `packages/design-system/package.json`.
 
-Never call `fetch`, `localStorage`, `sessionStorage`, DOM APIs (`document.querySelector`, `window.*`), or any browser/platform API directly inside a React component or event handler. Instead, route all such calls through a dedicated module in `src/api/` (for HTTP) or `src/platform/` (for browser APIs).
+## Data flow (enforced by dependency-cruiser)
 
-**Rule:** one module = one concern at the platform boundary.
+Components must not call `fetch`, `localStorage`, `sessionStorage`, DOM APIs, or any
+platform API directly. The enforced data-flow layering is:
 
 ```
-src/
-  api/
-    toolkit.ts    ← all /api/tools/* calls (one function per tool)
-  platform/
-    storage.ts    ← localStorage / sessionStorage wrappers (if needed)
+src/hooks/      ← React hooks that consume atoms
+src/atoms.ts    ← @effect/atom-react atom definitions (imports api/ and platform/)
+src/api/        ← HTTP calls — imported by atoms/hooks ONLY, never by components
+src/platform/   ← browser API wrappers — imported by atoms/hooks ONLY
 ```
 
-Components import from these modules; they never `import fetch` or reference `window` directly.
+The `no-frontend-component-api-import` dependency-cruiser rule **forbids** components
+from importing `src/api/` directly. The `no-useAsyncFetch-import` rule forbids
+`useAsyncFetch` — use the `@effect/atom-react` + atoms pattern.
 
-**Why:** swapping the transport (REST → WebSocket, or adding auth headers) touches one file, not every component. Also keeps components pure for testing (mock the proxy, not fetch).
+Components receive all data and side-effect callbacks as props. This keeps components
+pure and unit-testable without any network setup.
 
 ## No async/await
 
 Use Promise chains (`.then().catch()`) instead of `async`/`await` in all frontend source files.
 
-Rationale: keeps the codebase consistent with the host-side rule (Effect over Promise); async functions silently swallow unhandled rejections and complicate React event-handler typing.
-
-**How to apply:** wherever you write `const x = await somePromise`, express it as `.then(x => ...)` instead.
+Rationale: consistency with the host-side rule (Effect over Promise); async functions
+silently swallow unhandled rejections and complicate React event-handler typing.
 
 ## Test files
 

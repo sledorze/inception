@@ -388,7 +388,7 @@ const designSystemCases: { desc: string; expectError: boolean; path: string; src
     desc: 'shadcn <Button> component in src/ → allowed',
     expectError: false,
     path: 'packages/app/src/ProbeOk.tsx',
-    src: `import { Button } from '@/components/ui/button'\nexport const ProbeOk = () => <Button>x</Button>\n`,
+    src: `import { Button } from '@app/design-system/button'\nexport const ProbeOk = () => <Button>x</Button>\n`,
   },
   {
     desc: 'raw <button> in src/components/ui/ → allowed (shadcn wraps raw elements)',
@@ -415,8 +415,8 @@ describe('design-system/no-raw-interactive-element — raw HTML vs shadcn/ui', (
       FRONTEND_CONFIG,
     )
     expect(stdout).toContain('<Button>')
-    expect(stdout).toContain('@/components/ui/button')
-    expect(stdout).toContain('npx shadcn add button')
+    expect(stdout).toContain('@app/design-system/button')
+    expect(stdout).toContain('packages/design-system/src/')
   })
 })
 
@@ -523,13 +523,13 @@ describe('design-system/no-raw-interactive-element — <section> invitation', ()
     )
     expect(stdout).toContain('no-raw-interactive-element')
     expect(stdout).toContain('<Card>')
-    expect(stdout).toContain('npx shadcn add card')
+    expect(stdout).toContain('@app/design-system/card')
   })
 
   it('shadcn <Card> in src/ → allowed', () => {
     const { stdout } = lint(
       'packages/app/src/ProbeSectionOk.tsx',
-      `import { Card } from '@/components/ui/card'\nexport const X = () => <Card className="p-4"><h2>Title</h2></Card>\n`,
+      `import { Card } from '@app/design-system/card'\nexport const X = () => <Card className="p-4"><h2>Title</h2></Card>\n`,
       FRONTEND_CONFIG,
     )
     expect(stdout).not.toContain('no-raw-interactive-element')

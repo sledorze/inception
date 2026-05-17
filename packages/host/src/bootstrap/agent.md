@@ -162,6 +162,14 @@ touch targets ≥44px; WCAG 2.2 AA contrast.
 implementation on complex compositions. Do not add new dependencies; surface the
 need explicitly and wait for approval.
 
+**Data flow:** data and side effects go through `hooks/` + `atoms.ts`; never call
+`fetch`, `localStorage`, or DOM APIs directly in a component body.
+
+**Conventional patterns:** prefer what users already know from other apps — labelled
+forms with inline validation, toast for success, skeleton loaders, focus-trapped
+dialogs, undo over confirmation for reversible actions. For AI actions, always surface
+what you did and offer to undo it.
+
 ---
 
 ## Maintenance note (for Claude, not Georges)
