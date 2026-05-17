@@ -5,6 +5,45 @@ Convention: fix → move (cut from PAIN.md, paste here in the same commit as the
 
 ---
 
+## P46 — `effect-patterns` oxlint plugin misses top-level `await` and `.then` chaining
+
+**Severity:** slows
+
+FIXED 2026-05-17 in feat/design-system-enforcement (TODO 10.9) — `AwaitExpression` visitor added
+to `noAsyncInSrc`; `.then(` member-call detection added to `noRawPromise`; bypass hardened from
+`src.includes(...)` to first-5-lines line-start check in all three bridge-aware rules
+(`noAsyncInSrc`, `noRawPromise`, `noTryCatchInSrc`). Bypass-in-string-literal false-negative
+eliminated. All 3 RED `it.fails` tests promoted to plain `it` — GREEN.
+test: `packages/host/tests/unit/oxlint-rules.unit.test.ts` —
+"effect-patterns/no-async-in-src — top-level await (P46)" +
+"effect-patterns/no-raw-promise — .then chaining (P46)" (3 assertions GREEN)
+
+---
+
+## P47 — two `src/checks/*.ts` CLI scripts use unannotated top-level `await Effect.runPromise`
+
+**Severity:** slows (genuine hard-rule violation, invisible to all tooling today)
+
+**Symptom:** `packages/host/src/checks/check-test-conventions.ts:68` and
+`packages/host/src/checks/check-file-structure.ts:79` both ended with:
+
+```ts
+await Effect.runPromise(program.pipe(Effect.provide(Layer.mergeAll(NodeFileSystem.layer, NodePath.layer))))
+```
+
+The file header carried `/** @effect-diagnostics strictEffectProvide:off */` but no
+`// promise-bridge: intentional`. Invisible because the P46 `AwaitExpression` gap meant oxlint
+never fired on them.
+
+FIXED 2026-05-17 in feat/design-system-enforcement (TODO 10.10) — both files converted to
+`program.pipe(Effect.provide(Layer.mergeAll(...)), NodeRuntime.runMain)` using
+`import * as NodeRuntime from '@effect/platform-node/NodeRuntime'` (subpath import). The
+`@effect-diagnostics` header removed; no bridge annotation needed. P46 `AwaitExpression` test
+proves detection; P47 conversion means both files now pass `pnpm lint` cleanly.
+test: `packages/host/tests/unit/oxlint-rules.unit.test.ts` — P46 `AwaitExpression` case (GREEN)
+
+---
+
 ## P41 — UI-state interpretation duplicated into presentation components (P36 regression)
 
 **Severity:** slows

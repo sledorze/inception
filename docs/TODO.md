@@ -309,16 +309,17 @@ intentional`). Annotated 4 bridge files. Documented pattern in `.claude/patterns
   (`it.fails` in `oxlint-rules.unit.test.ts` for P46, `enforce-conventions.unit.test.ts`
   for P48). No green work.
 
-- [todo] **10.9** **P46 GREEN — extend `effect-patterns` oxlint plugin**:
-  add `AwaitExpression` visitor to `no-async-in-src`; add `.then`/`.catch`/`.finally`
-  member-call visitor to `no-raw-promise`; harden `// promise-bridge: intentional` bypass to a
-  leading-file-scope-comment check. Confirm `.oxlintrc.json` Block 0 glob covers `src/checks/`.
-  Green gate: `it.fails` → plain `it` in `oxlint-rules.unit.test.ts` P46 describes.
+- [done] **10.9** **P46 GREEN — extend `effect-patterns` oxlint plugin** (2026-05-17).
+  Added `AwaitExpression` visitor to `no-async-in-src`; `.then(` member-call visitor to
+  `no-raw-promise`; hardened bypass from `src.includes(...)` to first-5-lines line-start check
+  in all three bridge-aware rules. All 3 RED `it.fails` P46 tests → plain `it` (GREEN).
+  test: `packages/host/tests/unit/oxlint-rules.unit.test.ts` — P46 describes (51 tests GREEN).
 
-- [todo] **10.10** **P47 — convert `src/checks/*.ts` to `NodeRuntime.runMain`**:
-  `check-test-conventions.ts:68` + `check-file-structure.ts:79` → `NodeRuntime.runMain`
-  (subpath import `@effect/platform-node/NodeRuntime`). Depends on 10.9 green.
-  Green gate: `pnpm lint` passes on both converted files; add passing regression test.
+- [done] **10.10** **P47 — convert `src/checks/*.ts` to `NodeRuntime.runMain`** (2026-05-17).
+  `check-test-conventions.ts` + `check-file-structure.ts` converted to `NodeRuntime.runMain`
+  (subpath import `@effect/platform-node/NodeRuntime`); `@effect-diagnostics` header removed.
+  `pnpm lint` and `pnpm typecheck` both clean on both files.
+  test: P46 `AwaitExpression` case in `oxlint-rules.unit.test.ts` (GREEN).
 
 - [todo] **10.11** **P48 — extract shared frontend authed client**:
   consolidate `handleErr` / `authedFetch` / `TOKEN_KEY` / token accessors into one shared module;

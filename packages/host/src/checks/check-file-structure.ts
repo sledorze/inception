@@ -1,7 +1,7 @@
-/** @effect-diagnostics strictEffectProvide:off */
 import { Effect, FileSystem, Layer, Path } from 'effect'
 import * as NodeFileSystem from '@effect/platform-node/NodeFileSystem'
 import * as NodePath from '@effect/platform-node/NodePath'
+import * as NodeRuntime from '@effect/platform-node/NodeRuntime'
 
 // Matches top-level React component definitions by PascalCase function name.
 // Covers: function Foo(, export function Foo(, export default function Foo(
@@ -76,4 +76,4 @@ const program = Effect.gen(function* () {
   }
 })
 
-await Effect.runPromise(program.pipe(Effect.provide(Layer.mergeAll(NodeFileSystem.layer, NodePath.layer))))
+program.pipe(Effect.provide(Layer.mergeAll(NodeFileSystem.layer, NodePath.layer)), NodeRuntime.runMain)

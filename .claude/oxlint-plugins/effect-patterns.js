@@ -162,8 +162,13 @@ const noEffectGenWithoutVitest = {
 /** @type {import('eslint').Rule.RuleModule} */
 const noAsyncInSrc = {
   create(context) {
-    const src = context.getSourceCode().getText()
-    if (src.includes('// promise-bridge: intentional')) {
+    // Bypass only when the marker is a line comment starting within the first 5 lines
+    // (not buried inside a string literal or far from file scope).
+    const lines = context.getSourceCode().getText().split('\n')
+    const hasBridgeMarker = lines
+      .slice(0, 5)
+      .some(line => line.trimStart().startsWith('// promise-bridge: intentional'))
+    if (hasBridgeMarker) {
       return {}
     }
     const report = node =>
@@ -180,6 +185,9 @@ const noAsyncInSrc = {
         if (node.async) {
           report(node)
         }
+      },
+      AwaitExpression(node) {
+        report(node)
       },
       FunctionDeclaration(node) {
         if (node.async) {
@@ -204,8 +212,11 @@ const noAsyncInSrc = {
 /** @type {import('eslint').Rule.RuleModule} */
 const noRawPromise = {
   create(context) {
-    const src = context.getSourceCode().getText()
-    if (src.includes('// promise-bridge: intentional')) {
+    const lines = context.getSourceCode().getText().split('\n')
+    const hasBridgeMarker = lines
+      .slice(0, 5)
+      .some(line => line.trimStart().startsWith('// promise-bridge: intentional'))
+    if (hasBridgeMarker) {
       return {}
     }
     const report = node =>
@@ -228,6 +239,17 @@ const noRawPromise = {
           callee.property.type === 'Identifier'
         ) {
           report(node)
+          return
+        }
+        // Promise chaining via .then() — essentially never appears in Effect code.
+        // (.catch/.finally skipped: Effect.catch/Effect.finally are valid static methods.)
+        if (
+          callee.type === 'MemberExpression' &&
+          !callee.computed &&
+          callee.property.type === 'Identifier' &&
+          callee.property.name === 'then'
+        ) {
+          report(node)
         }
       },
       NewExpression(node) {
@@ -248,8 +270,11 @@ const noRawPromise = {
 /** @type {import('eslint').Rule.RuleModule} */
 const noTryCatchInSrc = {
   create(context) {
-    const src = context.getSourceCode().getText()
-    if (src.includes('// promise-bridge: intentional')) {
+    const lines = context.getSourceCode().getText().split('\n')
+    const hasBridgeMarker = lines
+      .slice(0, 5)
+      .some(line => line.trimStart().startsWith('// promise-bridge: intentional'))
+    if (hasBridgeMarker) {
       return {}
     }
     return {
