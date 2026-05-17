@@ -41,12 +41,10 @@ const runAgentLoop = <Tools extends Record<string, Tool.Any>>(
     )
 
     for (let round = 1; round < MAX_AGENT_ROUNDS; round++) {
-      // Stop when the LLM produced text, made no tool calls, or asked for clarification.
-      if (
-        response.text.trim() !== '' ||
-        response.toolCalls.length === 0 ||
-        response.toolCalls.some(tc => tc.name === 'request-clarification')
-      ) {
+      // Stop when no tool calls remain (final answer) or clarification is requested.
+      // Note: do NOT stop on non-empty text — the model may emit reasoning text alongside
+      // tool calls (finish_reason=tool_calls); stopping early drops those results.
+      if (response.toolCalls.length === 0 || response.toolCalls.some(tc => tc.name === 'request-clarification')) {
         break
       }
 
@@ -55,21 +53,21 @@ const runAgentLoop = <Tools extends Record<string, Tool.Any>>(
         ...messages,
         {
           content: response.toolCalls.map(tc => ({
-            type: 'tool-call' as const,
             id: tc.id,
             name: tc.name,
             params: tc.params as unknown,
             providerExecuted: tc.providerExecuted,
+            type: 'tool-call' as const,
           })),
           role: 'assistant',
         },
         {
           content: response.toolResults.map(tr => ({
-            type: 'tool-result' as const,
             id: tr.id,
+            isFailure: tr.isFailure,
             name: tr.name,
             result: tr.encodedResult,
-            isFailure: tr.isFailure,
+            type: 'tool-result' as const,
           })),
           role: 'tool',
         },
