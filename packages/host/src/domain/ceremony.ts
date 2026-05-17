@@ -11,6 +11,11 @@
  * Amendment content is SHA-256 hashed before signing.
  */
 import { createHash, generateKeyPairSync, sign, verify } from 'node:crypto'
+import { Effect, Schema } from 'effect'
+
+// ─── errors ───────────────────────────────────────────────────────────────────
+
+class CryptoVerifyError extends Schema.TaggedErrorClass<CryptoVerifyError>()('@app/host/CryptoVerifyError', {}) {}
 
 // ─── roles ────────────────────────────────────────────────────────────────────
 
@@ -61,13 +66,15 @@ export const signAmendment = (contentHash: string, privateKeyPem: string): strin
   return sig.toString('hex')
 }
 
-export const verifySignature = (contentHash: string, signatureHex: string, publicKeyPem: string): boolean => {
-  try {
-    return verify(null, Buffer.from(contentHash, 'utf8'), publicKeyPem, Buffer.from(signatureHex, 'hex'))
-  } catch {
-    return false
-  }
-}
+export const verifySignature = (
+  contentHash: string,
+  signatureHex: string,
+  publicKeyPem: string,
+): Effect.Effect<boolean> =>
+  Effect.try({
+    catch: () => new CryptoVerifyError(),
+    try: () => verify(null, Buffer.from(contentHash, 'utf8'), publicKeyPem, Buffer.from(signatureHex, 'hex')),
+  }).pipe(Effect.catch(() => Effect.succeed(false)))
 
 // ─── quorum check ─────────────────────────────────────────────────────────────
 
@@ -81,28 +88,31 @@ export const checkQuorum = (
   signatures: AmendmentSignatures,
   publicKeys: Record<SignerRole, string>,
   contentHash: string,
-): QuorumResult => {
-  const validatedRoles = new Set<SignerRole>()
+): Effect.Effect<QuorumResult> =>
+  Effect.gen(function* () {
+    const validatedRoles = new Set<SignerRole>()
 
-  for (const role of ALL_SIGNER_ROLES) {
-    const sig = signatures[role]
-    const pubKey = publicKeys[role]
-    if (sig !== null && pubKey !== undefined && verifySignature(contentHash, sig, pubKey)) {
-      validatedRoles.add(role)
+    for (const role of ALL_SIGNER_ROLES) {
+      const sig = signatures[role]
+      const pubKey = publicKeys[role]
+      if (sig !== null && pubKey !== undefined) {
+        const valid = yield* verifySignature(contentHash, sig, pubKey)
+        if (valid) {
+          validatedRoles.add(role)
+        }
+      }
     }
-  }
 
-  const witnessCount = (['witness1', 'witness2', 'witness3'] as const).filter(r => validatedRoles.has(r)).length
+    const witnessCount = (['witness1', 'witness2', 'witness3'] as const).filter(r => validatedRoles.has(r)).length
 
-  const missingRequired: SignerRole[] = []
-  if (!validatedRoles.has('claude')) {
-    missingRequired.push('claude')
-  }
-  if (!validatedRoles.has('user-of-record')) {
-    missingRequired.push('user-of-record')
-  }
+    const missingRequired: SignerRole[] = []
+    if (!validatedRoles.has('claude')) {
+      missingRequired.push('claude')
+    }
+    if (!validatedRoles.has('user-of-record')) {
+      missingRequired.push('user-of-record')
+    }
 
-  const met = missingRequired.length === 0 && witnessCount >= 2
-
-  return { met, missingRequired, witnessCount }
-}
+    const met = missingRequired.length === 0 && witnessCount >= 2
+    return { met, missingRequired, witnessCount }
+  })

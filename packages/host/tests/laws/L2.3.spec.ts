@@ -16,12 +16,16 @@ import { Effect } from 'effect'
 import { describe, it } from '@effect/vitest'
 import { InMemoryEventStore } from '../../src/adapters/driven/InMemoryEventStore.ts'
 import { checkQuarantine, SessionQuarantinedError } from '../../src/application/quarantine.ts'
+import { EventKind } from '../../src/domain/events.ts'
 import { EventStore } from '../../src/ports/driven/EventStore.ts'
 import type { NewEvent } from '../../src/ports/driven/EventStore.ts'
 
 const withStore = <A>(eff: Effect.Effect<A, unknown, EventStore>) => Effect.provide(eff, InMemoryEventStore.layer)
 
-const quarantineEvent = (sessionId: string, kind: 'SessionQuarantined' | 'QuarantineReleased'): NewEvent => ({
+const quarantineEvent = (
+  sessionId: string,
+  kind: typeof EventKind.SessionQuarantined | typeof EventKind.QuarantineReleased,
+): NewEvent => ({
   actor: 'supervisor',
   correlationId: `test-${kind}-${sessionId}`,
   kind,
@@ -46,7 +50,7 @@ describe('L2.3 — Quarantine', () => {
       Effect.gen(function* () {
         const sessionId = randomUUID()
         const store = yield* EventStore
-        yield* store.append(quarantineEvent(sessionId, 'SessionQuarantined'))
+        yield* store.append(quarantineEvent(sessionId, EventKind.SessionQuarantined))
 
         yield* checkQuarantine(sessionId).pipe(
           Effect.flip,
@@ -65,8 +69,8 @@ describe('L2.3 — Quarantine', () => {
       Effect.gen(function* () {
         const sessionId = randomUUID()
         const store = yield* EventStore
-        yield* store.append(quarantineEvent(sessionId, 'SessionQuarantined'))
-        yield* store.append(quarantineEvent(sessionId, 'QuarantineReleased'))
+        yield* store.append(quarantineEvent(sessionId, EventKind.SessionQuarantined))
+        yield* store.append(quarantineEvent(sessionId, EventKind.QuarantineReleased))
 
         yield* checkQuarantine(sessionId)
       }),
@@ -79,7 +83,7 @@ describe('L2.3 — Quarantine', () => {
         const quarantinedSession = randomUUID()
         const freeSession = randomUUID()
         const store = yield* EventStore
-        yield* store.append(quarantineEvent(quarantinedSession, 'SessionQuarantined'))
+        yield* store.append(quarantineEvent(quarantinedSession, EventKind.SessionQuarantined))
 
         yield* checkQuarantine(quarantinedSession).pipe(
           Effect.flip,

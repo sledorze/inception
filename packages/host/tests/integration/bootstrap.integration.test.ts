@@ -14,6 +14,7 @@
 import { Effect } from 'effect'
 import { expect, layer } from '@effect/vitest'
 import { GeorgesToolkit } from '../../src/adapters/driving/GeorgesToolkit.ts'
+import { AdminQuery } from '../../src/ports/driving/AdminQuery.ts'
 import { EventStore } from '../../src/ports/driven/EventStore.ts'
 import { appLayer } from '../../src/runtime/bind.ts'
 
@@ -39,6 +40,16 @@ layer(appLayer)('bootstrap — appLayer composition root (bind.ts)', it => {
       const toolkit = yield* GeorgesToolkit
       const stream = yield* toolkit.handle('list-tools', { role: 'Architect' })
       expect(stream).toBeDefined()
+    }),
+  )
+
+  it.effect('resolves AdminQuery — metrics + trace available', () =>
+    Effect.gen(function* () {
+      const adminQuery = yield* AdminQuery
+      const metrics = yield* adminQuery.metrics()
+      expect(typeof metrics.eventCount).toBe('number')
+      expect(typeof metrics.openPainItems).toBe('number')
+      expect(typeof metrics.openTodoItems).toBe('number')
     }),
   )
 })

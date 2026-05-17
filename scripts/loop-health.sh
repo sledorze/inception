@@ -25,8 +25,10 @@ echo "╚═══════════════════════�
 echo ""
 echo "L1  Friction → Fix"
 
-PAIN_OPEN=$(grep -c "^## P[0-9]" docs/PAIN.md 2>/dev/null || echo 0)
-PAIN_ARCHIVED=$(grep -c "^## P[0-9]" docs/PAIN-archive.md 2>/dev/null || echo 0)
+# Use grep+wc -l (not grep -c) to avoid the "0\n0" double-output when grep
+# exits 1 on no matches, which breaks arithmetic expansion on line below.
+PAIN_OPEN=$(grep "^## P[0-9]" docs/PAIN.md 2>/dev/null | wc -l | tr -d ' ')
+PAIN_ARCHIVED=$(grep "^## P[0-9]" docs/PAIN-archive.md 2>/dev/null | wc -l | tr -d ' ')
 PAIN_TOTAL=$(( PAIN_OPEN + PAIN_ARCHIVED ))
 
 if   [ "$PAIN_OPEN" -gt 4 ]; then
@@ -73,7 +75,7 @@ pending "Output channel quality (hook+pattern vs PAIN-only ratio)" "structured h
 echo ""
 echo "L3  Assessment Frame → Test → Coverage"
 
-LAW_SPEC_COUNT=$(grep -c "^| L[0-9A]\|^| AL\." docs/SPEC-nav.md 2>/dev/null || echo 0)
+LAW_SPEC_COUNT=$(grep -c "^| L[0-9]\." docs/SPEC-nav.md 2>/dev/null || echo 0)
 LAW_TEST_COUNT=$(ls packages/host/tests/laws/*.spec.ts 2>/dev/null | wc -l | tr -d ' ')
 
 if [ "$LAW_SPEC_COUNT" -gt 0 ]; then
@@ -130,12 +132,12 @@ else
   warn "PAIN.md has no open items — session hook surfaces nothing"
 fi
 
-TODO_LINE=$(grep -m1 "\[todo\]" docs/TODO.md 2>/dev/null || echo "")
+TODO_LINE=$(grep -m1 "\[todo\]\|\[in-progress\]" docs/TODO.md 2>/dev/null || echo "")
 if [ -n "$TODO_LINE" ]; then
-  TODO_LABEL=$(echo "$TODO_LINE" | sed 's/.*\[todo\] *//' | cut -c1-60)
-  pass "Next TODO open: '${TODO_LABEL}'"
+  TODO_LABEL=$(echo "$TODO_LINE" | sed 's/.*\(\[todo\]\|\[in-progress\]\) *//' | cut -c1-60)
+  pass "Next TODO/in-progress: '${TODO_LABEL}'"
 else
-  warn "No [todo] items found in docs/TODO.md"
+  warn "No [todo] or [in-progress] items found in docs/TODO.md"
 fi
 
 pending "Priming token cost per session" "session token instrumentation"

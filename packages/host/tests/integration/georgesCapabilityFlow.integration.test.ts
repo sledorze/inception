@@ -15,7 +15,7 @@
  * guaranteed to be listening before OpenAiClient.layer is built.
  */
 import { Effect, Layer, Option, Stream } from 'effect'
-import { NodeFileSystem } from '@effect/platform-node'
+import * as NodeFileSystem from '@effect/platform-node/NodeFileSystem'
 import { expect, layer } from '@effect/vitest'
 import { GeorgesToolkit } from '../../src/adapters/driving/GeorgesToolkit.ts'
 import { registerCapability } from '../../src/application/registerCapability.ts'
@@ -91,15 +91,17 @@ const llmLayer = makeLlmStubLayer([
   { body: TEXT_BODY, status: 200 },
 ])
 
-const { capabilityRegistryLayer, handleRegLayer, storeLayer, toolkitLayer } = makeToolkitComponents(TOOLS, {}, [
-  'propose-capability',
-  'call-capability',
-])
+const { capabilityRegistryLayer, handleRegLayer, registryLayer, storeLayer, toolkitLayer } = makeToolkitComponents(
+  TOOLS,
+  {},
+  ['propose-capability', 'call-capability'],
+)
 
 const TestLayer = Layer.mergeAll(
   toolkitLayer,
   storeLayer,
   handleRegLayer,
+  registryLayer,
   capabilityRegistryLayer,
   NodeFileSystem.layer,
   llmLayer,

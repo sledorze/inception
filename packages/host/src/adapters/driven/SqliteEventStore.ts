@@ -1,5 +1,5 @@
 import Database from 'better-sqlite3'
-import { Effect, Layer, Random } from 'effect'
+import { Effect, Layer, Random, Schema } from 'effect'
 import { computeContentHash, EventStore, EventStoreError } from '../../ports/driven/EventStore.ts'
 import type { NewEvent, StoredEvent } from '../../ports/driven/EventStore.ts'
 
@@ -28,19 +28,34 @@ const INSERT = `
   VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
 `
 
-function rowToStoredEvent(row: Record<string, unknown>): StoredEvent {
+const StoredEventRow = Schema.Struct({
+  actor: Schema.Literals(['user', 'georges', 'host', 'claude', 'supervisor', 'monitor', 'witness']),
+  content_hash: Schema.String,
+  correlation_id: Schema.String,
+  id: Schema.String,
+  kind: Schema.String,
+  occurred_at: Schema.String,
+  payload: Schema.String,
+  prev_hash: Schema.String,
+  schema_v: Schema.Number,
+  session_id: Schema.String,
+  story_ref: Schema.String,
+})
+
+function rowToStoredEvent(row: unknown): StoredEvent {
+  const r = Schema.decodeUnknownSync(StoredEventRow)(row)
   return {
-    actor: row['actor'] as StoredEvent['actor'],
-    contentHash: row['content_hash'] as string,
-    correlationId: row['correlation_id'] as string,
-    id: row['id'] as string,
-    kind: row['kind'] as string,
-    occurredAt: row['occurred_at'] as string,
-    payload: JSON.parse(row['payload'] as string) as unknown,
-    prevHash: row['prev_hash'] as string,
-    schemaV: row['schema_v'] as number,
-    sessionId: row['session_id'] as string,
-    storyRef: row['story_ref'] as string,
+    actor: r.actor,
+    contentHash: r.content_hash,
+    correlationId: r.correlation_id,
+    id: r.id,
+    kind: r.kind,
+    occurredAt: r.occurred_at,
+    payload: JSON.parse(r.payload) as unknown,
+    prevHash: r.prev_hash,
+    schemaV: r.schema_v,
+    sessionId: r.session_id,
+    storyRef: r.story_ref,
   }
 }
 
@@ -64,8 +79,11 @@ export const SqliteEventStore = {
                   try: () => {
                     const contentHash = computeContentHash(event)
                     const lastRow = db
-                      .prepare('SELECT content_hash FROM events WHERE session_id = ? ORDER BY rowid DESC LIMIT 1')
-                      .get(event.sessionId) as { content_hash: string } | undefined
+                      .prepare<
+                        [string],
+                        { content_hash: string }
+                      >('SELECT content_hash FROM events WHERE session_id = ? ORDER BY rowid DESC LIMIT 1')
+                      .get(event.sessionId)
                     const prevHash = lastRow?.content_hash ?? 'genesis'
 
                     const info = db.prepare(INSERT).run(
@@ -85,10 +103,9 @@ export const SqliteEventStore = {
 
                     if (info.changes === 0) {
                       // Duplicate content hash — return the already-stored event (idempotent)
-                      const existing = db
-                        .prepare('SELECT * FROM events WHERE content_hash = ?')
-                        .get(contentHash) as Record<string, unknown>
-                      return rowToStoredEvent(existing)
+                      return rowToStoredEvent(
+                        db.prepare('SELECT * FROM events WHERE content_hash = ?').get(contentHash),
+                      )
                     }
 
                     return { ...event, contentHash, id, prevHash } satisfies StoredEvent
@@ -110,12 +127,16 @@ export const SqliteEventStore = {
                     conds.push('session_id = ?')
                     params.push(filter.sessionId)
                   }
+                  if (filter.correlationId !== undefined) {
+                    conds.push('correlation_id = ?')
+                    params.push(filter.correlationId)
+                  }
                   const where = conds.length > 0 ? `WHERE ${conds.join(' AND ')}` : ''
                   const limit = filter.limit === undefined ? '' : `LIMIT ${Number(filter.limit)}`
-                  const rows = db
+                  return db
                     .prepare(`SELECT * FROM events ${where} ORDER BY rowid ${limit}`)
-                    .all(...params) as Record<string, unknown>[]
-                  return rows.map(rowToStoredEvent)
+                    .all(...params)
+                    .map(rowToStoredEvent)
                 },
               }),
 
@@ -124,15 +145,13 @@ export const SqliteEventStore = {
                 const rows = yield* Effect.try({
                   catch: cause => new EventStoreError({ cause }),
                   try: () => {
-                    const anchor = db.prepare('SELECT rowid FROM events WHERE id = ?').get(fromId) as
-                      | { rowid: number }
-                      | undefined
+                    const anchor = db
+                      .prepare<[string], { rowid: number }>('SELECT rowid FROM events WHERE id = ?')
+                      .get(fromId)
                     if (anchor === undefined) {
                       return []
                     }
-                    return db
-                      .prepare('SELECT * FROM events WHERE rowid >= ? ORDER BY rowid')
-                      .all(anchor.rowid) as Record<string, unknown>[]
+                    return db.prepare('SELECT * FROM events WHERE rowid >= ? ORDER BY rowid').all(anchor.rowid)
                   },
                 })
                 for (const row of rows) {

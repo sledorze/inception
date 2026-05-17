@@ -10,6 +10,7 @@
  * In tests, the Monitor computation is injected directly.
  */
 import { DateTime, Effect } from 'effect'
+import { EventKind } from '../domain/events.ts'
 import { EventStore } from '../ports/driven/EventStore.ts'
 import type { SignalResult } from '../ports/driven/Supervisor.ts'
 
@@ -36,7 +37,7 @@ export const checkSupervisorDivergence = (
       yield* store.append({
         actor: 'monitor',
         correlationId: `monitor-divergence-${riskId}-${sessionId}`,
-        kind: 'SupervisorDivergence',
+        kind: EventKind.SupervisorDivergence,
         occurredAt: DateTime.formatIso(yield* DateTime.now),
         payload: {
           monitorTripped: monitorResult.tripped,

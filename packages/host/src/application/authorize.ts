@@ -1,0 +1,20 @@
+import { Effect } from 'effect'
+import type { Principal, Role } from '../ports/driving/AuthGateway.ts'
+import { AuthGateway, Forbidden, SessionNotFound } from '../ports/driving/AuthGateway.ts'
+
+/**
+ * Verify the token and assert the caller holds the required role.
+ * Yields `Principal` on success; fails with `SessionNotFound`, `SessionExpired`, or `Forbidden`.
+ */
+export const requireRole = Effect.fn('authorize.requireRole')(function* (token: string | undefined, required: Role) {
+  if (token === undefined) {
+    return yield* new SessionNotFound()
+  }
+  const auth = yield* AuthGateway
+  const principal: Principal = yield* auth.verify(token)
+  // admin ⊃ enduser: an admin token passes any withRole('enduser') guard.
+  if (required === 'admin' && principal.role !== 'admin') {
+    return yield* new Forbidden({ required, subject: principal.subject })
+  }
+  return principal
+})

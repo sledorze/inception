@@ -157,6 +157,147 @@ const noEffectGenWithoutVitest = {
   },
 }
 
+// ── Rule: no-async-in-src ─────────────────────────────────────────────────────
+
+/** @type {import('eslint').Rule.RuleModule} */
+const noAsyncInSrc = {
+  create(context) {
+    // Bypass only when the marker is a line comment starting within the first 5 lines
+    // (not buried inside a string literal or far from file scope).
+    const lines = context.getSourceCode().getText().split('\n')
+    const hasBridgeMarker = lines
+      .slice(0, 5)
+      .some(line => line.trimStart().startsWith('// promise-bridge: intentional'))
+    if (hasBridgeMarker) {
+      return {}
+    }
+    const report = node =>
+      context.report({
+        message:
+          'async/await is forbidden in packages/host/src/ (CLAUDE.md hard rule). ' +
+          'Use Effect.fn("Module.name")(function*() { ... }) and yield* for async work. ' +
+          'Bridge adapters wrapping Promise-based APIs: add // promise-bridge: intentional at file scope. ' +
+          'See .claude/patterns/bridge-zone.md',
+        node,
+      })
+    return {
+      ArrowFunctionExpression(node) {
+        if (node.async) {
+          report(node)
+        }
+      },
+      AwaitExpression(node) {
+        report(node)
+      },
+      FunctionDeclaration(node) {
+        if (node.async) {
+          report(node)
+        }
+      },
+      FunctionExpression(node) {
+        if (node.async) {
+          report(node)
+        }
+      },
+    }
+  },
+  meta: {
+    docs: { description: 'Disallow async/await in packages/host/src/ — use Effect.gen' },
+    type: 'problem',
+  },
+}
+
+// ── Rule: no-raw-promise ──────────────────────────────────────────────────────
+
+/** @type {import('eslint').Rule.RuleModule} */
+const noRawPromise = {
+  create(context) {
+    const lines = context.getSourceCode().getText().split('\n')
+    const hasBridgeMarker = lines
+      .slice(0, 5)
+      .some(line => line.trimStart().startsWith('// promise-bridge: intentional'))
+    if (hasBridgeMarker) {
+      return {}
+    }
+    const report = node =>
+      context.report({
+        message:
+          'Raw Promise construction/combinator is forbidden in packages/host/src/ (CLAUDE.md hard rule). ' +
+          'Use Effect.tryPromise({ try: async () => ..., catch: e => new Err(e) }) to wrap Promise-based APIs. ' +
+          'Bridge adapters: add // promise-bridge: intentional at file scope. ' +
+          'See .claude/patterns/bridge-zone.md',
+        node,
+      })
+    return {
+      CallExpression(node) {
+        const { callee } = node
+        if (
+          callee.type === 'MemberExpression' &&
+          !callee.computed &&
+          callee.object.type === 'Identifier' &&
+          callee.object.name === 'Promise' &&
+          callee.property.type === 'Identifier'
+        ) {
+          report(node)
+          return
+        }
+        // Promise chaining via .then() — essentially never appears in Effect code.
+        // (.catch/.finally skipped: Effect.catch/Effect.finally are valid static methods.)
+        if (
+          callee.type === 'MemberExpression' &&
+          !callee.computed &&
+          callee.property.type === 'Identifier' &&
+          callee.property.name === 'then'
+        ) {
+          report(node)
+        }
+      },
+      NewExpression(node) {
+        if (node.callee.type === 'Identifier' && node.callee.name === 'Promise') {
+          report(node)
+        }
+      },
+    }
+  },
+  meta: {
+    docs: { description: 'Disallow new Promise / Promise.resolve / Promise.reject in packages/host/src/' },
+    type: 'problem',
+  },
+}
+
+// ── Rule: no-try-catch-in-src ─────────────────────────────────────────────────
+
+/** @type {import('eslint').Rule.RuleModule} */
+const noTryCatchInSrc = {
+  create(context) {
+    const lines = context.getSourceCode().getText().split('\n')
+    const hasBridgeMarker = lines
+      .slice(0, 5)
+      .some(line => line.trimStart().startsWith('// promise-bridge: intentional'))
+    if (hasBridgeMarker) {
+      return {}
+    }
+    return {
+      TryStatement(node) {
+        if (node.handler !== null) {
+          context.report({
+            message:
+              'try/catch is forbidden in packages/host/src/ (CLAUDE.md hard rule). ' +
+              'Use Effect.try(() => ...) to wrap throwing sync code; ' +
+              'pipe .pipe(Effect.orElseSucceed(() => fallback)) for catch-and-return patterns. ' +
+              'Typed errors: use Effect.fail(new MyError({cause})) + Effect.catchTag.',
+            node,
+          })
+        }
+      },
+    }
+  },
+  meta: {
+    docs: { description: 'Disallow try/catch in packages/host/src/ — use Effect.try and Effect.catchTag' },
+    type: 'problem',
+  },
+}
+
 // ── Rule: no-inline-correlation-id ────────────────────────────────────────────
 
 /** @type {import('eslint').Rule.RuleModule} */
@@ -211,10 +352,13 @@ const noInlineCorrelationId = {
 const plugin = {
   meta: { name: 'effect-patterns' },
   rules: {
+    'no-async-in-src': noAsyncInSrc,
     'no-date-clock': noDateClock,
     'no-effect-gen-without-vitest': noEffectGenWithoutVitest,
     'no-inline-correlation-id': noInlineCorrelationId,
+    'no-raw-promise': noRawPromise,
     'no-runpromise-in-tests': noRunpromiseInTests,
+    'no-try-catch-in-src': noTryCatchInSrc,
   },
 }
 

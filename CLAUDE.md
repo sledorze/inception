@@ -29,7 +29,7 @@ Plus Host-side tracing identities: **Supervisor** (in-process risk monitor) and 
 If you are picking up from a compacted summary, do this BEFORE the first action:
 
 1. Read `docs/SPEC-nav.md` (~1 min) — law IDs, SPEC line numbers, paired test paths.
-2. Check `docs/TODO.md` — active phase + lowest-numbered `[todo]`.
+2. Check `docs/TODO.md` — active phase + lowest-numbered `[todo]` or `[in-progress]`.
 3. Scan `docs/PAIN.md` — any P1 (blocks work) items relevant to the current task?
 4. Skip full SPEC §3 / §A re-read unless the current task touches a law or port directly.
 
@@ -37,7 +37,7 @@ If you are picking up from a compacted summary, do this BEFORE the first action:
 
 1. Read `docs/SPEC-nav.md` — laws quick index. Jump to the SPEC.md section it references only if the current task touches a law or port directly. (Skip full §A + §3 otherwise — same rule as "Resuming after auto-compaction".)
 2. Read `docs/TODO.md` top to bottom — current phase + items.
-3. Pick the lowest-numbered `[todo]` in the active phase.
+3. Pick the lowest-numbered `[todo]` or `[in-progress]` in the active phase.
 
 ## Per-task ritual (every cycle, per L3.9)
 
@@ -72,6 +72,7 @@ Implement. Pair every Law you touch with a test in `packages/host/tests/laws/<la
 - **Phase 3** — End-to-end S1 demo.
 - **Phase 4** — Capability proposals (S2).
 - **Phase 5** — Outer observability + substrate refinement.
+- **Phase 6** — Conversational MVP (S6 + S8): project-scoped multi-turn chat with Georges, TDD-e2e via LLM record-replay.
 
 **Do not ship Phase 1 without Phase 1.5.** Phase 1 alone is _aspirational safety_; AL.5 (Trust by absence) forbids shipping safety claims without enforcement.
 
@@ -86,19 +87,19 @@ The **Kernel** (`kernel/`) is the inviolable TCB — actor model, TCB driven-por
 
 Formal specs live in `formal/` and are model-checked in CI (`tlc` for TLA+).
 
-## Repository Layout (target)
+## Repository Layout
 
 ```
 packages/
   host/                     Substrate Georges inhabits
     src/
       ports/
-        driving/            Outside calls in (User, Claude)
-        driven/             Host calls out (data, LLM, sandbox, …)
+        driving/            Outside calls in (User, Claude) — AuthGateway, AdminQuery, UserGateway, ObservabilityGateway
+        driven/             Host calls out (data, LLM, sandbox, …) — LlmProvider, EventStore, SandboxExecutor, DataHandle, ToolRegistry, WorkspaceMount, Supervisor
       adapters/
-        driving/
-        driven/
-      runtime/bind.ts       Service registry: ports → adapters at boot
+        driving/            ScryptAuthGateway, FakeAuthGateway, EventStoreAdminQuery, CliUserGateway, …
+        driven/             SqliteEventStore, OpenAiCompatLlmProvider, FileBackedHandle, …
+      runtime/bind.ts       Service registry: ports → adapters at boot (composition root)
       application/          Effect.gen orchestrations; imports ports only
       domain/               Pure leaf: schemas, value objects, invariants
       bootstrap/
@@ -110,7 +111,8 @@ packages/
       unit/                 Pure logic tests
       integration/          Cross-component tests
   monitor/                  Out-of-process Supervisor cross-check (L3.7)
-  frontend/                 Optional UI (deferred past Phase 1)
+  backoffice/               Admin back-office UI (proposals, trace, PAIN, patterns, agent.md)
+  app/                      End-user chat app (goal submission + conversation)
 kernel/                     Inviolable TCB (L0.5; signed; 2-of-3 Witness quorum)
 formal/                     TLA+ specs (L0.2 promoter; later sandbox + DP)
 docs/
@@ -127,7 +129,8 @@ docs/
 ## Effect runtime (`packages/host/`)
 
 All Host code is written with **Effect v4** (`effect@4.0.0-beta.x` — exact-pinned; see `.syncpackrc`).  
-The v4 source is vendored at `vendor/effect-smol/` (read-only reference — do not import from it).
+The v4 source is vendored at `vendor/effect-smol/` via **git subtree** (read-only reference; do not import from it).  
+To pull in Effect updates: `git subtree pull --prefix=vendor/effect-smol https://github.com/Effect-TS/effect.git main --squash`
 
 ### Canonical patterns (AGENTS.md in `vendor/effect-smol/` has the full list)
 
@@ -149,11 +152,14 @@ The v4 source is vendored at `vendor/effect-smol/` (read-only reference — do n
 
 ### When you need to understand an Effect API
 
-1. Read `.agents/skills/effect-ts/references/` — curated skill guides (layers, schema, error handling, testing, observability, …). Fastest first stop; token-efficient.
-2. Read `vendor/effect-smol/ai-docs/` — AI-optimised examples by category.
-3. Read `vendor/effect-smol/packages/effect/src/<Module>.ts` — canonical source for exact signatures.
-4. Read `vendor/effect-smol/MIGRATION.md` — v3 → v4 API mapping table.
-5. Read `vendor/effect-smol/AGENTS.md` — coding-agent conventions for this repo.
+> `vendor/effect-smol/` is a **git subtree** of the Effect repo (read-only reference; do not import from it; excluded from VSCode search and auto-import). Treat it as your source of truth for Effect patterns — not web search, not training data.
+
+1. Read `vendor/effect-smol/LLMS.md` — agent-oriented overview; read this first before any Effect code.
+2. Read `.agents/skills/effect-ts/references/` — project-local curated guides (layers, schema, error handling, testing, observability, …). Fastest token-efficient stop for common patterns.
+3. Read `vendor/effect-smol/ai-docs/src/` — AI-optimised examples by category (effect, stream, testing, observability, …).
+4. Read `vendor/effect-smol/packages/effect/src/<Module>.ts` — canonical source for exact signatures.
+5. Read `vendor/effect-smol/MIGRATION.md` — v3 → v4 API mapping table.
+6. Read `vendor/effect-smol/AGENTS.md` — coding-agent conventions used inside the Effect repo itself.
 
 Do **not** rely on web search or your training-data knowledge of Effect v3 APIs — the v4 API changed.
 
@@ -175,6 +181,7 @@ Do **not** rely on web search or your training-data knowledge of Effect v3 APIs 
 - **Consolidate before you commit.** After implementing a feature, scan the diff for duplicated structure. If the same layer composition, error tag string, or import block appears in two or more files, extract it before the commit lands. One extra minute of consolidation prevents one hour of divergence debugging.
 - **Strategic refactors.** Only valid as preparation for an upcoming slice; state what it prepares; never merge refactors and new behaviour in the same commit.
 - **Spikes for unknowns.** Time-boxed; produce findings + recommendation; no production code.
+- **Breakdown strategy (`.claude/patterns/breakdown-strategy.md`).** Slice into _vertical_ slices; secure each with a spike before breaking it down; map blast radius before any refactor commit (large radius → named strategic refactor committed first → defer downstream breakdown). Persist the numbered breakdown to `docs/TODO.md` so `/goal` can unroll and self-refine to the north star. When a planning method proves itself, capture it immediately: CLAUDE.md Working Practices + `.claude/patterns/` + `docs/META-LOOPS.md` (same _process_ commit, separate from feature).
 - **Witness the automation.** Run `pnpm test`, `pnpm typecheck`, `pnpm lint` locally before pushing.
 - **Never lower coverage thresholds** (L2.4 ratchet; bootstrap-loosening exception only for `bootstrap=true` calibrations on first L3.8 promotion).
 - **Minimize dependency fan-out.** Hubs (>10 importers) need to be split by domain boundary or kept stable.
@@ -220,13 +227,17 @@ Mutation report runs nightly (`mutation-report.yml`), not on PRs.
 
 Annotated code patterns for the codebase's recurring constructs. Check here **before** writing code that touches hex boundaries, test structure, or layer wiring — violations are caught at commit time by lefthook and cost a cycle to fix.
 
-| File                       | When to read                                                                                    |
-| -------------------------- | ----------------------------------------------------------------------------------------------- |
-| `dep-boundary.md`          | Importing anything across `domain/`, `application/`, `ports/`, `adapters/`, `runtime/`          |
-| `application-vs-domain.md` | Deciding where a new function or module lives                                                   |
-| `composition-root.md`      | Adding an adapter or changing the Layer wiring                                                  |
-| `effect-test-pattern.md`   | Writing or modifying any test under `packages/host/tests/`                                      |
-| `cycle-hunt.md`            | End of slice/phase, or when friction repeats — proactive scan for cycle-time + token-cost waste |
+| File                            | When to read                                                                                                          |
+| ------------------------------- | --------------------------------------------------------------------------------------------------------------------- |
+| `dep-boundary.md`               | Importing anything across `domain/`, `application/`, `ports/`, `adapters/`, `runtime/`                                |
+| `application-vs-domain.md`      | Deciding where a new function or module lives                                                                         |
+| `composition-root.md`           | Adding an adapter or changing the Layer wiring                                                                        |
+| `effect-test-pattern.md`        | Writing or modifying any test under `packages/host/tests/`                                                            |
+| `cycle-hunt.md`                 | End of slice/phase, or when friction repeats — proactive scan for cycle-time + token-cost waste                       |
+| `frontend-design-system.md`     | Adding a new design-system oxlint rule or migrating a violation in `packages/frontend/`                               |
+| `frontend-llm-ui-generation.md` | Prompting any LLM to generate UI in `packages/app/` or `packages/backoffice/` — constraints, checklist, anti-patterns |
+| `breakdown-strategy.md`         | Planning a multi-slice task — when to spike, how to map blast radius, when to trigger a strategic refactor            |
+| `schema-decode.md`              | Decoding `unknown` data at any boundary — which API (`decodeUnknownEffect` / `Result` / generics) and why             |
 
 ## When in doubt
 
@@ -237,10 +248,15 @@ Annotated code patterns for the codebase's recurring constructs. Check here **be
 - "What would an expert say?" → `docs/EXPERTS.md`.
 - "Should I build this or use a library?" → AL.7 + §2.8. Default to adopt/integrate.
 - "How does this Effect API work?" → `.agents/skills/effect-ts/references/` first, then `vendor/effect-smol/ai-docs/` → `vendor/effect-smol/packages/effect/src/`. Never guess from v3 memory.
+- "How should I write or modify a test in `packages/host/tests/`?" → `/effect-test-pattern` (layer(), it.effect, Effect.flip, RED .fails tests).
+- "Which decode API do I use at this boundary?" → `/schema-decode` (three-way table: decodeUnknownEffect / decodeUnknownResult / helper function).
+- "How do I add a new adapter or wire a new Layer?" → `/composition-root` (bind.ts is the only adapter importer; Layer.provide chain; AppServices derived automatically).
 - "What code pattern should I follow here?" → `.claude/patterns/` (hex boundaries, test structure, composition root).
-- "Is there waste I'm not seeing?" → `.claude/patterns/cycle-hunt.md`
+- "Is this async/Promise usage in `packages/host/src/` a legitimate bridge or a violation?" → `.claude/patterns/bridge-zone.md` (annotation marker, which files qualify, when NOT to annotate).
+- "How do I prompt an LLM to generate UI that won't fail the lint gate?" → `.claude/patterns/frontend-llm-ui-generation.md` (constraints, checklist, anti-patterns, workflow)
+- "Is there waste I'm not seeing?" → `/hunt`
 - "Where do Georges' behavioral instructions live?" → `packages/host/src/bootstrap/agent.md` (never in `.claude/`)
-- "Are the self-improving loops healthy?" → `docs/META-LOOPS.md` (metrics + degradation signals for L1–L6)
+- "Are the self-improving loops healthy?" → `docs/META-LOOPS.md` (metrics + degradation signals for L1–L7)
 
 ## Feedback
 

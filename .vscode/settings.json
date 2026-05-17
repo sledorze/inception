@@ -18,6 +18,7 @@
     "**/reports/**": true,
     "vendor/**": true
   },
+  "javascript.preferences.autoImportFileExcludePatterns": ["vendor/**"],
   "search.exclude": {
     "**/.stryker-tmp": true,
     "**/coverage": true,
@@ -26,5 +27,6 @@
     "**/reports": true,
     "vendor/**": true
   },
+  "typescript.preferences.autoImportFileExcludePatterns": ["vendor/**"],
   "typescript.tsdk": "node_modules/typescript/lib"
 }

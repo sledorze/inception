@@ -15,9 +15,13 @@ npm-debug.log*
 .env
 .env.local
 
-# Data (SQLite databases)
-data/
+# Data (SQLite databases, WAL files, runtime JSON — credentials.json is tracked separately)
+**/data/*.db
+**/data/*.db-shm
+**/data/*.db-wal
 *.db
+**/data/capability-registry.json
+**/data/sessions.json
 
 # Reference repositories (clone as needed)
 .repos/
@@ -39,6 +43,7 @@ test-results/
 # Claude Code local settings
 .claude/settings.local.json
 .claude/logs/
+.claude/scheduled_tasks.lock
 
 # Lalph (agent orchestrator — if used)
 .lalph/

@@ -1,6 +1,8 @@
 /** @effect-diagnostics strictEffectProvide:off */
 import { Effect, FileSystem, Layer, Path } from 'effect'
-import { NodeFileSystem, NodePath } from '@effect/platform-node'
+import * as NodeFileSystem from '@effect/platform-node/NodeFileSystem'
+import * as NodePath from '@effect/platform-node/NodePath'
+import * as NodeRuntime from '@effect/platform-node/NodeRuntime'
 import type { FileContent } from './TestConventionChecker.ts'
 import { checkTestConventions, defaultCategories } from './TestConventionChecker.ts'
 
@@ -35,10 +37,11 @@ const program = Effect.gen(function* () {
   const fs = yield* FileSystem.FileSystem
   const path = yield* Path.Path
 
-  const rootDir = path.resolve(import.meta.dirname ?? '.', '../../..')
+  const rootDir = path.resolve(import.meta.dirname ?? '.', '../../../..')
   const backendTests = yield* findTestFiles(path.join(rootDir, 'packages/host/src'))
-  const frontendTests = yield* findTestFiles(path.join(rootDir, 'packages/frontend/src'))
-  const testFiles = [...backendTests, ...frontendTests]
+  const appTests = yield* findTestFiles(path.join(rootDir, 'packages/app/src'))
+  const backofficeTests = yield* findTestFiles(path.join(rootDir, 'packages/backoffice/src'))
+  const testFiles = [...backendTests, ...appTests, ...backofficeTests]
 
   const files: FileContent[] = yield* Effect.forEach(
     testFiles,
@@ -63,4 +66,4 @@ const program = Effect.gen(function* () {
   }
 })
 
-await Effect.runPromise(program.pipe(Effect.provide(Layer.mergeAll(NodeFileSystem.layer, NodePath.layer))))
+program.pipe(Effect.provide(Layer.mergeAll(NodeFileSystem.layer, NodePath.layer)), NodeRuntime.runMain)

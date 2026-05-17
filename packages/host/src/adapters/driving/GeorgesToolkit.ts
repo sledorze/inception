@@ -5,7 +5,7 @@
  * Laws: L1.1 (mediation), L1.3 (code-over-data), L1.5 (policy gate — deny by default),
  *       L2.1 (self-description), L2.2 (role-scoped mutability), L2.6 (single promoter per scope).
  */
-import { Data, DateTime, Effect, FileSystem, Path, Schema } from 'effect'
+import { DateTime, Effect, FileSystem, Path, Schema } from 'effect'
 import { ChildProcessSpawner } from 'effect/unstable/process/ChildProcessSpawner'
 import { Tool, Toolkit } from 'effect/unstable/ai'
 import { CapabilityRegistry } from '../../ports/driven/CapabilityRegistry.ts'
@@ -14,10 +14,13 @@ import { EventStore } from '../../ports/driven/EventStore.ts'
 import { PolicyGate } from '../../ports/driven/PolicyGate.ts'
 import { ToolRegistry } from '../../ports/driven/ToolRegistry.ts'
 import { WorkspaceMount } from '../../ports/driven/WorkspaceMount.ts'
+import { EventKind } from '../../domain/events.ts'
 import { CurrentCorrelationId } from '../../domain/tracing.ts'
 import { runScriptInTempDir } from '../runScriptInTempDir.ts'
 
-class CapabilityRunError extends Data.TaggedError('@app/host/CapabilityRunError')<{ cause: unknown }> {}
+class CapabilityRunError extends Schema.TaggedErrorClass<CapabilityRunError>()('@app/host/CapabilityRunError', {
+  cause: Schema.Defect,
+}) {}
 
 const ToolDescriptorSchema = Schema.Struct({
   description: Schema.String,
@@ -104,12 +107,21 @@ export const RunScriptTool = Tool.make('run-script', {
   }),
 })
 
+export const RequestClarificationTool = Tool.make('request-clarification', {
+  description: 'Asks the User a clarifying question before proceeding. Use when the goal is ambiguous.',
+  failure: WorkspaceFailureSchema,
+  failureMode: 'return',
+  parameters: Schema.Struct({ question: Schema.String }),
+  success: Schema.Struct({ status: Schema.Literal('pending') }),
+})
+
 export const GeorgesToolkit = Toolkit.make(
   CallCapabilityTool,
   FetchHandleShapeTool,
   ListToolsTool,
   ProposeCapabilityTool,
   ReadWorkspaceTool,
+  RequestClarificationTool,
   RunScriptTool,
   WriteWorkspaceTool,
 )
@@ -145,7 +157,7 @@ export const GeorgesToolkitLive = GeorgesToolkit.toLayer(
           .append({
             actor: 'host',
             correlationId,
-            kind: 'ToolResultObserved',
+            kind: EventKind.ToolResultObserved,
             occurredAt: DateTime.formatIso(yield* DateTime.now),
             payload: { ...payload, toolName },
             schemaV: 1,
@@ -241,13 +253,13 @@ export const GeorgesToolkitLive = GeorgesToolkit.toLayer(
           .append({
             actor: 'georges',
             correlationId,
-            kind: 'CapabilityProposed',
+            kind: EventKind.CapabilityProposed,
             occurredAt: DateTime.formatIso(yield* DateTime.now),
             payload: {
               code,
               description: manifest.description,
               name: manifest.name,
-              scope: manifest.scope,
+              scope: [manifest.scope],
               tests,
               version: manifest.version,
             },
@@ -267,6 +279,29 @@ export const GeorgesToolkitLive = GeorgesToolkit.toLayer(
           .pipe(Effect.mapError(e => ({ message: `read failed: ${e.path} — ${String(e.cause)}` })))
         yield* emitCorroborator('read-workspace', { path: wsPath })
         return { content }
+      }),
+
+      'request-clarification': Effect.fn('GeorgesToolkit.requestClarification')(function* ({
+        question,
+      }: {
+        question: string
+      }) {
+        yield* checkPolicy('request-clarification')
+        const correlationId = yield* CurrentCorrelationId
+        yield* store
+          .append({
+            actor: 'georges',
+            correlationId,
+            kind: EventKind.ClarifyRequested,
+            occurredAt: DateTime.formatIso(yield* DateTime.now),
+            payload: { question },
+            schemaV: 1,
+            sessionId: 'bootstrap',
+            storyRef: 'S8',
+          })
+          .pipe(Effect.orDie)
+        yield* emitCorroborator('request-clarification', { question })
+        return { status: 'pending' as const }
       }),
 
       'run-script': Effect.fn('GeorgesToolkit.runScript')(function* ({

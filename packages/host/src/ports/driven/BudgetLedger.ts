@@ -43,18 +43,22 @@ export class BudgetLedgerError extends Schema.TaggedErrorClass<BudgetLedgerError
   cause: Schema.Defect,
 }) {}
 
+// ─── narrow interfaces (ISP) ──────────────────────────────────────────────────
+// Read-only callers (e.g. Supervisor, observability) depend on BudgetReader;
+// write callers (application services) depend on BudgetWriter. Both are
+// satisfied by the full BudgetLedger service.
+
+export interface BudgetReader {
+  readonly get: (scope: BudgetScope) => Effect.Effect<BudgetVector, BudgetLedgerError>
+}
+
+export interface BudgetWriter {
+  readonly debit: (scope: BudgetScope, amount: BudgetVector) => Effect.Effect<BudgetVector, BudgetLedgerError>
+  readonly reset: (scope: BudgetScope) => Effect.Effect<void, BudgetLedgerError>
+}
+
 // ─── port ────────────────────────────────────────────────────────────────────
 
-export class BudgetLedger extends Context.Service<
-  BudgetLedger,
-  {
-    // Add `amount` to the running total for the given scope and return the new total.
-    readonly debit: (scope: BudgetScope, amount: BudgetVector) => Effect.Effect<BudgetVector, BudgetLedgerError>
-
-    // Return the current accumulated total for the given scope (zero-vector if never debited).
-    readonly get: (scope: BudgetScope) => Effect.Effect<BudgetVector, BudgetLedgerError>
-
-    // Reset the running total for the given scope back to zero.
-    readonly reset: (scope: BudgetScope) => Effect.Effect<void, BudgetLedgerError>
-  }
->()('@app/host/ports/driven/BudgetLedger') {}
+export class BudgetLedger extends Context.Service<BudgetLedger, BudgetReader & BudgetWriter>()(
+  '@app/host/ports/driven/BudgetLedger',
+) {}

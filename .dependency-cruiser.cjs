@@ -35,11 +35,11 @@ module.exports = {
       to: { path: '^packages/' },
     },
 
-    // Frontend src (no host-specific restrictions here)
+    // App + backoffice internals (no host-specific restrictions here)
     {
-      comment: 'Frontend internals.',
-      from: { path: '^packages/frontend/src/' },
-      to: { path: '^packages/frontend/src/' },
+      comment: 'App and backoffice internals.',
+      from: { path: '^packages/(app|backoffice)/src/' },
+      to: { path: '^packages/(app|backoffice)/src/' },
     },
 
     // e2e + scripts
@@ -52,6 +52,24 @@ module.exports = {
   allowedSeverity: 'error',
 
   forbidden: [
+    // ── P36/P37: Components must not import api/ directly ─────────────────
+    {
+      comment: 'Components must not import api/ directly — use hooks/ as the mediation layer (P36/P37).',
+      from: { path: '^packages/(app|backoffice)/src/components/' },
+      name: 'no-frontend-component-api-import',
+      severity: 'error',
+      to: { path: '^packages/(app|backoffice)/src/api/' },
+    },
+
+    // ── Atom API: Components must use atoms.ts, not useAsyncFetch ────────
+    {
+      comment: 'Frontend components must not import useAsyncFetch — use @effect/atom-react + atoms.ts instead.',
+      from: { path: '^packages/(app|backoffice)/src/' },
+      name: 'no-useAsyncFetch-import',
+      severity: 'error',
+      to: { path: 'useAsyncFetch' },
+    },
+
     // ── L2.14: Non-adapter code cannot import from adapters/ ──────────────
     {
       comment:

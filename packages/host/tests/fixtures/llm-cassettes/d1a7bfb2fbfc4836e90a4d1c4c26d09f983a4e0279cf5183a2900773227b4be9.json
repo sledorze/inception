@@ -1,0 +1,29 @@
+{
+  "choices": [
+    {
+      "finish_reason": "stop",
+      "index": 0,
+      "logprobs": null,
+      "message": {
+        "content": "\n\n**synthetic-001** is a registered data handle with the following schema:\n\n| Column | Type   |\n|--------|--------|\n| id     | int    |\n| value  | string |\n\nI confirmed this by calling `fetch-handle-shape` for the handle. The redacted sample shows that `id` contains integer values and `value` contains string values, but I cannot see the actual data — only the schema and type information.\n\nIf you'd like to know more about the contents of synthetic-001 (e.g., row count, value distributions), I can run a script against it using `run-script`. What would you like to explore?",
+        "reasoning_content": "The user is asking about \"synthetic-001\". I've already fetched the handle shape and can see it has columns [\"id\", \"value\"]. Let me provide a clear answer based on what I know.\n\nFrom the session brief, synthetic-001 is described as: schema = {\"columns\":[\"id\",\"value\"]}, sample = {\"id\":\"int\",\"value\":\"string\"}\n\nAnd from fetch-handle-shape, I confirmed:\n- Schema columns: [\"id\", \"value\"]\n- Redacted sample types: id=\"int\", value=\"string\"\n\nI should report what I observed via tools without making claims about the actual data content.\n",
+        "role": "assistant",
+        "tool_calls": []
+      }
+    }
+  ],
+  "created": 1779004932,
+  "id": "chatcmpl-yefr7qaal6qefzw1s5itkq",
+  "model": "qwopus3.6-35b-a3b-v1",
+  "object": "chat.completion",
+  "stats": {},
+  "system_fingerprint": "qwopus3.6-35b-a3b-v1",
+  "usage": {
+    "completion_tokens": 282,
+    "completion_tokens_details": {
+      "reasoning_tokens": 136
+    },
+    "prompt_tokens": 3217,
+    "total_tokens": 3499
+  }
+}

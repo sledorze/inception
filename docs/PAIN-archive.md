@@ -5,6 +5,275 @@ Convention: fix → move (cut from PAIN.md, paste here in the same commit as the
 
 ---
 
+## P52 — Settings.llmBaseUrl consumed by nothing (moved LLM endpoint unrecoverable from UI)
+
+**Severity:** blocks work
+
+**Symptom:** Persisted `Settings.llmBaseUrl` is never consumed — `bind.ts` and `OpenAiCompatLlmProvider` both read the `LLM_BASE_URL` env var at layer-build time. Changing the URL in the backoffice Settings panel writes to `data/settings.json` and the in-memory `Ref`, but the LLM adapter ignores it. When the LLM endpoint IP moves, the only recovery is editing env/code + restarting the server. The UI label "Takes effect on next server restart" is also wrong (a restart re-reads the env var, not the persisted setting).
+
+**Candidate fix:** Reuse the existing `makeReasoningAwareFetch` / `Effect.runPromiseWith(ctx)` bridge pattern in `OpenAiCompatLlmProvider.ts` to read `Settings.llmBaseUrl` per request and rewrite the outgoing URL. `FileBackedSettings` holds the value in a `Ref` updated synchronously on patch — no layer rebuild or restart needed.
+
+FIXED 2026-05-17 in feat/design-system-enforcement (TODO 10.17) — test: packages/host/tests/integration/llmBaseUrlLive.integration.test.ts (1 test: reads llmBaseUrl from Settings per request — no server restart needed).
+
+---
+
+## P51 — In-memory auth sessions lost on every server restart (forced re-auth)
+
+**Severity:** blocks work (dev loop: every `tsx watch` reload logs the user out)
+
+**Symptom:** `ScryptAuthGateway` stores sessions in a `Map` that lives only for the
+server process. A valid `localStorage` token (correctly persisted) hits `verify` on a
+fresh `Map` → `SessionNotFound` → 401. Frontend has no graceful 401 path: it shows a
+raw `Error: 401: ...` string instead of returning the user to the login screen.
+
+**Candidate fix:**
+
+- `ScryptAuthGateway.fileBackedLayer(credentials, sessionsPath)` — load sessions from a
+  JSON file on layer build (filter expired), persist on every login/logout/sliding-renewal.
+- TTL → 7 days, sliding (renew `expiresAtMs` on each successful `verify`).
+- `bind.ts` wires `fileBackedLayer` with `SESSIONS_PATH = data/sessions.json`.
+- `shared-api/handleErr`: 401 → `clearToken()` + `window.dispatchEvent(new CustomEvent('auth:expired'))`.
+- Both `App.tsx` files: listen `auth:expired` → `setAuthed(false)`.
+- `.gitignore`: `**/data/sessions.json` (bearer tokens, must not be staged).
+
+**Red-step test:** `packages/host/tests/integration/authSessionPersistence.integration.test.ts`
+(fails on current in-memory code; green after `fileBackedLayer` lands).
+
+FIXED 2026-05-17 in feat/design-system-enforcement (TODO 10.16) — test: packages/host/tests/integration/authSessionPersistence.integration.test.ts (2 tests: token survives layer rebuild, sliding renewal extends lifetime).
+
+---
+
+## P46 — `effect-patterns` oxlint plugin misses top-level `await` and `.then` chaining
+
+**Severity:** slows
+
+FIXED 2026-05-17 in feat/design-system-enforcement (TODO 10.9) — `AwaitExpression` visitor added
+to `noAsyncInSrc`; `.then(` member-call detection added to `noRawPromise`; bypass hardened from
+`src.includes(...)` to first-5-lines line-start check in all three bridge-aware rules
+(`noAsyncInSrc`, `noRawPromise`, `noTryCatchInSrc`). Bypass-in-string-literal false-negative
+eliminated. All 3 RED `it.fails` tests promoted to plain `it` — GREEN.
+test: `packages/host/tests/unit/oxlint-rules.unit.test.ts` —
+"effect-patterns/no-async-in-src — top-level await (P46)" +
+"effect-patterns/no-raw-promise — .then chaining (P46)" (3 assertions GREEN)
+
+---
+
+## P47 — two `src/checks/*.ts` CLI scripts use unannotated top-level `await Effect.runPromise`
+
+**Severity:** slows (genuine hard-rule violation, invisible to all tooling today)
+
+**Symptom:** `packages/host/src/checks/check-test-conventions.ts:68` and
+`packages/host/src/checks/check-file-structure.ts:79` both ended with:
+
+```ts
+await Effect.runPromise(program.pipe(Effect.provide(Layer.mergeAll(NodeFileSystem.layer, NodePath.layer))))
+```
+
+The file header carried `/** @effect-diagnostics strictEffectProvide:off */` but no
+`// promise-bridge: intentional`. Invisible because the P46 `AwaitExpression` gap meant oxlint
+never fired on them.
+
+FIXED 2026-05-17 in feat/design-system-enforcement (TODO 10.10) — both files converted to
+`program.pipe(Effect.provide(Layer.mergeAll(...)), NodeRuntime.runMain)` using
+`import * as NodeRuntime from '@effect/platform-node/NodeRuntime'` (subpath import). The
+`@effect-diagnostics` header removed; no bridge annotation needed. P46 `AwaitExpression` test
+proves detection; P47 conversion means both files now pass `pnpm lint` cleanly.
+test: `packages/host/tests/unit/oxlint-rules.unit.test.ts` — P46 `AwaitExpression` case (GREEN)
+
+---
+
+## P48 — frontend api layer: `handleErr` ×3, duplicated `authedFetch`/`TOKEN_KEY`, 5 endpoints skip error handling
+
+**Severity:** annoys
+
+FIXED 2026-05-17 in feat/design-system-enforcement (TODO 10.11) — extracted `@app/shared-api`
+workspace package (`packages/shared-api/src/index.ts`) owning `TOKEN_KEY`, token accessors,
+`handleErr`, `authedFetch`, and new `getJson<T>` helper (authedFetch + handleErr + json()).
+Both `packages/app/src/api/auth.ts` and `packages/backoffice/src/api/auth.ts` reduced to
+`export * from '@app/shared-api'`. Removed local `handleErr` re-declaration from `admin.ts`.
+Fixed 5 bare endpoints (`getMetrics`, `getPain`, `getWork`, `listProposals`, `callTool`) to
+route through `getJson` — non-2xx responses now surface the server's error message.
+test: `packages/host/tests/unit/enforce-conventions.unit.test.ts` —
+"Frontend api layer: handleErr declared in exactly one file (P48)" (2 assertions GREEN)
+
+---
+
+## P41 — UI-state interpretation duplicated into presentation components (P36 regression)
+
+**Severity:** slows
+
+**Symptom:** The Atom migration deleted `useAsyncFetch` (which closed P36) and replaced it
+with an inline `AsyncResult.isSuccess(result) ? result.value : null` /
+`AsyncResult.isFailure(result) ? String(Cause.squash(result.cause)) : null` 2-liner plus 3
+identical imports (`@effect/atom-react`, `effect/unstable/reactivity/AsyncResult`,
+`effect/Cause`), duplicated verbatim across 5 migrated components (Metrics, PainBoard,
+Patterns, Sessions, WorkBoard). State interpretation now lives in the presentation layer with
+no machine boundary preventing further spread. The ~8 un-migrated backoffice components
+(AgentMd, SessionDetail, Settings, Proposals, ListTools, ReadWorkspace, WriteWorkspace,
+CallCapability, EventRow, FlagForm) and 3 app components (Conversation, Login, SubmitGoal)
+still carry the older manual `useState(null)` + promise-chaining (`.then`) variant of the
+same coupling. dep-cruiser's `no-frontend-component-api-import` (P36/P37) catches `api/`
+imports but NOT result-state interpretation inside a component body.
+
+FIXED 2026-05-17 in feat/design-system-enforcement — `AsyncView<T>` discriminated union
+(`Loading | Error | Ready`, each with `.waiting`) added to `packages/backoffice/src/atoms.ts`
+via `Atom.map` + `AsyncResult.match`; 5 atom-based components migrated to `*View` atoms
+(no AsyncResult/Cause imports); 13 legacy components converted from `.then(` to `async/await`;
+`.claude/patterns/frontend-atoms.md` documents the pattern. Machine boundary: two assertions
+in `enforce-conventions.unit.test.ts` now pass (previously `it.fails`).
+test: `packages/host/tests/unit/enforce-conventions.unit.test.ts` —
+"Frontend presentation components must not interpret async state (P41)" (2 assertions GREEN)
+
+---
+
+## P35 — `async`/`await` and raw `Promise` in `packages/host/src/` are CLAUDE.md-only — no lint enforcement
+
+**Severity:** slows
+
+**Symptom:** The hard rule "No async/await or try/catch in packages/host/" in CLAUDE.md had zero machine backing. Nothing caught standalone `async function` declarations, `Promise.resolve()`, `Promise.reject()`, or `new Promise()` in `src/` files. Legitimate bridge adapters carried prose comments but no machine-readable marker.
+
+FIXED 2026-05-16 in feat/design-system-enforcement — added `effect-patterns/no-async-in-src` and `effect-patterns/no-raw-promise` rules to `.claude/oxlint-plugins/effect-patterns.js`. Both rules check for `// promise-bridge: intentional` at file scope before firing. Annotated 4 bridge zone files: `OpenAiCompatLlmProvider.ts`, `RecordReplayLlmProvider.ts`, `CliUserGateway.ts`, `main.ts`. Pattern documented in `.claude/patterns/bridge-zone.md`. test: `packages/host/tests/unit/oxlint-rules.unit.test.ts` — "effect-patterns/no-async-in-src (P35)"
+
+---
+
+## P39 — `try/catch` in `packages/host/src/` — the second half of the hard rule has no enforcement
+
+**Severity:** slows
+
+**Symptom:** The `try/catch` half of the CLAUDE.md hard rule was completely unenforced. Active violation: `ceremony.ts` `verifySignature` used `try { return verify(...) } catch { return false }` inside `domain/`.
+
+FIXED 2026-05-16 in feat/design-system-enforcement — added `effect-patterns/no-try-catch-in-src` rule to `.claude/oxlint-plugins/effect-patterns.js` (bridge-zone exemption via `// promise-bridge: intentional`). Refactored `ceremony.ts` `verifySignature` to `Effect.try({ try: ..., catch: () => new CryptoVerifyError() }).pipe(Effect.catch(() => Effect.succeed(false)))` and `checkQuorum` to `Effect.gen` with `yield* verifySignature`. Updated `ceremony.unit.test.ts` and `ceremonyBin.integration.test.ts` to use `it.effect` + `yield*`. test: `packages/host/tests/unit/oxlint-rules.unit.test.ts` — "effect-patterns/no-try-catch-in-src (P39)"
+
+---
+
+## P36 — Frontend components couple data-fetching, state management, and rendering in one unit
+
+**Severity:** slows
+
+**Symptom:** 20 components in `packages/app/src/components/` and `packages/backoffice/src/components/` imported directly from `../../api/` and owned the full data lifecycle. No `hooks/` mediation layer existed; no dep-cruiser deny rule blocked the coupling.
+
+FIXED 2026-05-16 in feat/design-system-enforcement — created `hooks/useAsyncFetch.ts` in both packages; created hooks/ facade files re-exporting api/ modules; migrated all 20 components to import from `../../hooks/`; applied `useAsyncFetch` to 5 simple read-pattern components (Metrics, PainBoard, Patterns, WorkBoard, Sessions); added dep-cruiser `no-frontend-component-api-import` deny rule. test: `packages/host/tests/unit/depCruiserBoundary.unit.test.ts` (3 tests pass)
+
+---
+
+## P37 — Dep-cruiser `packages/(app|backoffice)` rule was allow-all — no sub-directory boundaries enforced
+
+**Severity:** annoys
+
+**Symptom:** No dep-cruiser deny rules for app/backoffice internal topology. components→api and api→components imports were structurally invisible to CI.
+
+FIXED 2026-05-16 in feat/design-system-enforcement — same fix as P36: added `no-frontend-component-api-import` deny rule to `.dependency-cruiser.cjs`. test: `packages/host/tests/unit/depCruiserBoundary.unit.test.ts`
+
+---
+
+## P38 — Critical `.claude/patterns/` files are passive docs not surfaced at the point of decision
+
+**Severity:** annoys
+
+**Symptom:** `effect-test-pattern.md`, `schema-decode.md`, and `composition-root.md` were discovered only if the developer explicitly knew to look in `.claude/patterns/`. No "When in doubt" link pointed to them at the relevant decision points.
+
+FIXED 2026-05-16 in feat/design-system-enforcement — created `.claude/commands/effect-test-pattern.md`, `.claude/commands/schema-decode.md`, `.claude/commands/composition-root.md` as project slash commands. Added three decision-point entries to CLAUDE.md "When in doubt" section (`/effect-test-pattern`, `/schema-decode`, `/composition-root`). test: `packages/host/tests/unit/enforce-conventions.unit.test.ts` — "P38" (6 assertions)
+
+---
+
+## P40 — Cross-package quality standards drift — no single-source enforcement
+
+**Severity:** slows
+
+**Symptom:** `app/`, `backoffice/`, and `host/` package oxlint configs grew independently with no shared base — a new rule or convention had to be added to each separately, and drift was structurally invisible.
+
+FIXED 2026-05-16 in feat/design-system-enforcement — created `packages/design-system/.oxlintrc-base.json` as the shared base; added `"extends": ["../design-system/.oxlintrc-base.json"]` to `app/`, `backoffice/`, and `host/` `.oxlintrc.json` files. test: `packages/host/tests/unit/enforce-conventions.unit.test.ts` — "P40" (1 assertion, 3 packages verified)
+
+---
+
+## P26 — `schemaSyncInEffect` fires false-positive inside `Effect.try` sync callbacks
+
+**Severity:** annoys (adds suppression boilerplate every time SQLite/sync decode is needed inside Effect.gen)
+
+**Symptom:** `effect(schemaSyncInEffect)` tsgo diagnostic fires when `Schema.decodeUnknownSync` is called inside the `try: () =>` synchronous callback of `Effect.try`, even when that `Effect.try` is nested inside `Effect.gen`. The sync callback cannot `yield*`, so `Schema.decodeUnknownEffect` is not applicable — yet the rule flags it as if it were.
+
+FIXED 2026-05-16 in feat/design-system-enforcement — extract sync decode helpers to plain functions outside `Effect.gen` scope (`rowToStoredEvent` in SqliteEventStore.ts). All `schemaSyncInEffect:off` suppressions eliminated. Also fixed tsgo diagnostics in new FileBackedSettings.ts by using `Schema.decodeUnknownEffect(Schema.fromJsonString(...))` and `Schema.encodeEffect(Schema.fromJsonString(...))` instead of `JSON.parse`/`JSON.stringify`. test: `packages/host/tests/unit/schemaSyncSuppressions.unit.test.ts`
+
+---
+
+## P28 — Law test coverage at 28% (13/39 laws) — L0.x foundational laws have zero tests
+
+**Severity:** slows (L3 loop health ⚠)
+
+**Symptom:** 23 laws had no paired `tests/laws/<id>.spec.ts` file; L0.4 self-enforcement test had 23 failing assertions.
+
+FIXED 2026-05-16 in feat/design-system-enforcement — wrote all 23 missing law spec files (L0.2, L0.5, L1.2, L1.6, L2.2, L2.4, L2.5, L2.7, L2.8, L2.9, L2.12, L2.14, L2.15, L2.16, L3.1, L3.2, L3.3, L3.4, L3.5, L3.6, L3.8, L3.9, L3.10); L0.4.spec.ts now fully green (0 failures); total test count 599 (all passing). Coverage: 100% of 39 laws have paired spec files. test: `packages/host/tests/laws/L0.4.spec.ts` (all 41 assertions pass)
+
+---
+
+## P27 — Promise-land fetch adapters cannot use Schema.decodeUnknownEffect → residual `as` casts
+
+**Severity:** annoys (type-safety gap at external API boundary)
+
+**Symptom:** `OpenAiCompatLlmProvider.ts` and `RecordReplayLlmProvider.ts` implement `typeof globalThis.fetch` (Promise-based API). `body as Record<string, unknown>`, `choices as Record<string, unknown>[]` casts remained unvalidated by Schema.
+
+FIXED 2026-05-16 in feat/design-system-enforcement — `OpenAiCompatLlmProvider.ts`: added `OpenAiResponseBody` + `LmMessage` schemas; `decodeResponseBody` validates outer structure before any property access; remaining `(msg as Record<string, unknown>)['content'] = reasoning` cast is sound (both schemas confirmed structure). `RecordReplayLlmProvider.ts`: added `LlmRequestBody` schema; `computeRequestHash` and `makeFakeResponse` accept decoded `LlmRequestBody` type; single boundary cast for deterministicBody spread (preserves all original fields). test: `pnpm --filter @app/host typecheck` + `pnpm lint:ci` exit 0 (tsgo no-blind-cast diagnostic catches regressions)
+
+---
+
+## P34 — Design system components duplicated across `packages/backoffice` and `packages/app`
+
+**Severity:** slows
+**Symptom:** shadcn `Button`, `Card`, `Textarea`, `Input` were vendored independently under `packages/backoffice/src/components/ui/` and `packages/app/src/components/ui/` — identical files, double maintenance burden.
+FIXED 2026-05-16 in feat/design-system-enforcement — created `packages/design-system/` (`@app/design-system`) with 4 components + `utils.ts`; removed duplicate `src/components/ui/` trees; updated all 20 import sites from `@/components/ui/*` to `@app/design-system/*`; added `workspace:*` dep to both packages; `pnpm --filter @app/backoffice typecheck` + `pnpm --filter @app/app typecheck` both clean. test: `tests/design-system-isolation.test.ts` (3 tests, all passing)
+
+---
+
+## P33 — EventStore protocol tests run only against InMemory adapter; prod SQLite file-path durability untested
+
+**Severity:** slows
+**Symptom:** `tests/protocol/EventStore.spec.ts` parametrised over InMemory + SQLite with a temp path per run; cross-restart durability (close → reopen same path → events still there) was never exercised.
+FIXED 2026-05-16 in feat/design-system-enforcement — test: `packages/host/tests/protocol/EventStore.spec.ts` (new "SqliteEventStore — cross-restart durability" describe block, 1 test, all passing)
+
+---
+
+## P32 — `CliUserGateway.respond` is a no-op stub, weakening the `UserGateway` protocol contract
+
+**Severity:** slows
+**Symptom:** `UserGateway.spec.ts` accepted a silent no-op `respond` implementation; no postcondition asserted delivery.
+FIXED 2026-05-16 in feat/design-system-enforcement — `InMemoryUserGateway.layerWithResponds` now records calls in a `Ref`; `UserGateway.spec.ts` adds "InMemoryUserGateway — respond postcondition (P32)" describe block asserting `respond` populates the Ref. test: `packages/host/tests/protocol/UserGateway.spec.ts`
+
+---
+
+## P31 — `L0.1` and `L0.4` have zero dedicated tests; the meta-law is itself unenforced
+
+**Severity:** slows
+**Symptom:** The files `tests/laws/L0.1.spec.ts` and `tests/laws/L0.4.spec.ts` did not exist. L0.4 ("every law has a test") is self-enforcing only when its own test exists.
+FIXED 2026-05-16 in feat/design-system-enforcement — `tests/laws/L0.4.spec.ts` enumerates all law IDs from SPEC-nav.md and asserts each has a spec file (16 pass, 24 fail — tracking convergence); `tests/laws/L0.1.spec.ts` asserts each existing law spec file has at least one assertion. test: `packages/host/tests/laws/L0.1.spec.ts`, `packages/host/tests/laws/L0.4.spec.ts`
+
+---
+
+## P30 — Stryker mutation testing is nightly-only; it never runs on PRs
+
+**Severity:** slows
+**Symptom:** `mutation-report.yml` had only `schedule: cron` and `workflow_dispatch` triggers; `ci.yml` had no Stryker step. Law tests had no mutation gate at PR time.
+FIXED 2026-05-16 in feat/design-system-enforcement — added `law-mutation` job to `.github/workflows/ci.yml` that runs `npx stryker run --mutate 'packages/host/tests/laws/**/*.ts'` on every PR (20-min timeout). Full-repo Stryker stays nightly. test: presence of `law-mutation` job in ci.yml verified by grep
+
+---
+
+## P29 — MD files capture aspirational state that drifts from reality
+
+**Severity:** annoys
+**Symptom:** `CLAUDE.md ## Repository Layout (target)` described `packages/frontend/` (decommissioned in 7.D) and omitted `packages/backoffice/`, `packages/app/`, and new driving ports.
+FIXED 2026-05-16 in feat/design-system-enforcement — renamed section to `## Repository Layout` (removed "(target)"), updated to reflect actual directories; added `scripts/check-layout.sh` which greps directory names from CLAUDE.md and fails if any named directory is absent; added `check-layout` command to lefthook `pre-commit`. test: `scripts/check-layout.sh` exits 0 on current state
+
+---
+
+## P2 — `@effect/platform-node` full import silently corrupts `@effect/vitest` HTTP tests
+
+**Severity:** slows (one full session to diagnose)
+**Symptom:** All tests in a file that uses `@effect/vitest` HTTP (e.g., `FetchHttpClient`) fail with `TransportError: A network error occurred` — including tests whose adapter under test doesn't use Node FS at all. No other error message; looks like a networking issue.
+**Root cause:** `import ... from '@effect/platform-node'` (full barrel) transitively imports `@effect/cluster/MessageStorage`, which runs `Effect.runSync(make({...}))` at module-load time (`noop` export, line ~258). This executes a fiber synchronously during Vitest's module initialisation phase, leaving a stale entry in `~effect/Fiber/currentFiber` that corrupts the `@effect/vitest` test scheduler for all subsequent HTTP effects in the same process.
+**Fix:** Added `no-restricted-imports` rule for `@effect/platform-node` to the `**/tests/**/*.ts` override in `packages/host/.oxlintrc.json`. Converted all 13 affected files (test files + helpers + source adapters) to subpath imports (`import * as NodeFileSystem from '@effect/platform-node/NodeFileSystem'` etc.). Pattern documented in `.claude/rules/host-package.md`.
+FIXED 2026-05-15 in pending commit — test: `packages/host/tests/unit/oxlint-rules.unit.test.ts` (block-2 assertion now includes `no-restricted-imports`)
+
+---
+
 ## P24 — Four tsgo diagnostics remain `"off"` pending adapter-to-platform migration (severity: annoys)
 
 **Symptom.** The following `@effect/language-service` diagnostics were disabled in
@@ -479,3 +748,80 @@ inserted (duplicate), query and return the already-stored event. Applied same id
 ## P26 — `bin/ceremony.ts` and `bin/user.ts` have no integration tests
 
 FIXED 2026-05-15 in 34b865a3 — test: packages/host/tests/integration/ceremonyBin.integration.test.ts (setup + sign + verify pipeline via CeremonyKeyStore + domain; 4 tests), packages/host/tests/integration/userBin.integration.test.ts (HTTP client wiring via async spawn + in-process stub; 3 tests). Note: spawnSync blocks the event loop — HTTP stub requires async spawn.
+
+## P42 — Georges receives bare goal with no tool/handle brief (prototype unusable)
+
+**Severity:** blocks work
+
+**Symptom:** `submitGoal.ts` built the initial prompt as `[{system: agentMd}, {user: goal}]` — the bare goal with no tool listing, no handle schema, no role declaration, and no hard tool-use directive. The model received tool schemas via the Effect AI `toolkit` option but was never told in natural language what data existed or that it MUST ground answers in tools. Result: zero tool calls, generic boilerplate.
+
+FIXED 2026-05-17 in 09de2686 —
+
+- Extracted pure `buildInitialMessages(AgentBrief)` from `submitGoal.ts`; wires `yield* ToolRegistry` + `yield* DataHandleRegistry` (L2.14-clean driven ports) to populate a session brief: active role, available tools, handle schema + sample, and a hard MUST directive.
+- `tools.yaml`: granted `enduser` access to `fetch-handle-shape` and `run-script`.
+- `agent.md`: added "Hard rules — tool use" section with explicit tool-use forcing function.
+- Cassettes recorded (model `qwopus3.6-35b-a3b-v1@q4_k_s`): list-tools round → fetch-handle-shape round → grounded text reply.
+- test: `packages/host/tests/unit/submitGoal-brief.unit.test.ts` — 5 assertions (tool names, handle schema, role, MUST directive) — GREEN.
+- test: `e2e/conversation.spec.ts` — "reply is grounded — references handle columns" — GREEN in `LLM_MODE=replay`.
+
+## P43 — Two redundant goal-submission surfaces rendered stacked (UX confusion)
+
+**Severity:** slows
+
+**Symptom:** `App.tsx` rendered `<Conversation />` and `<SubmitGoal />` stacked with no routing, labels, or explanation. Both POSTed `/api/goals`. `SubmitGoal` had no clarification handling and dumped raw JSON. The e2e spec already canonised `conv-*` testIds; `SubmitGoal` (`sg-*`) was unreferenced.
+
+FIXED 2026-05-17 in 981eaf97 —
+
+- Deleted `packages/app/src/components/app/SubmitGoal.tsx` and removed its import/render from `App.tsx`.
+- Deleted unused `packages/app/src/hooks/goals.ts` and `packages/app/src/api/goals.ts`.
+- `Conversation.tsx`: added helper description, friendly session label, dataset input label, and example empty-state prompt (all `conv-*` testIds preserved).
+- test: `packages/host/tests/unit/enforce-conventions.unit.test.ts` — "App renders a single goal-submission surface (P43)" — GREEN.
+
+## P44 — `POST /api/login` has no rate limiting (brute-force possible)
+
+**Severity:** slows (security gap before external deployment)
+
+**Symptom:** `POST /api/login` in `main.ts` had no throttle, delay, or account-lockout after
+failed attempts. `scryptSync` slows each individual check (~100 ms) but does not prevent parallel
+brute-force.
+
+FIXED 2026-05-17 in pending — test: packages/host/tests/unit/loginRateLimiter.unit.test.ts (5 tests: does-not-block-before-limit, blocks-after-maxAttempts, clears-on-success, tracks-IPs-independently, unblocks-after-window-expires).
+
+## P45 — `archivedPainItems` always returns 0 (PAIN-archive.md not parsed)
+
+**Severity:** annoys
+
+**Symptom:** `EventStoreAdminQuery.metrics()` hardcoded `archivedPainItems: 0` with a TODO comment.
+The backoffice metrics panel always showed 0 archived items regardless of how many had been closed.
+
+FIXED 2026-05-17 in pending — test: packages/host/tests/unit/painParser.unit.test.ts (parsePainArchiveMd suite: 5 tests including live docs/PAIN-archive.md count > 0 check).
+
+## P49 — Rate-limit HTTP wiring untested (IP extraction + 429 path not covered)
+
+**Severity:** slows
+
+**Symptom:** `makeLoginRateLimiter` had 5 unit tests covering the pure sliding-window logic, but
+the `main.ts` wiring — IP extracted via `HttpServerRequest.remoteAddress`, falling back to
+`'unknown'` on `Option.none()`, emitting 429 with `Retry-After: 60` — had no test coverage.
+
+FIXED 2026-05-17 in pending — test: e2e/rbac.spec.ts — "Rate limiting — POST /api/login (P49)" describe block; sends 10 wrong-password requests and asserts 11th returns 429 + Retry-After: 60 header at the HTTP layer (1 test, GREEN).
+
+## P50 — Opaque HTTP 500: no logs, no body, no trace event on LLM failure
+
+**Severity:** blocks work
+
+**Symptom:** Three observability gaps fire together when the LLM endpoint is unreachable:
+(1) `fullLayer` in `bind.ts` wired no `Logger` — zero server-side output on request failures;
+(2) `main.ts:688` cast the route error channel to `never` with `as any` and no `tapErrorCause`
+or `catchAllCause` — any route failure produced an empty-body 500 with nothing logged;
+(3) `domain/events.ts` had no `GoalFailed` kind — a failed goal showed `GoalSubmitted` in the
+trace with no terminal event, making the failure invisible in `/api/admin/trace`.
+Reported when user submitted a goal with LMStudio offline: `Error: 500:` with empty body, zero
+stderr output, and no failure event in the trace.
+
+**Candidate fix:** (1) Add `Logger.layer([Logger.consolePretty({ stderr: true })])` to `fullLayer`;
+(2) wrap resolved `httpApp` with `Effect.tapErrorCause(log) + Effect.catchAllCause(→ JSON 500)`;
+(3) add `GoalFailed` event kind + emit it in `submitGoal.ts` via `tapErrorCause` on `runAgentLoop`;
+(4) log LLM target at boot in `llmLayer`.
+
+FIXED 2026-05-17 in feat/design-system-enforcement (TODO 10.15) — test: packages/host/tests/integration/httpObservability.integration.test.ts (2 tests: GoalFailed emitted when LLM fails, catchAllCause returns structured JSON 500 not empty).

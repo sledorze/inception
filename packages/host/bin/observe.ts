@@ -11,7 +11,7 @@
 import { mkdirSync } from 'node:fs'
 import { dirname, join } from 'node:path'
 import { Layer, Logger } from 'effect'
-import { NodeRuntime } from '@effect/platform-node'
+import * as NodeRuntime from '@effect/platform-node/NodeRuntime'
 import { SqliteEventStore } from '../src/adapters/driven/SqliteEventStore.ts'
 import { EventStoreObservabilityGateway } from '../src/adapters/driving/EventStoreObservabilityGateway.ts'
 import { StdioMcpObservabilityAdapter } from '../src/adapters/driving/StdioMcpObservabilityAdapter.ts'

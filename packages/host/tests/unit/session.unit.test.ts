@@ -9,7 +9,7 @@ import { join } from 'node:path'
 import { tmpdir } from 'node:os'
 import { describe, expect, it } from '@effect/vitest'
 import { Effect } from 'effect'
-import { NodeFileSystem } from '@effect/platform-node'
+import * as NodeFileSystem from '@effect/platform-node/NodeFileSystem'
 import { AGENT_MD_PATH, SessionError, readAgentMd } from '../../src/application/session.ts'
 
 describe(readAgentMd, () => {

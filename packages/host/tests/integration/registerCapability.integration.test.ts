@@ -11,6 +11,7 @@ import { InMemoryEventStore } from '../../src/adapters/driven/InMemoryEventStore
 import { registerCapability } from '../../src/application/registerCapability.ts'
 import { CapabilityRegistry } from '../../src/ports/driven/CapabilityRegistry.ts'
 import { EventStore } from '../../src/ports/driven/EventStore.ts'
+import { EventKind } from '../../src/domain/events.ts'
 
 const testLayer = Layer.mergeAll(InMemoryEventStore.layer, InMemoryCapabilityRegistry.layer)
 
@@ -29,7 +30,7 @@ describe(registerCapability, () => {
       const appendResult = yield* store.append({
         actor: 'host',
         correlationId: 'test-corr',
-        kind: 'CapabilityProposed',
+        kind: EventKind.CapabilityProposed,
         occurredAt: '2026-01-01T00:00:00.000Z',
         payload: PROPOSAL_PAYLOAD,
         schemaV: 1,

@@ -12,11 +12,12 @@ import { describe, expect, it } from '@effect/vitest'
 import { InMemoryEventStore } from '../../src/adapters/driven/InMemoryEventStore.ts'
 import { computeContentHash, EventStore } from '../../src/ports/driven/EventStore.ts'
 import type { NewEvent, StoredEvent } from '../../src/ports/driven/EventStore.ts'
+import { EventKind } from '../../src/domain/events.ts'
 
 const baseEvent = (sessionId: string): NewEvent => ({
   actor: 'user' as const,
   correlationId: randomUUID(),
-  kind: 'GoalSubmitted',
+  kind: EventKind.GoalSubmitted,
   occurredAt: new Date().toISOString(),
   payload: { goal: 'test' },
   schemaV: 1,

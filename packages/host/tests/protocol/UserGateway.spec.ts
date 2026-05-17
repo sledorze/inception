@@ -6,7 +6,7 @@
 import { createServer } from 'node:http'
 import type { AddressInfo } from 'node:net'
 import type { Layer } from 'effect'
-import { Effect, Fiber, ManagedRuntime } from 'effect'
+import { Effect, Fiber, ManagedRuntime, MutableRef } from 'effect'
 import { describe, expect, it } from '@effect/vitest'
 import { CliUserGateway } from '../../src/adapters/driving/CliUserGateway.ts'
 import { InMemoryUserGateway } from '../../src/adapters/driving/InMemoryUserGateway.ts'
@@ -121,6 +121,17 @@ function runContract(name: string, factory: HarnessFactory) {
       expect(received.at(0)?.goal).toBe('summarise results')
       expect(received.at(0)?.handleId).toBe('hx')
     })
+
+    it('respond completes without error', async () => {
+      await withHarness([], async (_harness, run) => {
+        await run(
+          Effect.gen(function* () {
+            const gw = yield* UserGateway
+            yield* gw.respond('cid-1', 'the answer', 'session-1')
+          }),
+        )
+      })
+    })
   })
 }
 
@@ -138,4 +149,29 @@ runContract('CliUserGateway', async _goals => {
     layer: CliUserGateway.layer(port),
     postGoal: async (goal: GoalSubmission) => postGoalHttp(port, goal),
   }
+})
+
+// ─── InMemoryUserGateway postcondition: respond records the call (P32) ────────
+//
+// CliUserGateway.respond is a known stub (HTTP polling not yet implemented).
+// This test targets InMemoryUserGateway directly and asserts that `respond`
+// writes to the responds Ref — not a no-op. Regressions are visible immediately.
+describe('InMemoryUserGateway — respond postcondition (P32)', () => {
+  it('respond records the call in the responds MutableRef', async () => {
+    const { layer, responds } = InMemoryUserGateway.layerWithResponds([])
+    const rt = ManagedRuntime.make(layer)
+    try {
+      await rt.runPromise(
+        Effect.gen(function* () {
+          const gw = yield* UserGateway
+          yield* gw.respond('cid-42', 'hello clarify', 'sess-1')
+        }),
+      )
+      const calls = MutableRef.get(responds)
+      expect(calls).toHaveLength(1)
+      expect(calls[0]).toEqual({ correlationId: 'cid-42', sessionId: 'sess-1', text: 'hello clarify' })
+    } finally {
+      await rt.dispose()
+    }
+  })
 })

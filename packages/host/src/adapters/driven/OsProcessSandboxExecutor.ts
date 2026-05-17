@@ -19,7 +19,7 @@ import { createHash } from 'node:crypto'
 import { Clock, Duration, Effect, FileSystem, Layer, Path, Stream } from 'effect'
 import { ChildProcess } from 'effect/unstable/process'
 import { ChildProcessSpawner } from 'effect/unstable/process/ChildProcessSpawner'
-import { NodeServices } from '@effect/platform-node'
+import * as NodeServices from '@effect/platform-node/NodeServices'
 import { SandboxError, SandboxExecutor } from '../../ports/driven/SandboxExecutor.ts'
 import type { SandboxConstraints, SandboxResult } from '../../ports/driven/SandboxExecutor.ts'
 

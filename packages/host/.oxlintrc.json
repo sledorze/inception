@@ -1,12 +1,16 @@
 {
   "$schema": "../../node_modules/oxlint/configuration_schema.json",
+  "extends": ["../design-system/.oxlintrc-base.json"],
   "jsPlugins": ["../../.claude/oxlint-plugins/effect-patterns.js"],
   "overrides": [
     {
       "files": ["**/src/**/*.ts"],
       "rules": {
+        "effect-patterns/no-async-in-src": "error",
         "effect-patterns/no-date-clock": "error",
         "effect-patterns/no-inline-correlation-id": "error",
+        "effect-patterns/no-raw-promise": "error",
+        "effect-patterns/no-try-catch-in-src": "error",
         "no-restricted-imports": [
           "error",
           {
@@ -66,7 +70,18 @@
       "files": ["**/tests/**/*.ts"],
       "rules": {
         "effect-patterns/no-effect-gen-without-vitest": "error",
-        "effect-patterns/no-runpromise-in-tests": "error"
+        "effect-patterns/no-runpromise-in-tests": "error",
+        "no-restricted-imports": [
+          "error",
+          {
+            "paths": [
+              {
+                "message": "Use subpath imports (e.g. '@effect/platform-node/NodeFileSystem'). The barrel import transitively runs Effect.runSync at module-load time, corrupting the @effect/vitest test scheduler.",
+                "name": "@effect/platform-node"
+              }
+            ]
+          }
+        ]
       }
     },
     {

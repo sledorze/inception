@@ -137,8 +137,34 @@ The `check-effect-patterns.sh` pre-commit hook flags `correlationId: randomUUID(
 `CurrentCorrelationId` defaults to `'bootstrap'` so tests that don't go through `submitGoal` still
 emit valid events.
 
+## `@effect/platform-node` — always use subpath imports in test files
+
+**Rule:** `packages/host/tests/**` enforces `no-restricted-imports` on `@effect/platform-node`.
+
+The barrel `import { NodeFileSystem } from '@effect/platform-node'` transitively loads
+`@effect/cluster/MessageStorage`, which calls `Effect.runSync` at module-load time.
+That leaves a stale fiber in `currentFiber`, corrupting the `@effect/vitest` test scheduler
+and causing all HTTP tests in the same file to fail with `TransportError`.
+
+Always use subpath imports in test files:
+
+```ts
+// BAD — crashes @effect/vitest HTTP tests
+import { NodeFileSystem, NodeServices } from '@effect/platform-node'
+
+// GOOD — each subpath exports the same namespace members without side-effects
+import * as NodeFileSystem from '@effect/platform-node/NodeFileSystem'
+import * as NodeServices from '@effect/platform-node/NodeServices'
+// Usage is identical: NodeFileSystem.layer, NodeServices.layer, NodeRuntime.runMain(), etc.
+```
+
+Available subpaths (matching the barrel's `export * as X from './X'` exports):
+`NodeFileSystem`, `NodePath`, `NodeServices`, `NodeStdio`, `NodeHttpServer`,
+`NodeHttpClient`, `NodeRuntime`, `NodeSocket`, `NodeStream`, …
+
 ## Forbidden by inherited rules
 
 - Importing Node.js built-ins (`node:fs`, etc.) from non-`packages/host/**` code (oxlint `import/no-nodejs-modules`).
+- `@effect/platform-node` barrel import in `**/tests/**/*.ts` (oxlint `no-restricted-imports` in `packages/host/.oxlintrc.json`).
 - Lowering coverage thresholds (L2.4 ratchet).
 - `git push --no-verify` (Claude Code hook `block-no-verify.sh` rejects it).

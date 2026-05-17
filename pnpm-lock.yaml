@@ -114,8 +114,14 @@ importers:
         specifier: ^4.0.18
         version: 4.0.18(@types/node@25.5.0)(happy-dom@20.8.4)(jiti@2.7.0)(lightningcss@1.31.1)(msw@2.12.13(@types/node@25.5.0)(typescript@5.9.3))(tsx@4.21.0)(yaml@2.9.0)
 
-  packages/frontend:
+  packages/app:
     dependencies:
+      '@app/design-system':
+        specifier: workspace:*
+        version: link:../design-system
+      '@app/shared-api':
+        specifier: workspace:*
+        version: link:../shared-api
       '@radix-ui/react-slot':
         specifier: ^1.2.4
         version: 1.2.4(@types/react@19.2.14)(react@19.2.4)
@@ -131,6 +137,60 @@ importers:
       react-dom:
         specifier: ^19.1.0
         version: 19.2.4(react@19.2.4)
+      tailwind-merge:
+        specifier: ^3.5.0
+        version: 3.5.0
+
+  packages/backoffice:
+    dependencies:
+      '@app/design-system':
+        specifier: workspace:*
+        version: link:../design-system
+      '@app/shared-api':
+        specifier: workspace:*
+        version: link:../shared-api
+      '@effect/atom-react':
+        specifier: 4.0.0-beta.66
+        version: 4.0.0-beta.66(effect@4.0.0-beta.66)(react@19.2.4)(scheduler@0.27.0)
+      '@radix-ui/react-slot':
+        specifier: ^1.2.4
+        version: 1.2.4(@types/react@19.2.14)(react@19.2.4)
+      class-variance-authority:
+        specifier: ^0.7.1
+        version: 0.7.1
+      clsx:
+        specifier: ^2.1.1
+        version: 2.1.1
+      effect:
+        specifier: 4.0.0-beta.66
+        version: 4.0.0-beta.66
+      react:
+        specifier: ^19.1.0
+        version: 19.2.4
+      react-dom:
+        specifier: ^19.1.0
+        version: 19.2.4(react@19.2.4)
+      scheduler:
+        specifier: ^0.27.0
+        version: 0.27.0
+      tailwind-merge:
+        specifier: ^3.5.0
+        version: 3.5.0
+
+  packages/design-system:
+    dependencies:
+      '@radix-ui/react-slot':
+        specifier: ^1.2.4
+        version: 1.2.4(@types/react@19.2.14)(react@19.2.4)
+      class-variance-authority:
+        specifier: ^0.7.1
+        version: 0.7.1
+      clsx:
+        specifier: ^2.1.1
+        version: 2.1.1
+      react:
+        specifier: ^19.1.0
+        version: 19.2.4
       tailwind-merge:
         specifier: ^3.5.0
         version: 3.5.0
@@ -168,6 +228,8 @@ importers:
       effect:
         specifier: 4.0.0-beta.66
         version: 4.0.0-beta.66
+
+  packages/shared-api: {}
 
 packages:
 
@@ -361,6 +423,13 @@ packages:
     resolution: {integrity: sha512-1F7wFM3KjEgB6YdfSZJO/cVPgNLObkxvBHxA7Y+3pNQJ28YuC/5s1VlGGVuYAY1dClQBP04kGfDRB8lwjoNO8Q==}
     peerDependencies:
       effect: ^4.0.0-beta.66
+
+  '@effect/atom-react@4.0.0-beta.66':
+    resolution: {integrity: sha512-YEUbGXBZsb9dmgQ/FMTsqU6IYp/2rRVqloySSXFzhXlIbRT6b28SvNyTpK3x+HLGavURYfTUjjZ/Y2wEj/7A9g==}
+    peerDependencies:
+      effect: ^4.0.0-beta.66
+      react: ^19.2.4
+      scheduler: '*'
 
   '@effect/language-service@0.86.1':
     resolution: {integrity: sha512-jfUuFdtNPKRZ4ZSrgTnfMHPIVq8L9cM+YGEylQ1lhIgNY23ZvfdPg0cUlWESd4q9aGvOWSA8E79AS0qe3j4ROw==}
@@ -4033,6 +4102,12 @@ snapshots:
   '@effect/ai-openai-compat@4.0.0-beta.66(effect@4.0.0-beta.66)':
     dependencies:
       effect: 4.0.0-beta.66
+
+  '@effect/atom-react@4.0.0-beta.66(effect@4.0.0-beta.66)(react@19.2.4)(scheduler@0.27.0)':
+    dependencies:
+      effect: 4.0.0-beta.66
+      react: 19.2.4
+      scheduler: 0.27.0
 
   '@effect/language-service@0.86.1': {}
 

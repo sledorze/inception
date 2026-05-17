@@ -10,6 +10,7 @@
  * R5 — any SandboxEscapeAttempt event (threshold: > 0, continuous).
  */
 import { DateTime, Effect, Layer } from 'effect'
+import { EventKind } from '../../domain/events.ts'
 import { EventStore } from '../../ports/driven/EventStore.ts'
 import { Supervisor, SupervisorError } from '../../ports/driven/Supervisor.ts'
 import type { SignalResult } from '../../ports/driven/Supervisor.ts'
@@ -19,7 +20,7 @@ const R2_THRESHOLD = 0.05
 const R5_THRESHOLD = 0
 
 function computeR1(sessionId: string, events: readonly { kind: string }[]): SignalResult {
-  const exhausted = events.filter(e => e.kind === 'HandleExhausted').length
+  const exhausted = events.filter(e => e.kind === EventKind.HandleExhausted).length
   return {
     currentValue: exhausted,
     riskId: 'R1',
@@ -47,7 +48,7 @@ function computeR2(
 }
 
 function computeR5(sessionId: string, events: readonly { kind: string }[]): SignalResult {
-  const escapeCount = events.filter(e => e.kind === 'SandboxEscapeAttempt').length
+  const escapeCount = events.filter(e => e.kind === EventKind.SandboxEscapeAttempt).length
   return {
     currentValue: escapeCount,
     riskId: 'R5',
@@ -80,7 +81,7 @@ export const InProcessSupervisor = {
                 yield* store.append({
                   actor: 'supervisor',
                   correlationId: `supervisor-${result.riskId}-${sessionId}`,
-                  kind: 'SupervisorTrip',
+                  kind: EventKind.SupervisorTrip,
                   occurredAt: now,
                   payload: {
                     currentValue: result.currentValue,
@@ -96,7 +97,7 @@ export const InProcessSupervisor = {
                   yield* store.append({
                     actor: 'supervisor',
                     correlationId: `supervisor-quarantine-${sessionId}`,
-                    kind: 'SessionQuarantined',
+                    kind: EventKind.SessionQuarantined,
                     occurredAt: now,
                     payload: { reason: 'R5: sandbox escape attempt detected' },
                     schemaV: 1,

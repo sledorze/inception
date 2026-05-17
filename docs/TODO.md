@@ -96,7 +96,7 @@ These items make Phase 1's traces _honest_ and _bounded_: per-handle info budget
 
 - [done] **4.1** Promotion queue + Claude-mediated review path (likely a CLI subcommand).
 - [done] **4.2** Versioned capability registry on disk; rollback by version pin.
-- [in-progress] **4.3** First Georges-proposed capability accepted end-to-end. UI wired: SubmitGoal, Proposals (list+promote), CallCapability panels added to frontend; backend routes POST /api/goals, GET /api/proposals, POST /api/proposals/:id/promote added to main.ts; CapabilityRegistry exposed in appLayer. Pending: run with real LLM to observe Georges propose a capability end-to-end.
+- [done] **4.3** First Georges-proposed capability accepted end-to-end (2026-05-16). Agentic loop added to submitGoal (up to 4 rounds): Georges called list-tools(role=Implementer) → propose-capability(compute-stats, scope=capability) → admin promoted via POST /api/proposals/{contentHash}/promote → version 1 registered. Phase 4 exit condition met.
 
 **Exit:** Georges can grow his own tool surface, gated.
 
@@ -112,10 +112,265 @@ These items make Phase 1's traces _honest_ and _bounded_: per-handle info budget
 
 ---
 
+## Phase 6 — Conversational MVP (S6 + S8)
+
+Advances S6 (parked P.2) and S8 (placeholder) to _demonstrated_. Exit: deterministic Playwright e2e of project-scoped multi-turn conversation; S6 + S8 demonstrated.
+
+- [done] **6.0** Capture breakdown-strategy working method into prescriptive files + feedback loop: `CLAUDE.md` Working Practices (breakdown-strategy bullet + Phase 6 entry), `.claude/patterns/breakdown-strategy.md`, `docs/META-LOOPS.md` L7, `feedback_*` auto-memory. Process commit, not feature.
+- [done] **6.1** SPEC §5: promote S6 to MVP story (Exchange = minimal turn protocol); author S8 (clarify-question); both carry assessment frames; update TODO ordering. SPEC/TODO-only commit.
+- [done] **6.2** Spike 1a (offline): pin `generateText` request/response shape + `requestHash` seam from `vendor/effect-smol` + `OpenAiCompatLlmProvider`. Findings only; no prod code.
+  - Seam: `LanguageModel.LanguageModel` layer substitution in `runtime/bind.ts` (`LLM_MODE` env, mirrors `SANDBOX_SEED` precedent). `LlmProvider.spec.ts:79` `runContract(name, makeLayer)` already parametrises — RecordReplay = a third call.
+  - Hash inputs (stable): `sha256({ model, messages:[{role,content:string}], tools:sorted_schemas })`. Volatile exclusions: message IDs, `tool_call_id`, timestamps, `reasoning_content`, `correlationId`.
+  - Cassette format: one JSON per hash at `tests/fixtures/llm-cassettes/<sha256>.json`.
+  - Spike 1b (6.3, human-gated) still required for LMStudio variance + seed pinning decision → gates 6.6.
+- [done] **6.3** Spike 1b (LMStudio at host.docker.internal:1235, model: **qwopus3.6-35b-a3b-v1** — Georges' model per user): measure output variance; decide temp/seed pinning + replay viability. Gates 6.6.
+  - Default temperature: HIGH variance — 3 different phrasings across 3 identical runs. Not cassette-safe.
+  - temperature=0 + seed=42: DETERMINISTIC — identical content + identical reasoning_len=1246 across all 3 runs.
+  - Decision: record with temperature=0 + seed=42; cassette captures post-reasoning content (reasoning_content is excluded — volatile at default temp, and not semantically meaningful to replay). requestHash is over the INPUT only (model + messages + tool schemas); temperature/seed are recording-time params, not part of the hash.
+  - This is a reasoning model (Qwen3.5-9b-deepseek-v4-flash): reasoning_content can be 1246+ chars; the P7 fix (makeReasoningAwareFetch) already handles promoting reasoning_content → content. Cassette stores only the promoted content.
+  - LMStudio URL from container: host.docker.internal:1235 (192.168.0.15:1235 is the host LAN IP; unreachable from Docker bridge). The LLM_BASE_URL env in the RecordReplay record mode must use host.docker.internal; replay mode is pure-local (no network call).
+- [done] **6.4** Spike 2: `sessionId` / `submitGoal`-return blast-radius map + refactor recommendation.
+  - R1 (sessionId threading): 4 production sites — `submitGoal.ts:16` (default already threaded via GoalSubmission.sessionId?), `main.ts:83` (pass sessionId from HTTP request body), `main.ts:122` (pass sessionId to recordRejection), `GeorgesToolkit.ts:152,255` (inherit sessionId from Effect context via CurrentCorrelationId pattern). GoalSubmission already has `sessionId?: string` — no port change needed.
+  - R2 (submitGoal → correlationId): `submitGoal.ts` returns `{correlationId}` (currently void); `main.ts:83-86` uses returned correlationId to filter `store.query({sessionId})` results client-side (EventStore has no correlationId query filter; add one or filter after query — adding filter is cleaner); `main.ts:46` gw.listen callback wraps with `.pipe(Effect.asVoid)`; 3 integration test files need same `.pipe(Effect.asVoid)` patch.
+  - Verdict: SMALL blast radius — ≤6 files, all in packages/host/. R1/R2 collapse into 6.6 as refactor-commits-first within the slice. 6.5 is not needed as a separate strategic refactor.
+  - 6.8/6.9 remain parked — correct; shape of Slice 1's Conversation component must exist before breaking down Slice 2/3.
+- [done] **6.5** R1/R2 collapsed into 6.6 refactor-commits-first (small blast radius per Spike 2). No separate strategic refactor needed.
+- [done] **6.6** Vertical Slice 1 (MVP kernel): all code shipped + cassettes recorded (`60fcb834...json` for "What is synthetic-001?") + `LLM_MODE=replay pnpm e2e` green (2026-05-16). Record mode now serves existing cassettes without re-recording (incremental cassette building).
+- [done] **6.7** North-star checkpoint (2026-05-15): exit condition = "deterministic Playwright e2e of project-scoped multi-turn conversation; S6 + S8 demonstrated."
+  - S6 kernel code-complete; e2e RED pending human-gated cassette (LMStudio required). Cassette recording unblocks the S6 demo claim.
+  - S8 (`respond(clarify)`, `ClarifyRequested/ClarifyAnswered`, `UserGateway.respond`) not started — unparking 6.9. Conversation component now exists (6.6 prerequisite met), so 6.9 can proceed in parallel with cassette recording.
+  - Phase 6 is not yet "done" (no live demo). Self-refine: unpark 6.9 as next slice; 6.6 demo claimed once cassette committed + `LLM_MODE=replay pnpm e2e` passes.
+- [parked] **6.8** Vertical Slice 2 (bounded multi-turn recall, L3.5 last-N) — deferred until 6.9 + cassette land.
+- [done] **6.9** Slice 3 — S8 `respond(clarify)`: all code shipped + cassettes recorded (`0138c778...json` seed for "help me" → request-clarification, `0b75a4a6...json` for post-answer LLM call) + `LLM_MODE=replay pnpm e2e` green (2026-05-16). Both fake and replay modes verified.
+
+---
+
+## Phase 7 — Dual-frontend split (back-office vs consumer) + settings
+
+Two distinct users, two distinct frontends. Today's `packages/frontend` mixes builder concerns
+(proposal review, capability list, trace inspection) with consumer concerns (chat, goal submission).
+Splitting into two packages enforces the L2.14 hex boundary at the package level and makes each
+surface independently deployable.
+
+- [done] **7.A** **Kernel slice — auth + RBAC + admin driving ports**: `AuthGateway` port
+  (`login`/`verify`/`logout`) + `FakeAuthGateway` + `ScryptAuthGateway` adapters + `requireRole`
+  application service + `POST /api/login` route + `Authenticated` event (secret-free: subject+role
+  only) + L0.3 SPEC amendment (admin/enduser asymmetry named, `Authenticated` trace-visible,
+  security claim qualified as structural at bundle boundary / aspirational at in-process RBAC) +
+  L2.14 SPEC amendment (`AuthGateway` + `AdminQuery` registered as driving ports) +
+  `AdminQuery` port + `InMemoryAdminQuery` + `EventStoreAdminQuery` adapters + `AdminQuery.metrics`
+  wired to `GET /api/admin/metrics` + all enduser routes guarded with `withRole('enduser')` +
+  admin routes guarded with `withRole('admin')` + `GET /events` closed (returns 404) + replaced by
+  `GET /api/admin/trace` (admin-guarded) + full Effect `HttpRouter` rewrite of `main.ts` (SPA
+  refresh via `HttpStaticServer.layer({ spa:true })`) + `data/credentials.json` default admin
+  seed + protocol test `AdminQuery.spec.ts` (parametrised over InMemory+EventStore, L1.3 no-raw-bytes
+  invariant) + bootstrap integration test updated. All 478 tests green.
+
+- [done] **7.B** `AdminQuery.pain()` + `AdminQuery.work()` HTTP surface (`GET /api/admin/pain`,
+  `GET /api/admin/work`); extracted `domain/painParser.ts` + `domain/todoParser.ts` pure modules
+  from `EventStoreAdminQuery`; unit tests contract-tested against live `docs/PAIN.md`/`docs/TODO.md`.
+  488 tests green.
+
+- [done] **7.C** `POST /api/tools/:name` guarded with `withRole('admin')` (raw tool surface —
+  admin-only); Playwright API-level RBAC scenarios in `e2e/rbac.spec.ts`: unauthenticated →
+  401 on all guarded routes, admin token → 200 on metrics/pain/work/trace, `GET /events` → 404,
+  `GET /health` open. Quarantine list/release deferred to 8.x (no quarantine port exists yet).
+  488 tests green.
+
+- [done] **7.D** Scaffold `packages/backoffice` + `packages/app`; responsive shadcn UI; move panels
+  (builder → backoffice, consumer → app); decommission `packages/frontend`; update `docs/SPEC.md §1`
+  repo layout + §13 Tech Decisions.
+
+- [done] **7.1** **Architecture spike** (subsumed into 7.A–7.D above; retained for reference):
+  defines `packages/backoffice` (proposals, capability registry, trace replay, role management,
+  quarantine) and `packages/app` (chat/conversation, goal submission, clarify flow). Shared UI
+  primitives determination deferred to 7.D.
+
+- [done] **7.2** **Settings subsystem**: `Settings` driven port + `InMemorySettings` (test) + `FileBackedSettings` (prod, persists to `data/settings.json`); `AppSettings` schema: `{ llmBaseUrl, llmModel, sessionMaxTurns }`. `GET /api/settings` + `PATCH /api/settings` (admin-guarded). Back-office settings panel with shadcn `Input` fields. Protocol test parametrised over InMemory + FileBacked adapters. `sessionMaxTurns` takes effect on next request; LLM connection settings persist and take effect on next server restart.
+
+- [done] **7.3** **Design system package**: `packages/design-system/` (`@app/design-system`) created with 4 shadcn components + `utils.ts`. Duplicate `src/components/ui/` trees removed from backoffice and app; all 20 import sites updated to `@app/design-system/*`. `tests/design-system-isolation.test.ts` passes. Fixes P34.
+
+**Exit:** two independently deployable frontends; no panel lives in both; shared primitives (if
+any) isolated in their own package; CI green on both.
+
+---
+
+## Phase 8 — Exchange review loop (observe → annotate → fix → verify)
+
+Closes the outer feedback loop so every problematic exchange drives a concrete improvement to
+agent.md, policies, or tools. The loop: observe full turn sequences in the back-office, annotate
+issues with free-text notes, detect patterns across annotations, edit and version agent.md as
+first-class events, replay affected goals against the new config and diff responses, promote if
+Supervisor + Monitor agree.
+
+- [done] **8.1** **Exchange viewer** (back-office): sessions list (`GET /api/sessions`) + drill-in
+  event sequence (`GET /api/sessions/:id/events`, payload-stripped per L1.3). `Sessions.tsx`
+  component in backoffice; events shown with actor/kind/timestamp/payload.
+
+- [done] **8.2** **Exchange annotation** (back-office): Flag button per event row; emits
+  `ExchangeFlagged { correlationId, note, severity }` via `POST /api/exchanges/:correlationId/flag`.
+  Severity picker (observation/issue/blocker) via Button toggles.
+
+- [done] **8.3** **Pattern surface** (back-office): `GET /api/patterns` aggregates
+  `ExchangeFlagged` + `UserRejected` into naive keyword-bucketed list; `PatternList` sub-component
+  shown below the sessions list.
+
+- [done] **8.4** **`agent.md` amendment surface** (back-office): `AgentMd.tsx` component;
+  `GET /api/agent-md` + `PATCH /api/agent-md`; each save emits `AgentMdAmended { prevHash,
+newHash, rationale }` to event store.
+
+- [done] **8.5** **Replay-and-compare** (back-office): Replay button per event row;
+  `POST /api/exchanges/:correlationId/replay` re-runs original goal via `makeSubmitGoal`; shows
+  before/after `GoalCompleted.text` side-by-side.
+
+- [done] **8.6** **Amendment promotion gate**: `PATCH /api/agent-md` rejects with 422 if no
+  `ExchangeFlagged` or `UserRejected` event exists in the store (L2.6). `ExchangeFlagged` and
+  `AgentMdAmended` event kinds added to `domain/events.ts`.
+
+**Exit:** one observed issue travels the full loop — flagged in the UI, a pattern detected,
+agent.md amended with rationale, replay confirms improvement, Supervisor + Monitor agree,
+amendment promoted and logged.
+
+---
+
+## Phase 9 — Law coverage + CI ratchets
+
+Brings law-test coverage from 28% (13/46) to 100% and adds PR-blocking enforcement for test quality.
+
+- [done] **9.1** **L0.4 self-enforcing law test**: `tests/laws/L0.4.spec.ts` enumerates all law IDs from `docs/SPEC-nav.md` and asserts each has a file at `tests/laws/<id>.spec.ts`. 16 pass, 24 fail — tracking convergence as coverage grows. Fixes P31.
+
+- [done] **9.2** **L0.1 structural law test**: `tests/laws/L0.1.spec.ts` asserts each existing law spec file contains at least one `it.effect` or `it(` assertion (not just a describe skeleton). Complements 9.1.
+
+- [done] **9.3** **Scoped Stryker job in `ci.yml`**: `law-mutation` job runs `npx stryker run --mutate 'packages/host/tests/laws/**/*.ts'` on every PR (20-min timeout). Full-repo Stryker stays nightly. Fixes P30.
+
+- [done] **9.4** **`UserGateway` protocol postcondition**: `InMemoryUserGateway.layerWithResponds` records calls in a `Ref`; `UserGateway.spec.ts` adds postcondition describe block asserting `respond` populates the Ref. Fixes P32.
+
+- [done] **9.5** **EventStore durability test**: "SqliteEventStore — cross-restart durability" describe block in `tests/protocol/EventStore.spec.ts` — writes events, disposes layer, re-opens same path, asserts events still present. Fixes P33.
+
+- [done] **9.6** **CLAUDE.md layout drift guard**: `scripts/check-layout.sh` + lefthook `pre-commit` `check-layout` command. Fixes P29.
+
+**Exit:** `L0.4.spec.ts` passes with 100% law coverage; scoped Stryker runs green on every PR; `UserGateway` and `EventStore` protocol tests cover the gaps identified in P32/P33.
+
+---
+
+## Phase 10 — Enforcement hardening (make violation detection structural, not doc-based)
+
+Every item here closes a detection gap where a class of violation passes all pre-commit checks silently.
+The pattern: (1) write a failing acceptance test that proves the gap exists, (2) add the enforcement
+mechanism, (3) fix any existing violations the rule now surfaces.
+
+- [done] **10.1** **`effect-patterns` rules: `no-async-in-src` + `no-raw-promise`** (closes P35).
+  Added both rules to `effect-patterns.js` with bridge-zone exemption (`// promise-bridge:
+intentional`). Annotated 4 bridge files. Documented pattern in `.claude/patterns/bridge-zone.md`.
+  Green gate: `oxlint-rules.unit.test.ts` — "effect-patterns/no-async-in-src (P35)" passes.
+
+- [done] **10.2** **Frontend hook layer + dep-cruiser `components→api` deny rule** (closes P36 + P37).
+  Created `hooks/useAsyncFetch.ts` in both packages; created hooks/ facades re-exporting api/;
+  migrated all 20 violating components; applied `useAsyncFetch` to 5 simple read-pattern
+  components; added `no-frontend-component-api-import` deny rule to `.dependency-cruiser.cjs`.
+  Green gate: `tests/unit/depCruiserBoundary.unit.test.ts` (3 tests pass; dep-cruiser exits 0).
+
+- [done] **10.3** **Promote critical pattern files to `.claude/commands/` slash commands** (closes P38).
+  Created `.claude/commands/effect-test-pattern.md`, `schema-decode.md`, `composition-root.md`.
+  Added three "When in doubt" entries to CLAUDE.md naming each slash command at its decision point.
+  Green gate: `tests/unit/enforce-conventions.unit.test.ts` — "P38" (6 assertions pass).
+
+- [done] **10.4** **`effect-patterns/no-try-catch-in-src` rule** (closes P39).
+  Added `no-try-catch-in-src` to `effect-patterns.js` with bridge-zone exemption. Fixed
+  `ceremony.ts` — `verifySignature` converted to `Effect.try({ try, catch })` + `Effect.catch`;
+  `checkQuorum` uses `Effect.gen` + `yield*`. All 19 ceremony tests pass.
+  Green gate: `oxlint-rules.unit.test.ts` — "effect-patterns/no-try-catch-in-src (P39)" passes.
+
+- [done] **P40** **Cross-package oxlint quality baseline** (closes P40).
+  Created `packages/design-system/.oxlintrc-base.json`; wired `"extends"` in `app/`, `backoffice/`,
+  `host/` configs. Green gate: `tests/unit/enforce-conventions.unit.test.ts` — "P40" passes.
+
+- [done] **10.5** **View-model atoms — decouple UI-state interpretation from components** (closes P41).
+  GREEN 2026-05-17 in feat/design-system-enforcement: `AsyncView<T>` in `atoms.ts` via `Atom.map` +
+  `AsyncResult.match`; 5 atom components migrated to `*View` atoms; 13 legacy components converted
+  from `.then(` to `async/await`; `.claude/patterns/frontend-atoms.md` added; 2 `it.fails` → passing.
+  test: `packages/host/tests/unit/enforce-conventions.unit.test.ts` —
+  "Frontend presentation components must not interpret async state (P41)"
+
+- [done] **10.6** **Brief Georges with tool/handle context** (closes P42).
+  GREEN 2026-05-17 in 09de2686: extracted `buildInitialMessages`; `yield* ToolRegistry` + `yield* DataHandleRegistry`;
+  role + tool brief + handle schema in system message; `agent.md` hard forcing function; enduser role in `tools.yaml`;
+  cassettes recorded; replay proves grounded reply referencing `id`/`value` columns.
+  test: `packages/host/tests/unit/submitGoal-brief.unit.test.ts` (5 assertions GREEN) +
+  `e2e/conversation.spec.ts` "reply is grounded" (GREEN in LLM_MODE=replay).
+
+- [done] **10.7** **Unify Goal/Chat surface** (closes P43).
+  GREEN 2026-05-17 in 981eaf97: deleted `SubmitGoal.tsx`, `goals.ts`, `api/goals.ts`; single `Conversation` surface
+  with helper copy, session label, dataset label, example empty state; e2e stays green.
+  test: `packages/host/tests/unit/enforce-conventions.unit.test.ts` "App renders a single goal-submission surface (P43)" GREEN.
+
+- [done] **10.8** **P46/P47/P48 RED step — Promise-slip detection gaps** (2026-05-17).
+  PAIN P46/P47/P48 filed; TODO items 10.9–10.11 added; red acceptance tests committed
+  (`it.fails` in `oxlint-rules.unit.test.ts` for P46, `enforce-conventions.unit.test.ts`
+  for P48). No green work.
+
+- [done] **10.9** **P46 GREEN — extend `effect-patterns` oxlint plugin** (2026-05-17).
+  Added `AwaitExpression` visitor to `no-async-in-src`; `.then(` member-call visitor to
+  `no-raw-promise`; hardened bypass from `src.includes(...)` to first-5-lines line-start check
+  in all three bridge-aware rules. All 3 RED `it.fails` P46 tests → plain `it` (GREEN).
+  test: `packages/host/tests/unit/oxlint-rules.unit.test.ts` — P46 describes (51 tests GREEN).
+
+- [done] **10.10** **P47 — convert `src/checks/*.ts` to `NodeRuntime.runMain`** (2026-05-17).
+  `check-test-conventions.ts` + `check-file-structure.ts` converted to `NodeRuntime.runMain`
+  (subpath import `@effect/platform-node/NodeRuntime`); `@effect-diagnostics` header removed.
+  `pnpm lint` and `pnpm typecheck` both clean on both files.
+  test: P46 `AwaitExpression` case in `oxlint-rules.unit.test.ts` (GREEN).
+
+- [done] **10.11** **P48 — extract shared frontend authed client** (2026-05-17).
+  Created `packages/shared-api/` (`@app/shared-api`): `TOKEN_KEY`, token accessors, `handleErr`,
+  `authedFetch`, `getJson<T>`. Both `auth.ts` files → `export * from '@app/shared-api'`. Removed
+  duplicate `handleErr` from `admin.ts`. Fixed 5 bare endpoints through `getJson`.
+  test: `packages/host/tests/unit/enforce-conventions.unit.test.ts` — P48 (2 assertions GREEN).
+
+- [done] **10.12** **P45 — `archivedPainItems` wired from PAIN-archive.md** (2026-05-17).
+  Added `parsePainArchiveMd(md)` to `domain/painParser.ts`; added `archiveMd` path to
+  `AdminQueryPaths`; metrics() now reads archive file concurrently and returns real count.
+  test: `packages/host/tests/unit/painParser.unit.test.ts` — `parsePainArchiveMd` (5 assertions GREEN).
+
+- [done] **10.13** **P44 — `POST /api/login` rate limiting** (2026-05-17).
+  Created `src/application/loginRateLimiter.ts` (`makeLoginRateLimiter`): 10 failures per
+  60-second per-IP window → 429 + `Retry-After: 60`. Wired into login route in `main.ts`
+  via `req.remoteAddress` (Effect `HttpServerRequest`). Success clears the counter.
+  test: `packages/host/tests/unit/loginRateLimiter.unit.test.ts` (5 assertions GREEN).
+
+- [done] **10.14** **P49 — rate-limit HTTP wiring test** (2026-05-17).
+  Added e2e test verifying 429 + `Retry-After: 60` at the HTTP layer: 10 wrong-password
+  logins → each 401; 11th → 429. Self-guarding: skips if server already locked from a
+  previous run (dev-mode safety). No-op cleanup via successful admin login in `beforeAll`.
+  test: `e2e/rbac.spec.ts` — "Rate limiting — POST /api/login (P49)" (1 assertion GREEN).
+
+- [done] **10.15** **P50 — HTTP observability: Logger + global error handler + GoalFailed event** (2026-05-17).
+
+- [done] **10.17** **P52 — Live LLM base URL from Settings (no restart)** (2026-05-17).
+  `makeReasoningAwareFetch` reads `Settings.llmBaseUrl` per request via `Context.getOption` + `Effect.runPromise`; `bind.ts` provides `settingsLayer` to `llmLayer`; Settings.tsx helper text corrected to "Takes effect on next request".
+  test: `packages/host/tests/integration/llmBaseUrlLive.integration.test.ts` (1 test GREEN).
+
+- [done] **10.16** **P51 — Persistent auth sessions (7-day sliding TTL + graceful frontend 401)** (2026-05-17).
+  Red step: `authSessionPersistence.integration.test.ts` (fails before `fileBackedLayer` exists).
+  Green step: `ScryptAuthGateway.fileBackedLayer` + `bind.ts` wiring + 401 → `auth:expired` event in `shared-api` + listener in both `App.tsx` files + `.gitignore` + `AuthGateway.spec.ts` TTL update.
+  Three gaps closed: (1) `Logger.consolePretty(stderr)` in `fullLayer` so failures reach stderr;
+  (2) `tapErrorCause + catchAllCause` at `main.ts` HTTP boundary replaces the `as any` cast —
+  any route failure now produces a structured JSON `{error, detail}` body instead of empty 500;
+  (3) `GoalFailed` event kind + `tapErrorCause` in `submitGoal.ts` — LLM failures are now visible
+  in `/api/admin/trace`; (4) boot log in `llmLayer` prints resolved LLM mode + endpoint.
+  test: `packages/host/tests/integration/httpObservability.integration.test.ts` (2 tests GREEN).
+
+**Exit:** `pnpm lint:ci` catches a standalone `async function` or `try/catch` in `packages/host/src/`; dep-cruiser
+reports a violation for any component that imports `api/` directly; the three promoted skills are
+invocable and linked from CLAUDE.md.
+
+---
+
 ## Parked / later
 
+- [parked] **P.5** Live LLM model selection — `llmModel` from Settings applied without restart. Model is baked into `OpenAiLanguageModel.layer({ model })` at build time; making it live requires the language-model layer to be dynamic (per-request model param or layer rebuild). Scoped separately from the base-URL fix (10.17).
 - [parked] **P.1** S5 hard code-over-data wall implementation (waits on a clear sensitive-data fixture).
-- [parked] **P.2** S6 long-session recall heuristics.
+- [parked] **P.2** S6 long-session recall heuristics (adaptive beyond bounded last-N; MVP kernel is in Phase 6 items 6.1–6.7).
 - [parked] **P.3** S9 multi-Georges; revisit only when single-Georges is boring.
 - [parked] **P.4** WASM/isolate sandbox upgrade from process-level.
 

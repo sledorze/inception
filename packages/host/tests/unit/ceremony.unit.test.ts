@@ -7,7 +7,8 @@ import { mkdtemp, rm } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { Effect, Layer } from 'effect'
-import { NodeFileSystem, NodePath } from '@effect/platform-node'
+import * as NodeFileSystem from '@effect/platform-node/NodeFileSystem'
+import * as NodePath from '@effect/platform-node/NodePath'
 import { afterEach, beforeEach, describe, expect, it } from '@effect/vitest'
 import {
   checkQuorum,
@@ -75,126 +76,146 @@ describe('Ceremony — sign and verify', () => {
     expect(sig.length).toBeGreaterThan(0)
   })
 
-  it('valid signature verifies against the same public key', () => {
-    const kp = generateKeypair('claude')
-    const hash = hashAmendment(CONTENT)
-    const sig = signAmendment(hash, kp.privateKeyPem)
-    expect(verifySignature(hash, sig, kp.publicKeyPem)).toBeTruthy()
-  })
+  it.effect('valid signature verifies against the same public key', () =>
+    Effect.gen(function* () {
+      const kp = generateKeypair('claude')
+      const hash = hashAmendment(CONTENT)
+      const sig = signAmendment(hash, kp.privateKeyPem)
+      expect(yield* verifySignature(hash, sig, kp.publicKeyPem)).toBeTruthy()
+    }),
+  )
 
-  it('wrong public key fails verification', () => {
-    const kp1 = generateKeypair('claude')
-    const kp2 = generateKeypair('witness1')
-    const hash = hashAmendment(CONTENT)
-    const sig = signAmendment(hash, kp1.privateKeyPem)
-    expect(verifySignature(hash, sig, kp2.publicKeyPem)).toBeFalsy()
-  })
+  it.effect('wrong public key fails verification', () =>
+    Effect.gen(function* () {
+      const kp1 = generateKeypair('claude')
+      const kp2 = generateKeypair('witness1')
+      const hash = hashAmendment(CONTENT)
+      const sig = signAmendment(hash, kp1.privateKeyPem)
+      expect(yield* verifySignature(hash, sig, kp2.publicKeyPem)).toBeFalsy()
+    }),
+  )
 
-  it('tampered content hash fails verification', () => {
-    const kp = generateKeypair('claude')
-    const hash = hashAmendment(CONTENT)
-    const sig = signAmendment(hash, kp.privateKeyPem)
-    const tamperedHash = hashAmendment(`${CONTENT} (tampered)`)
-    expect(verifySignature(tamperedHash, sig, kp.publicKeyPem)).toBeFalsy()
-  })
+  it.effect('tampered content hash fails verification', () =>
+    Effect.gen(function* () {
+      const kp = generateKeypair('claude')
+      const hash = hashAmendment(CONTENT)
+      const sig = signAmendment(hash, kp.privateKeyPem)
+      const tamperedHash = hashAmendment(`${CONTENT} (tampered)`)
+      expect(yield* verifySignature(tamperedHash, sig, kp.publicKeyPem)).toBeFalsy()
+    }),
+  )
 
-  it('invalid hex signature fails verification gracefully', () => {
-    const kp = generateKeypair('claude')
-    const hash = hashAmendment(CONTENT)
-    expect(verifySignature(hash, 'not-valid-hex', kp.publicKeyPem)).toBeFalsy()
-  })
+  it.effect('invalid hex signature fails verification gracefully', () =>
+    Effect.gen(function* () {
+      const kp = generateKeypair('claude')
+      const hash = hashAmendment(CONTENT)
+      expect(yield* verifySignature(hash, 'not-valid-hex', kp.publicKeyPem)).toBeFalsy()
+    }),
+  )
 })
 
 describe('Ceremony — quorum checking (L0.2, §6)', () => {
-  it('quorum not met with no signatures', () => {
-    const kps = makeKeypairs()
-    const hash = hashAmendment(CONTENT)
-    const pubKeys = makePublicKeys(kps)
-    const result = checkQuorum(EMPTY_SIGS, pubKeys, hash)
-    expect(result.met).toBeFalsy()
-    expect(result.witnessCount).toBe(0)
-    expect(result.missingRequired).toContain('claude')
-    expect(result.missingRequired).toContain('user-of-record')
-  })
+  it.effect('quorum not met with no signatures', () =>
+    Effect.gen(function* () {
+      const kps = makeKeypairs()
+      const hash = hashAmendment(CONTENT)
+      const pubKeys = makePublicKeys(kps)
+      const result = yield* checkQuorum(EMPTY_SIGS, pubKeys, hash)
+      expect(result.met).toBeFalsy()
+      expect(result.witnessCount).toBe(0)
+      expect(result.missingRequired).toContain('claude')
+      expect(result.missingRequired).toContain('user-of-record')
+    }),
+  )
 
-  it('quorum not met with only claude + user-of-record (0 witnesses)', () => {
-    const kps = makeKeypairs()
-    const hash = hashAmendment(CONTENT)
-    const pubKeys = makePublicKeys(kps)
-    const sigs: AmendmentSignatures = {
-      ...EMPTY_SIGS,
-      claude: signAmendment(hash, kps.claude.privateKeyPem),
-      'user-of-record': signAmendment(hash, kps['user-of-record'].privateKeyPem),
-    }
-    const result = checkQuorum(sigs, pubKeys, hash)
-    expect(result.met).toBeFalsy()
-    expect(result.witnessCount).toBe(0)
-  })
+  it.effect('quorum not met with only claude + user-of-record (0 witnesses)', () =>
+    Effect.gen(function* () {
+      const kps = makeKeypairs()
+      const hash = hashAmendment(CONTENT)
+      const pubKeys = makePublicKeys(kps)
+      const sigs: AmendmentSignatures = {
+        ...EMPTY_SIGS,
+        claude: signAmendment(hash, kps.claude.privateKeyPem),
+        'user-of-record': signAmendment(hash, kps['user-of-record'].privateKeyPem),
+      }
+      const result = yield* checkQuorum(sigs, pubKeys, hash)
+      expect(result.met).toBeFalsy()
+      expect(result.witnessCount).toBe(0)
+    }),
+  )
 
-  it('quorum not met with claude + user-of-record + only 1 witness', () => {
-    const kps = makeKeypairs()
-    const hash = hashAmendment(CONTENT)
-    const pubKeys = makePublicKeys(kps)
-    const sigs: AmendmentSignatures = {
-      ...EMPTY_SIGS,
-      claude: signAmendment(hash, kps.claude.privateKeyPem),
-      'user-of-record': signAmendment(hash, kps['user-of-record'].privateKeyPem),
-      witness1: signAmendment(hash, kps.witness1.privateKeyPem),
-    }
-    const result = checkQuorum(sigs, pubKeys, hash)
-    expect(result.met).toBeFalsy()
-    expect(result.witnessCount).toBe(1)
-  })
+  it.effect('quorum not met with claude + user-of-record + only 1 witness', () =>
+    Effect.gen(function* () {
+      const kps = makeKeypairs()
+      const hash = hashAmendment(CONTENT)
+      const pubKeys = makePublicKeys(kps)
+      const sigs: AmendmentSignatures = {
+        ...EMPTY_SIGS,
+        claude: signAmendment(hash, kps.claude.privateKeyPem),
+        'user-of-record': signAmendment(hash, kps['user-of-record'].privateKeyPem),
+        witness1: signAmendment(hash, kps.witness1.privateKeyPem),
+      }
+      const result = yield* checkQuorum(sigs, pubKeys, hash)
+      expect(result.met).toBeFalsy()
+      expect(result.witnessCount).toBe(1)
+    }),
+  )
 
-  it('quorum met with claude + user-of-record + 2 witnesses (L0.2)', () => {
-    const kps = makeKeypairs()
-    const hash = hashAmendment(CONTENT)
-    const pubKeys = makePublicKeys(kps)
-    const sigs: AmendmentSignatures = {
-      ...EMPTY_SIGS,
-      claude: signAmendment(hash, kps.claude.privateKeyPem),
-      'user-of-record': signAmendment(hash, kps['user-of-record'].privateKeyPem),
-      witness1: signAmendment(hash, kps.witness1.privateKeyPem),
-      witness2: signAmendment(hash, kps.witness2.privateKeyPem),
-    }
-    const result = checkQuorum(sigs, pubKeys, hash)
-    expect(result.met).toBeTruthy()
-    expect(result.witnessCount).toBe(2)
-    expect(result.missingRequired.length).toBe(0)
-  })
+  it.effect('quorum met with claude + user-of-record + 2 witnesses (L0.2)', () =>
+    Effect.gen(function* () {
+      const kps = makeKeypairs()
+      const hash = hashAmendment(CONTENT)
+      const pubKeys = makePublicKeys(kps)
+      const sigs: AmendmentSignatures = {
+        ...EMPTY_SIGS,
+        claude: signAmendment(hash, kps.claude.privateKeyPem),
+        'user-of-record': signAmendment(hash, kps['user-of-record'].privateKeyPem),
+        witness1: signAmendment(hash, kps.witness1.privateKeyPem),
+        witness2: signAmendment(hash, kps.witness2.privateKeyPem),
+      }
+      const result = yield* checkQuorum(sigs, pubKeys, hash)
+      expect(result.met).toBeTruthy()
+      expect(result.witnessCount).toBe(2)
+      expect(result.missingRequired.length).toBe(0)
+    }),
+  )
 
-  it('quorum met with all 5 signatures (full participation)', () => {
-    const kps = makeKeypairs()
-    const hash = hashAmendment(CONTENT)
-    const pubKeys = makePublicKeys(kps)
-    const sigs: AmendmentSignatures = {
-      claude: signAmendment(hash, kps.claude.privateKeyPem),
-      'user-of-record': signAmendment(hash, kps['user-of-record'].privateKeyPem),
-      witness1: signAmendment(hash, kps.witness1.privateKeyPem),
-      witness2: signAmendment(hash, kps.witness2.privateKeyPem),
-      witness3: signAmendment(hash, kps.witness3.privateKeyPem),
-    }
-    const result = checkQuorum(sigs, pubKeys, hash)
-    expect(result.met).toBeTruthy()
-    expect(result.witnessCount).toBe(3)
-  })
+  it.effect('quorum met with all 5 signatures (full participation)', () =>
+    Effect.gen(function* () {
+      const kps = makeKeypairs()
+      const hash = hashAmendment(CONTENT)
+      const pubKeys = makePublicKeys(kps)
+      const sigs: AmendmentSignatures = {
+        claude: signAmendment(hash, kps.claude.privateKeyPem),
+        'user-of-record': signAmendment(hash, kps['user-of-record'].privateKeyPem),
+        witness1: signAmendment(hash, kps.witness1.privateKeyPem),
+        witness2: signAmendment(hash, kps.witness2.privateKeyPem),
+        witness3: signAmendment(hash, kps.witness3.privateKeyPem),
+      }
+      const result = yield* checkQuorum(sigs, pubKeys, hash)
+      expect(result.met).toBeTruthy()
+      expect(result.witnessCount).toBe(3)
+    }),
+  )
 
-  it('tampered signature invalidates that signer (quorum fails if now below threshold)', () => {
-    const kps = makeKeypairs()
-    const hash = hashAmendment(CONTENT)
-    const pubKeys = makePublicKeys(kps)
-    const sigs: AmendmentSignatures = {
-      ...EMPTY_SIGS,
-      claude: signAmendment(hash, kps.claude.privateKeyPem),
-      'user-of-record': signAmendment(hash, kps['user-of-record'].privateKeyPem),
-      witness1: 'deadbeef', // tampered
-      witness2: signAmendment(hash, kps.witness2.privateKeyPem),
-    }
-    // witness1 tampered → only 1 valid witness → quorum not met
-    const result = checkQuorum(sigs, pubKeys, hash)
-    expect(result.met).toBeFalsy()
-    expect(result.witnessCount).toBe(1)
-  })
+  it.effect('tampered signature invalidates that signer (quorum fails if now below threshold)', () =>
+    Effect.gen(function* () {
+      const kps = makeKeypairs()
+      const hash = hashAmendment(CONTENT)
+      const pubKeys = makePublicKeys(kps)
+      const sigs: AmendmentSignatures = {
+        ...EMPTY_SIGS,
+        claude: signAmendment(hash, kps.claude.privateKeyPem),
+        'user-of-record': signAmendment(hash, kps['user-of-record'].privateKeyPem),
+        witness1: 'deadbeef', // tampered
+        witness2: signAmendment(hash, kps.witness2.privateKeyPem),
+      }
+      // witness1 tampered → only 1 valid witness → quorum not met
+      const result = yield* checkQuorum(sigs, pubKeys, hash)
+      expect(result.met).toBeFalsy()
+      expect(result.witnessCount).toBe(1)
+    }),
+  )
 })
 
 describe('Ceremony — key-store I/O', () => {

@@ -1,0 +1,29 @@
+import type { PainItem } from './loopHealth.ts'
+
+/** Count ## P<n> sections in PAIN-archive.md that contain a FIXED line. */
+export const parsePainArchiveMd = (md: string): number => {
+  const blocks = md.split(/^## /mu).slice(1)
+  return blocks.filter(block => /^P\d+/u.test(block) && /^FIXED\s/mu.test(block)).length
+}
+
+/** Minimal regex-based parser for PAIN.md open items (## P<n> — <title> blocks). */
+export const parsePainMd = (md: string): readonly PainItem[] => {
+  const items: PainItem[] = []
+  const blocks = md.split(/^## /mu).slice(1)
+  for (const block of blocks) {
+    const headerMatch = /^(P\d+) — (.+)/u.exec(block)
+    if (headerMatch === null) {
+      continue
+    }
+    const id = headerMatch[1] ?? ''
+    const title = headerMatch[2]?.trim() ?? ''
+    const severityMatch = /\*\*Severity:\*\*\s*(.+)/u.exec(block)
+    const severity = severityMatch?.[1]?.trim() ?? 'unknown'
+    const symptomMatch = /\*\*Symptom:\*\*\s*(.+)/u.exec(block)
+    const symptom = symptomMatch?.[1]?.trim()
+    const candidateFixMatch = /\*\*Candidate fix:\*\*\s*(.+)/u.exec(block)
+    const candidateFix = candidateFixMatch?.[1]?.trim()
+    items.push({ candidateFix, id, severity, status: 'open', symptom, title })
+  }
+  return items
+}

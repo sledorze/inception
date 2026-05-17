@@ -1,0 +1,21 @@
+{
+  "name": "@app/app",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "build": "vite build",
+    "dev": "vite --host",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@app/design-system": "workspace:*",
+    "@app/shared-api": "workspace:*",
+    "@radix-ui/react-slot": "^1.2.4",
+    "class-variance-authority": "^0.7.1",
+    "clsx": "^2.1.1",
+    "react": "^19.1.0",
+    "react-dom": "^19.1.0",
+    "tailwind-merge": "^3.5.0"
+  }
+}

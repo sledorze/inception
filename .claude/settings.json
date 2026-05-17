@@ -27,6 +27,15 @@
           }
         ],
         "matcher": "Edit|Write"
+      },
+      {
+        "hooks": [
+          {
+            "command": ".claude/hooks/tsgo-effect-check.sh",
+            "type": "command"
+          }
+        ],
+        "matcher": "Edit|Write"
       }
     ],
     "PreToolUse": [
@@ -47,6 +56,15 @@
           }
         ],
         "matcher": "Edit|Write"
+      },
+      {
+        "hooks": [
+          {
+            "command": ".claude/hooks/redirect-effect-source.sh",
+            "type": "command"
+          }
+        ],
+        "matcher": "Read"
       }
     ],
     "SessionStart": [

@@ -169,6 +169,40 @@ Token cost is `⏸ pending` (needs session instrumentation).
 
 ---
 
+## L7 — Breakdown Strategy → Tracked TODO → /goal Self-Refinement
+
+**Purpose.** Ensure multi-slice work is de-risked by spikes before breakdown, persisted durably so
+the `/goal` loop can continue it across sessions, and captured into prescriptive guidance when a
+planning method proves itself.
+
+**Flow.**
+
+```
+New multi-slice task arrives
+  → spike unknowns (time-boxed, findings-only, no prod code)
+  → map blast radius → strategic refactor if large, else in-slice
+  → break down vertical slices (each secured by its spike)
+  → persist numbered breakdown to docs/TODO.md
+  → /goal autonomous loop picks lowest [todo] → self-refines to north star
+  → method proves itself → capture to CLAUDE.md + .claude/patterns/ + META-LOOPS.md
+```
+
+**Measured by.** Manual review + session-start hook (surfaces "Next TODO"). No automated metric
+yet — watch for the degradation signals below.
+
+**Degradation signals (each is a loop failure, not a style nit):**
+
+- A slice was broken down before its securing spike produced findings.
+- A blast-radius analysis was skipped before a strategic refactor commit.
+- Work was executed but not persisted as a numbered `docs/TODO.md` item.
+- A validated planning method was not captured into `CLAUDE.md` / `.claude/patterns/` within the same phase.
+- The `/goal` loop picks up work that has no corresponding `[todo]` entry.
+
+**Invariant.** Every multi-slice task has a numbered `docs/TODO.md` breakdown before any
+implementation begins. No slice is broken down beyond the first securing spike's findings.
+
+---
+
 ## Running the health check
 
 ```bash

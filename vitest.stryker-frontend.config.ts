@@ -6,11 +6,11 @@ export default defineConfig({
   plugins: [react()],
   resolve: {
     alias: {
-      '@/': `${path.resolve(import.meta.dirname, 'packages/frontend/src')}/`,
+      '@/': `${path.resolve(import.meta.dirname, 'packages/app/src')}/`,
     },
   },
   test: {
     environment: 'happy-dom',
-    include: ['packages/frontend/src/**/*.test.ts', 'packages/frontend/src/**/*.test.tsx'],
+    include: ['packages/app/src/**/*.test.ts', 'packages/app/src/**/*.test.tsx'],
   },
 })

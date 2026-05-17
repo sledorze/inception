@@ -7,6 +7,7 @@
  * by the inner-MCP (Phase 2) to satisfy L1.8.
  */
 import { DateTime, Effect } from 'effect'
+import { EventKind } from '../domain/events.ts'
 import { EventStore } from '../ports/driven/EventStore.ts'
 import type { EventStoreError } from '../ports/driven/EventStore.ts'
 import { RoleRegistry } from '../ports/driven/RoleRegistry.ts'
@@ -31,7 +32,7 @@ export const switchRole = (
     yield* store.append({
       actor: 'host',
       correlationId: ctx.correlationId,
-      kind: 'RoleSwitched',
+      kind: EventKind.RoleSwitched,
       occurredAt: DateTime.formatIso(yield* DateTime.now),
       payload: {
         from: fromRole,

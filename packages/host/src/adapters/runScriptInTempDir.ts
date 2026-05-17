@@ -1,8 +1,10 @@
-import { Data, Duration, Effect, FileSystem, Path, Stream } from 'effect'
+import { Duration, Effect, FileSystem, Path, Schema, Stream } from 'effect'
 import { ChildProcess } from 'effect/unstable/process'
 import { ChildProcessSpawner } from 'effect/unstable/process/ChildProcessSpawner'
 
-export class RunScriptError extends Data.TaggedError('@app/host/RunScriptError')<{ cause: unknown }> {}
+export class RunScriptError extends Schema.TaggedErrorClass<RunScriptError>()('@app/host/RunScriptError', {
+  cause: Schema.Defect,
+}) {}
 
 export interface RunScriptOptions {
   readonly code: string

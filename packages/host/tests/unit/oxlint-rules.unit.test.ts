@@ -7,7 +7,7 @@ import { afterAll, beforeAll, describe, expect, it } from '@effect/vitest'
 const REPO_ROOT = join(import.meta.dirname, '..', '..', '..', '..')
 const OXLINT_BIN = join(REPO_ROOT, 'node_modules', '.bin', 'oxlint')
 const HOST_CONFIG = join(REPO_ROOT, 'packages', 'host', '.oxlintrc.json')
-const FRONTEND_CONFIG = join(REPO_ROOT, 'packages', 'frontend', '.oxlintrc.json')
+const FRONTEND_CONFIG = join(REPO_ROOT, 'packages', 'app', '.oxlintrc.json')
 
 let FIXTURE_DIR: string
 
@@ -16,7 +16,7 @@ beforeAll(() => {
   mkdirSync(join(FIXTURE_DIR, 'packages', 'host', 'src', 'adapters', 'driven'), { recursive: true })
   mkdirSync(join(FIXTURE_DIR, 'packages', 'host', 'src', 'application'), { recursive: true })
   mkdirSync(join(FIXTURE_DIR, 'packages', 'host', 'tests', 'unit'), { recursive: true })
-  mkdirSync(join(FIXTURE_DIR, 'packages', 'frontend', 'src', 'components', 'ui'), { recursive: true })
+  mkdirSync(join(FIXTURE_DIR, 'packages', 'app', 'src', 'components', 'ui'), { recursive: true })
 })
 
 afterAll(() => {
@@ -305,12 +305,18 @@ describe('P23 — oxlint overrides are a closed list (acceptance)', () => {
     // Block 0: **/src/**/*.ts — effect-patterns + no-restricted-imports enforced
     const b0 = overrides[0]?.rules ?? {}
     expect(Object.keys(b0).toSorted()).toEqual([
+      'effect-patterns/no-async-in-src',
       'effect-patterns/no-date-clock',
       'effect-patterns/no-inline-correlation-id',
+      'effect-patterns/no-raw-promise',
+      'effect-patterns/no-try-catch-in-src',
       'no-restricted-imports',
     ])
+    expect(sev(b0['effect-patterns/no-async-in-src'])).toBe('error')
     expect(sev(b0['effect-patterns/no-date-clock'])).toBe('error')
     expect(sev(b0['effect-patterns/no-inline-correlation-id'])).toBe('error')
+    expect(sev(b0['effect-patterns/no-raw-promise'])).toBe('error')
+    expect(sev(b0['effect-patterns/no-try-catch-in-src'])).toBe('error')
     expect(sev(b0['no-restricted-imports'])).toBe('error')
 
     // Block 1: adapters/checks/runtime/main — no-restricted-imports off (sanctioned escape hatch, files locked above)
@@ -318,14 +324,16 @@ describe('P23 — oxlint overrides are a closed list (acceptance)', () => {
     expect(Object.keys(b1).toSorted()).toEqual(['no-restricted-imports'])
     expect(sev(b1['no-restricted-imports'])).toBe('off')
 
-    // Block 2: **/tests/**/*.ts — Effect test-discipline rules enforced
+    // Block 2: **/tests/**/*.ts — Effect test-discipline rules + barrel import ban enforced
     const b2 = overrides[2]?.rules ?? {}
     expect(Object.keys(b2).toSorted()).toEqual([
       'effect-patterns/no-effect-gen-without-vitest',
       'effect-patterns/no-runpromise-in-tests',
+      'no-restricted-imports',
     ])
     expect(sev(b2['effect-patterns/no-effect-gen-without-vitest'])).toBe('error')
     expect(sev(b2['effect-patterns/no-runpromise-in-tests'])).toBe('error')
+    expect(sev(b2['no-restricted-imports'])).toBe('error')
 
     // Block 3: **/tests/helpers/**/*.ts — one rule relaxed for helper authors writing Effect-native helpers
     const b3 = overrides[3]?.rules ?? {}
@@ -367,25 +375,25 @@ const designSystemCases: { desc: string; expectError: boolean; path: string; src
   {
     desc: 'raw <button> in src/ → error',
     expectError: true,
-    path: 'packages/frontend/src/Probe.tsx',
+    path: 'packages/app/src/Probe.tsx',
     src: `export const Probe = () => <button type="button">x</button>\n`,
   },
   {
     desc: 'raw <textarea> in src/ → error',
     expectError: true,
-    path: 'packages/frontend/src/ProbeTa.tsx',
+    path: 'packages/app/src/ProbeTa.tsx',
     src: `export const ProbeTa = () => <textarea />\n`,
   },
   {
     desc: 'shadcn <Button> component in src/ → allowed',
     expectError: false,
-    path: 'packages/frontend/src/ProbeOk.tsx',
+    path: 'packages/app/src/ProbeOk.tsx',
     src: `import { Button } from '@/components/ui/button'\nexport const ProbeOk = () => <Button>x</Button>\n`,
   },
   {
     desc: 'raw <button> in src/components/ui/ → allowed (shadcn wraps raw elements)',
     expectError: false,
-    path: 'packages/frontend/src/components/ui/probe-ui.tsx',
+    path: 'packages/app/src/components/ui/probe-ui.tsx',
     src: `export const ProbeUi = () => <button type="button">x</button>\n`,
   },
 ]
@@ -402,7 +410,7 @@ describe('design-system/no-raw-interactive-element — raw HTML vs shadcn/ui', (
 
   it('the diagnostic invites the shadcn component + install command', () => {
     const { stdout } = lint(
-      'packages/frontend/src/ProbeMsg.tsx',
+      'packages/app/src/ProbeMsg.tsx',
       `export const ProbeMsg = () => <button type="button">x</button>\n`,
       FRONTEND_CONFIG,
     )
@@ -420,31 +428,31 @@ const colorCases: { desc: string; expectError: boolean; path: string; src: strin
   {
     desc: 'raw palette color in string literal className → error',
     expectError: true,
-    path: 'packages/frontend/src/ProbeColor.tsx',
+    path: 'packages/app/src/ProbeColor.tsx',
     src: `export const X = () => <div className="bg-red-50 text-red-800">x</div>\n`,
   },
   {
     desc: 'raw palette color in template literal ternary → error',
     expectError: true,
-    path: 'packages/frontend/src/ProbeColorTmpl.tsx',
+    path: 'packages/app/src/ProbeColorTmpl.tsx',
     src: "export const X = (f: boolean) => <div className={`base ${f ? 'bg-red-50' : 'bg-green-50'}`}>x</div>\n",
   },
   {
     desc: 'semantic token in className → allowed',
     expectError: false,
-    path: 'packages/frontend/src/ProbeColorOk.tsx',
+    path: 'packages/app/src/ProbeColorOk.tsx',
     src: `export const X = () => <div className="bg-destructive text-muted-foreground">x</div>\n`,
   },
   {
     desc: 'semantic token with opacity modifier → allowed',
     expectError: false,
-    path: 'packages/frontend/src/ProbeColorOpacity.tsx',
+    path: 'packages/app/src/ProbeColorOpacity.tsx',
     src: `export const X = () => <div className="bg-destructive/10 text-success">x</div>\n`,
   },
   {
     desc: 'raw palette color in src/components/ui/ → allowed (shadcn internals)',
     expectError: false,
-    path: 'packages/frontend/src/components/ui/probe-color-ui.tsx',
+    path: 'packages/app/src/components/ui/probe-color-ui.tsx',
     src: `export const X = () => <div className="bg-red-50">x</div>\n`,
   },
 ]
@@ -461,7 +469,7 @@ describe('design-system/no-raw-color-utility — palette colors vs semantic toke
 
   it('the diagnostic names the matched token and invites semantic alternatives', () => {
     const { stdout } = lint(
-      'packages/frontend/src/ProbeColorMsg.tsx',
+      'packages/app/src/ProbeColorMsg.tsx',
       `export const X = () => <div className="text-gray-500">x</div>\n`,
       FRONTEND_CONFIG,
     )
@@ -478,7 +486,7 @@ const STYLE_RULE = 'no-inline-style'
 describe('design-system/no-inline-style — style={{}} bypass', () => {
   it('style={{}} in src/ → error', () => {
     const { stdout } = lint(
-      'packages/frontend/src/ProbeStyle.tsx',
+      'packages/app/src/ProbeStyle.tsx',
       `export const X = () => <div style={{ color: 'red' }}>x</div>\n`,
       FRONTEND_CONFIG,
     )
@@ -487,7 +495,7 @@ describe('design-system/no-inline-style — style={{}} bypass', () => {
 
   it('no style attr → allowed', () => {
     const { stdout } = lint(
-      'packages/frontend/src/ProbeStyleOk.tsx',
+      'packages/app/src/ProbeStyleOk.tsx',
       `export const X = () => <div className="text-foreground">x</div>\n`,
       FRONTEND_CONFIG,
     )
@@ -496,7 +504,7 @@ describe('design-system/no-inline-style — style={{}} bypass', () => {
 
   it('style={{}} in src/components/ui/ → allowed', () => {
     const { stdout } = lint(
-      'packages/frontend/src/components/ui/probe-style-ui.tsx',
+      'packages/app/src/components/ui/probe-style-ui.tsx',
       `export const X = () => <div style={{ color: 'red' }}>x</div>\n`,
       FRONTEND_CONFIG,
     )
@@ -509,7 +517,7 @@ describe('design-system/no-inline-style — style={{}} bypass', () => {
 describe('design-system/no-raw-interactive-element — <section> invitation', () => {
   it('raw <section> in src/ → error with Card invite', () => {
     const { stdout } = lint(
-      'packages/frontend/src/ProbeSection.tsx',
+      'packages/app/src/ProbeSection.tsx',
       `export const X = () => <section className="p-4"><h2>Title</h2></section>\n`,
       FRONTEND_CONFIG,
     )
@@ -520,10 +528,92 @@ describe('design-system/no-raw-interactive-element — <section> invitation', ()
 
   it('shadcn <Card> in src/ → allowed', () => {
     const { stdout } = lint(
-      'packages/frontend/src/ProbeSectionOk.tsx',
+      'packages/app/src/ProbeSectionOk.tsx',
       `import { Card } from '@/components/ui/card'\nexport const X = () => <Card className="p-4"><h2>Title</h2></Card>\n`,
       FRONTEND_CONFIG,
     )
     expect(stdout).not.toContain('no-raw-interactive-element')
+  })
+})
+
+// ── effect-patterns/no-async-in-src (P35 red step) ───────────────────────────
+// These tests verify the rule that now exists (TODO 10.1 green step).
+
+describe('effect-patterns/no-async-in-src (P35) — async keyword banned in host/src/', () => {
+  it('async function declaration in src/ → error', () => {
+    const { exitCode, stdout } = lint(
+      'packages/host/src/application/probe_async_fn.ts',
+      `async function foo(): Promise<void> { await Promise.resolve() }\n`,
+    )
+    expect(exitCode).not.toBe(0)
+    expect(stdout).toContain('no-async-in-src')
+  })
+
+  it('async arrow in src/ → error', () => {
+    const { exitCode, stdout } = lint(
+      'packages/host/src/application/probe_async_arrow.ts',
+      `const bar = async (): Promise<string> => 'ok'\n`,
+    )
+    expect(exitCode).not.toBe(0)
+    expect(stdout).toContain('no-async-in-src')
+  })
+})
+
+// ── P46 GREEN — no-async-in-src: AwaitExpression visitor added (TODO 10.9) ───
+
+describe('effect-patterns/no-async-in-src — top-level await (P46)', () => {
+  it('flags await at module scope in src/', () => {
+    const { exitCode, stdout } = lint(
+      'packages/host/src/application/probe_toplevel_await.ts',
+      `import { Effect } from 'effect'\nawait Effect.runPromise(Effect.void)\n`,
+    )
+    expect(exitCode).not.toBe(0)
+    expect(stdout).toContain('no-async-in-src')
+  })
+})
+
+// ── P46 GREEN — no-raw-promise: .then visitor + bypass hardening (TODO 10.9) ─
+
+describe('effect-patterns/no-raw-promise — .then chaining (P46)', () => {
+  it('flags .then( chaining on a promise in src/', () => {
+    const { exitCode, stdout } = lint(
+      'packages/host/src/application/probe_promise_then.ts',
+      `declare const p: Promise<void>\nconst _r = p.then(() => {})\n`,
+    )
+    expect(exitCode).not.toBe(0)
+    expect(stdout).toContain('no-raw-promise')
+  })
+
+  it('bypass marker embedded in a string literal must not silence the rule', () => {
+    const { exitCode } = lint(
+      'packages/host/src/application/probe_bypass_string.ts',
+      `const _s = '// promise-bridge: intentional'\ndeclare const p: Promise<void>\nconst _r = p.then(() => {})\n`,
+    )
+    // A string literal containing the marker does not start the line with //,
+    // so the line-start check correctly refuses the bypass.
+    expect(exitCode).not.toBe(0)
+  })
+})
+
+// ── effect-patterns/no-try-catch-in-src (P39 green step) ────────────────────
+// These tests verify the rule that now exists (TODO 10.4 green step).
+
+describe('effect-patterns/no-try-catch-in-src (P39) — try/catch banned in host/src/', () => {
+  it('try/catch block in src/ → error', () => {
+    const { exitCode, stdout } = lint(
+      'packages/host/src/application/probe_try_catch.ts',
+      `function probe(x: unknown): boolean { try { return !!x } catch { return false } }\n`,
+    )
+    expect(exitCode).not.toBe(0)
+    expect(stdout).toContain('no-try-catch-in-src')
+  })
+
+  it('try/catch-with-binding in src/ → error', () => {
+    const { exitCode, stdout } = lint(
+      'packages/host/src/application/probe_try_catch_binding.ts',
+      `function probe(): void { try { throw new Error() } catch (e) { console.error(e) } }\n`,
+    )
+    expect(exitCode).not.toBe(0)
+    expect(stdout).toContain('no-try-catch-in-src')
   })
 })

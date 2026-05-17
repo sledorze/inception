@@ -18,11 +18,12 @@ import { EventStore } from '../../src/ports/driven/EventStore.ts'
 import type { NewEvent } from '../../src/ports/driven/EventStore.ts'
 import { ObservabilityGateway } from '../../src/ports/driving/ObservabilityGateway.ts'
 import type { ObservedEvent } from '../../src/ports/driving/ObservabilityGateway.ts'
+import { EventKind } from '../../src/domain/events.ts'
 
 const baseEvent = (): NewEvent => ({
   actor: 'user',
   correlationId: globalThis.crypto.randomUUID(),
-  kind: 'GoalSubmitted',
+  kind: EventKind.GoalSubmitted,
   occurredAt: new Date().toISOString(),
   payload: { goal: 'test', handleId: 'h1' },
   schemaV: 1,
@@ -67,7 +68,7 @@ describe('observeBin — outer MCP layer wiring (bin/observe.ts)', () => {
 
     expect(events).toHaveLength(2)
     expect(events.every(e => e.sessionId === session)).toBe(true)
-    expect(events.every(e => e.kind === 'GoalSubmitted')).toBe(true)
+    expect(events.every(e => e.kind === EventKind.GoalSubmitted)).toBe(true)
   })
 
   it('replay streams events from the given fromId in insertion order', async () => {

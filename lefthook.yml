@@ -36,6 +36,11 @@ pre-commit:
       fail_text: |
         Recurring version drift? → docs/PAIN.md (P2 + candidate fix)
 
+    # Repository layout drift guard — CLAUDE.md layout section must reference existing dirs (P29).
+    check-layout:
+      glob: '{CLAUDE.md,packages/**}'
+      run: bash scripts/check-layout.sh
+
     # Hex architecture boundaries (L2.14) — catches adapter/port/domain import violations.
     # Runs at commit time so violations surface immediately, not only at push.
     deps-check:
@@ -111,6 +116,22 @@ pre-push:
         Build/test/typecheck failed. Check errors above.
         Recurring pattern? → docs/PAIN.md (P1/P2 + candidate fix)
         Pattern ref → .claude/patterns/
+    # Test-naming convention check (0.4 s) — catches *.test.ts vs *.unit.test.ts
+    # violations at push time rather than CI-only (detection-stage drift fix, hunt 2026-05-15).
+    conventions:
+      priority: 3
+      run: node --import tsx packages/host/src/checks/check-test-conventions.ts
+      fail_text: |
+        Test file naming convention violated. Run the check locally for details:
+        node --import tsx packages/host/src/checks/check-test-conventions.ts
+    # File-structure check — catches uber-files (>1 component per TSX file).
+    file-structure:
+      priority: 3
+      run: node --import tsx packages/host/src/checks/check-file-structure.ts
+      fail_text: |
+        File structure violation: multiple components in one TSX file.
+        Split into one component per file under src/components/app/
+        node --import tsx packages/host/src/checks/check-file-structure.ts
     e2e:
       priority: 4
       run: pnpm test:e2e

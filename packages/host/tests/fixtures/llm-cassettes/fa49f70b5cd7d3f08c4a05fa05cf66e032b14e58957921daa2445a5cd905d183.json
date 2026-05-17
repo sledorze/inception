@@ -1,0 +1,38 @@
+{
+  "choices": [
+    {
+      "finish_reason": "tool_calls",
+      "index": 0,
+      "logprobs": null,
+      "message": {
+        "content": "\n\n",
+        "reasoning_content": "I see that `synthetic-001` is listed as a data handle in scope. Let me fetch its shape to understand what it contains.\n",
+        "role": "assistant",
+        "tool_calls": [
+          {
+            "function": {
+              "arguments": "{\"handleId\":\"synthetic-001\",\"role\":\"enduser\"}",
+              "name": "fetch-handle-shape"
+            },
+            "id": "397775769",
+            "type": "function"
+          }
+        ]
+      }
+    }
+  ],
+  "created": 1779004931,
+  "id": "chatcmpl-ej2plz6la2efl198z0rgs",
+  "model": "qwopus3.6-35b-a3b-v1",
+  "object": "chat.completion",
+  "stats": {},
+  "system_fingerprint": "qwopus3.6-35b-a3b-v1",
+  "usage": {
+    "completion_tokens": 82,
+    "completion_tokens_details": {
+      "reasoning_tokens": 32
+    },
+    "prompt_tokens": 3131,
+    "total_tokens": 3213
+  }
+}

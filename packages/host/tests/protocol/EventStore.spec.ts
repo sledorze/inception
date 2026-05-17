@@ -11,13 +11,14 @@ import { Effect, ManagedRuntime } from 'effect'
 import { afterEach, beforeEach, describe, expect, it } from '@effect/vitest'
 import { InMemoryEventStore } from '../../src/adapters/driven/InMemoryEventStore.ts'
 import { SqliteEventStore } from '../../src/adapters/driven/SqliteEventStore.ts'
+import { EventKind } from '../../src/domain/events.ts'
 import { computeContentHash, EventStore } from '../../src/ports/driven/EventStore.ts'
 import type { NewEvent } from '../../src/ports/driven/EventStore.ts'
 
 const baseEvent = (): NewEvent => ({
   actor: 'user',
   correlationId: randomUUID(),
-  kind: 'GoalSubmitted',
+  kind: EventKind.GoalSubmitted,
   occurredAt: new Date().toISOString(),
   payload: { goal: 'test goal' },
   schemaV: 1,
@@ -174,3 +175,39 @@ function runContract(name: string, makeLayer: () => Layer.Layer<EventStore>) {
 runContract('InMemoryEventStore', () => InMemoryEventStore.layer)
 
 runContract('SqliteEventStore', () => SqliteEventStore.layer(join(tmpdir(), `event-store-test-${randomUUID()}.db`)))
+
+// ─── SQLite durability: cross-restart persistence (P33) ──────────────────────
+//
+// Verifies that events written in one layer lifetime are readable after the layer
+// is closed and re-opened on the same file path. InMemoryEventStore cannot satisfy
+// this invariant by design — this test is SQLite-only.
+describe('SqliteEventStore — cross-restart durability (P33)', () => {
+  it('events survive a close-and-reopen cycle', async () => {
+    const dbPath = join(tmpdir(), `event-store-durability-${randomUUID()}.db`)
+    const session = randomUUID()
+
+    // Phase 1: write two events, then dispose the layer.
+    const rt1 = ManagedRuntime.make(SqliteEventStore.layer(dbPath))
+    let firstId: string
+    let secondId: string
+    try {
+      const first = await rt1.runPromise(append({ ...baseEvent(), sessionId: session }))
+      const second = await rt1.runPromise(append({ ...baseEvent(), sessionId: session }))
+      firstId = first.id
+      secondId = second.id
+    } finally {
+      await rt1.dispose()
+    }
+
+    // Phase 2: reopen on the same path — events must still be present.
+    const rt2 = ManagedRuntime.make(SqliteEventStore.layer(dbPath))
+    try {
+      const results = await rt2.runPromise(query({ sessionId: session }))
+      expect(results.map(e => e.id)).toContain(firstId)
+      expect(results.map(e => e.id)).toContain(secondId)
+      expect(results).toHaveLength(2)
+    } finally {
+      await rt2.dispose()
+    }
+  })
+})

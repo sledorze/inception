@@ -13,7 +13,7 @@
 import { mkdirSync } from 'node:fs'
 import { dirname, join } from 'node:path'
 import { Console, Effect, Layer, Logger } from 'effect'
-import { NodeRuntime } from '@effect/platform-node'
+import * as NodeRuntime from '@effect/platform-node/NodeRuntime'
 import { FileBackedCapabilityRegistry } from '../src/adapters/driven/FileBackedCapabilityRegistry.ts'
 import { SqliteEventStore } from '../src/adapters/driven/SqliteEventStore.ts'
 import { registerCapability } from '../src/application/registerCapability.ts'

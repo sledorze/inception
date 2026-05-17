@@ -12,7 +12,7 @@
  * and refines agent.md out-of-band (done — see agent.md session protocol).
  */
 import { Effect, Layer } from 'effect'
-import { NodeFileSystem } from '@effect/platform-node'
+import * as NodeFileSystem from '@effect/platform-node/NodeFileSystem'
 import { expect, layer } from '@effect/vitest'
 import { InMemoryEventStore } from '../../src/adapters/driven/InMemoryEventStore.ts'
 import { recordRejection } from '../../src/application/rejectionPattern.ts'

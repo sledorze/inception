@@ -8,11 +8,16 @@
  */
 import { createServer } from 'node:http'
 import type { AddressInfo, Server } from 'node:net'
+import { mkdtempSync, rmSync } from 'node:fs'
+import { tmpdir } from 'node:os'
+import { join } from 'node:path'
 import { Effect, Layer } from 'effect'
 import { LanguageModel } from 'effect/unstable/ai'
 import { OpenAiClient, OpenAiLanguageModel } from '@effect/ai-openai-compat'
 import { FetchHttpClient } from 'effect/unstable/http'
+import { layer as NodeFileSystemLayer } from '@effect/platform-node/NodeFileSystem'
 import { afterAll, beforeAll, describe, expect, it } from '@effect/vitest'
+import { RecordReplayLlmProvider } from '../../src/adapters/driven/RecordReplayLlmProvider.ts'
 
 // ─── stub OpenAI server ───────────────────────────────────────────────────────
 
@@ -32,6 +37,7 @@ const makeStubCompletion = (model: string) => ({
 
 let stubServer: Server
 let stubBaseUrl: string
+let cassetteTmpDir: string
 
 beforeAll(
   () =>
@@ -53,6 +59,7 @@ beforeAll(
           res.end(JSON.stringify(makeStubCompletion(model)))
         })
       })
+      cassetteTmpDir = mkdtempSync(join(tmpdir(), 'llm-cassettes-'))
       stubServer.listen(0, '127.0.0.1', () => {
         const addr = stubServer.address() as AddressInfo
         stubBaseUrl = `http://127.0.0.1:${addr.port}`
@@ -64,7 +71,10 @@ beforeAll(
 afterAll(
   () =>
     new Promise<void>(resolve => {
-      stubServer.close(() => resolve())
+      stubServer.close(() => {
+        rmSync(cassetteTmpDir, { force: true, recursive: true })
+        resolve()
+      })
     }),
 )
 
@@ -126,4 +136,15 @@ runContract('OpenAiCompatLlmProvider', () =>
     Layer.provide(OpenAiClient.layer({ apiUrl: stubBaseUrl })),
     Layer.provide(FetchHttpClient.layer),
   ),
+)
+
+// RecordReplayLlmProvider in record mode — records cassettes from the stub server.
+// Proves Liskov substitution: same interface contract, cassette-backed.
+runContract('RecordReplayLlmProvider (record mode)', () =>
+  RecordReplayLlmProvider.layer({
+    baseUrl: stubBaseUrl,
+    cassetteDir: cassetteTmpDir,
+    mode: 'record',
+    model: STUB_MODEL,
+  }).pipe(Layer.provide(FetchHttpClient.layer), Layer.provide(NodeFileSystemLayer)),
 )

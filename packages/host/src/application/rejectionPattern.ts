@@ -8,6 +8,7 @@
  * Bootstrap threshold: N=3 (§12, bootstrap=true). Changes via L3.8 calibration.
  */
 import { DateTime, Effect } from 'effect'
+import { EventKind } from '../domain/events.ts'
 import { EventStore } from '../ports/driven/EventStore.ts'
 
 const REJECTION_THRESHOLD = 3
@@ -29,7 +30,7 @@ export const recordRejection = Effect.fn('rejectionPattern.recordRejection')(fun
   yield* store.append({
     actor: 'user',
     correlationId,
-    kind: 'UserRejected',
+    kind: EventKind.UserRejected,
     occurredAt: now,
     payload: { reason },
     schemaV: 1,
@@ -39,14 +40,14 @@ export const recordRejection = Effect.fn('rejectionPattern.recordRejection')(fun
 
   // Count UserRejected events for this storyRef across all sessions.
   const allEvents = yield* store.query({ storyRef })
-  const rejectionCount = allEvents.filter(e => e.kind === 'UserRejected').length
-  const candidateAlreadyEmitted = allEvents.some(e => e.kind === 'RejectionPatternCandidate')
+  const rejectionCount = allEvents.filter(e => e.kind === EventKind.UserRejected).length
+  const candidateAlreadyEmitted = allEvents.some(e => e.kind === EventKind.RejectionPatternCandidate)
 
   if (rejectionCount >= REJECTION_THRESHOLD && !candidateAlreadyEmitted) {
     yield* store.append({
       actor: 'host',
       correlationId: `rejection-pattern-${storyRef}`,
-      kind: 'RejectionPatternCandidate',
+      kind: EventKind.RejectionPatternCandidate,
       occurredAt: now,
       payload: { rejectionCount, storyRef },
       schemaV: 1,

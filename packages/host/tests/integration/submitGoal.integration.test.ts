@@ -14,7 +14,7 @@
  * guaranteed to be listening before OpenAiClient.layer is built.
  */
 import { Effect, Layer } from 'effect'
-import { NodeFileSystem } from '@effect/platform-node'
+import * as NodeFileSystem from '@effect/platform-node/NodeFileSystem'
 import { expect, layer } from '@effect/vitest'
 import { InMemoryUserGateway } from '../../src/adapters/driving/InMemoryUserGateway.ts'
 import { GeorgesToolkit } from '../../src/adapters/driving/GeorgesToolkit.ts'
@@ -43,12 +43,13 @@ const GOAL = { goal: 'Describe the synthetic-001 fixture.', handleId: 'synthetic
 
 const llmLayer = makeLlmStubLayer([{ body: STUB_BODY, status: 200 }])
 
-const { handleRegLayer, storeLayer, toolkitLayer } = makeToolkitComponents([], {})
+const { handleRegLayer, registryLayer, storeLayer, toolkitLayer } = makeToolkitComponents([], {})
 
 const TestLayer = Layer.mergeAll(
   toolkitLayer,
   storeLayer,
   handleRegLayer,
+  registryLayer,
   NodeFileSystem.layer,
   llmLayer,
   InMemoryUserGateway.layer([GOAL]),
@@ -63,7 +64,7 @@ layer(TestLayer)(
       Effect.gen(function* () {
         const toolkit = yield* GeorgesToolkit
         const gw = yield* UserGateway
-        yield* gw.listen(submission => makeSubmitGoal(toolkit)(submission).pipe(Effect.orDie))
+        yield* gw.listen(submission => makeSubmitGoal(toolkit)(submission).pipe(Effect.asVoid, Effect.orDie))
 
         const store = yield* EventStore
         const events = yield* store.query({})

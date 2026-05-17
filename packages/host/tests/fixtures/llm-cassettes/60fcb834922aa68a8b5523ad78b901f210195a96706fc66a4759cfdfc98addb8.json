@@ -1,0 +1,38 @@
+{
+  "choices": [
+    {
+      "finish_reason": "tool_calls",
+      "index": 0,
+      "logprobs": null,
+      "message": {
+        "content": "\n\nI'll investigate \"synthetic-001\" — it sounds like it could be a data handle registered in the system. Let me check what I can do and then look into it.\n\n",
+        "reasoning_content": "The user is asking about \"synthetic-001\". This seems like they're referring to a data handle, given that I have access to tools like `fetch-handle-shape` which can return schema and sample for a registered data handle. Let me first check my available tools to understand what I can do, then try to fetch the shape of this handle if it exists.\n\nLet me start by listing my tools to confirm my current role and capabilities.\n",
+        "role": "assistant",
+        "tool_calls": [
+          {
+            "function": {
+              "arguments": "{\"role\":\"user\"}",
+              "name": "list-tools"
+            },
+            "id": "888734639",
+            "type": "function"
+          }
+        ]
+      }
+    }
+  ],
+  "created": 1778960836,
+  "id": "chatcmpl-mmwun8mncfnx6wc39q381g",
+  "model": "qwopus3.6-35b-a3b-v1",
+  "object": "chat.completion",
+  "stats": {},
+  "system_fingerprint": "qwopus3.6-35b-a3b-v1",
+  "usage": {
+    "completion_tokens": 162,
+    "completion_tokens_details": {
+      "reasoning_tokens": 94
+    },
+    "prompt_tokens": 2370,
+    "total_tokens": 2532
+  }
+}

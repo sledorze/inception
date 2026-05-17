@@ -1,0 +1,38 @@
+{
+  "choices": [
+    {
+      "finish_reason": "tool_calls",
+      "index": 0,
+      "logprobs": null,
+      "message": {
+        "content": "\n\n",
+        "reasoning_content": "The user is asking about \"synthetic-001\". I need to inspect this data handle to understand what it contains. Let me start by calling list-tools to confirm my tool surface, then fetch the handle shape for synthetic-001.\n\nActually, looking at the session brief, I can see that synthetic-001 is already listed as a data handle in scope with schema {\"columns\":[\"id\",\"value\"]} and sample {\"id\":\"int\",\"value\":\"string\"}. But per the hard rules, I must call tools to answer — never rely on general knowledge. The brief itself is not a tool call result; it's just context provided to me.\n\nLet me follow the protocol: start with list-tools, then fetch-handle-shape for synthetic-001.\n",
+        "role": "assistant",
+        "tool_calls": [
+          {
+            "function": {
+              "arguments": "{\"role\":\"enduser\"}",
+              "name": "list-tools"
+            },
+            "id": "851568943",
+            "type": "function"
+          }
+        ]
+      }
+    }
+  ],
+  "created": 1779004927,
+  "id": "chatcmpl-7jj62qie7snkl4783ijm",
+  "model": "qwopus3.6-35b-a3b-v1",
+  "object": "chat.completion",
+  "stats": {},
+  "system_fingerprint": "qwopus3.6-35b-a3b-v1",
+  "usage": {
+    "completion_tokens": 190,
+    "completion_tokens_details": {
+      "reasoning_tokens": 161
+    },
+    "prompt_tokens": 2827,
+    "total_tokens": 3017
+  }
+}

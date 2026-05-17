@@ -10,7 +10,8 @@
  */
 import { mkdtemp, rm, writeFile } from 'node:fs/promises'
 import { Effect, Layer } from 'effect'
-import { NodeFileSystem, NodePath } from '@effect/platform-node'
+import * as NodeFileSystem from '@effect/platform-node/NodeFileSystem'
+import * as NodePath from '@effect/platform-node/NodePath'
 import { afterEach, beforeEach, describe, expect, it } from '@effect/vitest'
 import { readPublicKey, writeKeypair } from '../../src/adapters/driven/CeremonyKeyStore.ts'
 import {
@@ -93,7 +94,7 @@ describe('ceremonyBin — sign + verify pipeline (bin/ceremony.ts sign + verify)
       yield* Effect.tryPromise(() => writeFile(`${amendmentFile}.sigs.json`, JSON.stringify(sigs, null, 2), 'utf8'))
 
       const pubKeys = yield* loadPublicKeys()
-      const result = checkQuorum(sigs, pubKeys, contentHash)
+      const result = yield* checkQuorum(sigs, pubKeys, contentHash)
 
       expect(result.met).toBe(true)
       expect(result.witnessCount).toBe(2)
@@ -115,7 +116,7 @@ describe('ceremonyBin — sign + verify pipeline (bin/ceremony.ts sign + verify)
       }
 
       const pubKeys = yield* loadPublicKeys()
-      const result = checkQuorum(sigs, pubKeys, contentHash)
+      const result = yield* checkQuorum(sigs, pubKeys, contentHash)
 
       expect(result.met).toBe(false)
       expect(result.witnessCount).toBe(1)
@@ -136,7 +137,7 @@ describe('ceremonyBin — sign + verify pipeline (bin/ceremony.ts sign + verify)
       }
 
       const pubKeys = yield* loadPublicKeys()
-      const result = checkQuorum(sigs, pubKeys, contentHash)
+      const result = yield* checkQuorum(sigs, pubKeys, contentHash)
 
       expect(result.met).toBe(false)
       expect(result.witnessCount).toBe(1)

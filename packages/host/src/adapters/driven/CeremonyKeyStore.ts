@@ -1,9 +1,9 @@
-import { Data, Effect, FileSystem, Path } from 'effect'
+import { Effect, FileSystem, Path, Schema } from 'effect'
 import type { Keypair, SignerRole } from '../../domain/ceremony.ts'
 
-class CeremonyIOError extends Data.TaggedError('@app/host/CeremonyIOError')<{
-  cause: unknown
-}> {}
+class CeremonyIOError extends Schema.TaggedErrorClass<CeremonyIOError>()('@app/host/CeremonyIOError', {
+  cause: Schema.Defect,
+}) {}
 
 export const writeKeypair = Effect.fn('CeremonyKeyStore.writeKeypair')(function* (keyStoreDir: string, kp: Keypair) {
   const fs = yield* FileSystem.FileSystem

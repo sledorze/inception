@@ -12,11 +12,12 @@ import { InMemoryEventStore } from '../../src/adapters/driven/InMemoryEventStore
 import { EventStore } from '../../src/ports/driven/EventStore.ts'
 import type { NewEvent } from '../../src/ports/driven/EventStore.ts'
 import { listPendingProposals, promoteProposal, rejectProposal } from '../../src/application/reviewProposals.ts'
+import { EventKind } from '../../src/domain/events.ts'
 
 const proposal = (): NewEvent => ({
   actor: 'georges',
   correlationId: 'corr-review-1',
-  kind: 'CapabilityProposed',
+  kind: EventKind.CapabilityProposed,
   occurredAt: '2026-01-01T00:00:00.000Z',
   payload: { rationale: 'useful tool', tool: 'my-tool' },
   schemaV: 1,
@@ -40,7 +41,7 @@ layer(InMemoryEventStore.layer)('listPendingProposals — pending proposal', it 
       yield* store.append(proposal())
       const proposals = yield* listPendingProposals
       expect(proposals).toHaveLength(1)
-      expect(proposals[0]?.kind).toBe('CapabilityProposed')
+      expect(proposals[0]?.kind).toBe(EventKind.CapabilityProposed)
     }),
   )
 })
@@ -52,7 +53,7 @@ layer(InMemoryEventStore.layer)('promoteProposal — L2.6, L1.5, L2.9', it => {
       const stored = yield* store.append(proposal())
       yield* promoteProposal(stored.contentHash)
       const all = yield* store.query({}).pipe(Effect.orDie)
-      const promoted = all.find(e => e.kind === 'Promoted')
+      const promoted = all.find(e => e.kind === EventKind.Promoted)
       assert.isDefined(promoted)
       expect(promoted.actor).toBe('claude')
       expect((promoted.payload as { proposalId: string }).proposalId).toBe(stored.contentHash)
@@ -77,7 +78,7 @@ layer(InMemoryEventStore.layer)('rejectProposal — L2.6, L1.5, L2.9', it => {
       const stored = yield* store.append(proposal())
       yield* rejectProposal(stored.contentHash, 'not ready yet')
       const all = yield* store.query({}).pipe(Effect.orDie)
-      const rejected = all.find(e => e.kind === 'CapabilityRejected')
+      const rejected = all.find(e => e.kind === EventKind.CapabilityRejected)
       assert.isDefined(rejected)
       expect(rejected.actor).toBe('claude')
       expect((rejected.payload as { proposalId: string; notes: string }).proposalId).toBe(stored.contentHash)
