@@ -9,18 +9,17 @@ export function SessionDetail({ sessionId, onBack }: { sessionId: string; onBack
   const [err, setErr] = useState<string | null>(null)
   const [loading, setLoading] = useState(false)
 
-  const load = () => {
+  const load = async () => {
     setLoading(true)
     setErr(null)
-    getSessionEvents(sessionId)
-      .then(e => {
-        setEvents(e)
-        setLoading(false)
-      })
-      .catch((e: unknown) => {
-        setErr(String(e))
-        setLoading(false)
-      })
+    try {
+      const e = await getSessionEvents(sessionId)
+      setEvents(e)
+    } catch (e: unknown) {
+      setErr(String(e))
+    } finally {
+      setLoading(false)
+    }
   }
 
   return (

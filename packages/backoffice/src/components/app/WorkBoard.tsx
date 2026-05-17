@@ -1,9 +1,7 @@
 import { useAtomRefresh, useAtomValue } from '@effect/atom-react'
-import * as AsyncResult from 'effect/unstable/reactivity/AsyncResult'
-import * as Cause from 'effect/Cause'
 import { Button } from '@app/design-system/button'
 import { Card } from '@app/design-system/card'
-import { workAtom } from '../../atoms.ts'
+import { workAtom, workView } from '../../atoms.ts'
 
 const STATUS_COLOR: Record<string, string> = {
   blocked: 'bg-destructive/20 text-destructive',
@@ -14,10 +12,10 @@ const STATUS_COLOR: Record<string, string> = {
 }
 
 export function WorkBoard() {
-  const result = useAtomValue(workAtom)
+  const view = useAtomValue(workView)
   const refresh = useAtomRefresh(workAtom)
-  const items = AsyncResult.isSuccess(result) ? result.value : null
-  const error = AsyncResult.isFailure(result) ? String(Cause.squash(result.cause)) : null
+  const items = view._tag === 'Ready' ? view.value : null
+  const error = view._tag === 'Error' ? view.message : null
 
   return (
     <Card className="space-y-2 p-4">

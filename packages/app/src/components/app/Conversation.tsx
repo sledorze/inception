@@ -25,49 +25,47 @@ export function Conversation() {
   const [pendingClarify, setPendingClarify] = useState<PendingClarify | null>(null)
   const [clarifyAnswer, setClarifyAnswer] = useState('')
 
-  const handleSend = () => {
+  const handleSend = async () => {
     if (!goal.trim()) {
       return
     }
     const pendingGoal = goal
     setBusy(true)
     setConvError(null)
-    sendMessage(sessionId, pendingGoal, handleId)
-      .then(result => {
-        if (result.clarifyQuestion !== undefined) {
-          const q = result.clarifyQuestion
-          setTurns(prev => [
-            ...prev,
-            {
-              clarifyQuestion: q,
-              correlationId: result.correlationId,
-              goal: pendingGoal,
-              turnIndex: prev.length,
-            },
-          ])
-          setPendingClarify({ correlationId: result.correlationId, question: q })
-        } else {
-          setTurns(prev => [
-            ...prev,
-            {
-              correlationId: result.correlationId,
-              goal: pendingGoal,
-              reply: result.text ?? '',
-              turnIndex: prev.length,
-            },
-          ])
-        }
-
-        setGoal('')
-        setBusy(false)
-      })
-      .catch((err: unknown) => {
-        setConvError(String(err))
-        setBusy(false)
-      })
+    try {
+      const result = await sendMessage(sessionId, pendingGoal, handleId)
+      if (result.clarifyQuestion !== undefined) {
+        const q = result.clarifyQuestion
+        setTurns(prev => [
+          ...prev,
+          {
+            clarifyQuestion: q,
+            correlationId: result.correlationId,
+            goal: pendingGoal,
+            turnIndex: prev.length,
+          },
+        ])
+        setPendingClarify({ correlationId: result.correlationId, question: q })
+      } else {
+        setTurns(prev => [
+          ...prev,
+          {
+            correlationId: result.correlationId,
+            goal: pendingGoal,
+            reply: result.text ?? '',
+            turnIndex: prev.length,
+          },
+        ])
+      }
+      setGoal('')
+    } catch (err: unknown) {
+      setConvError(String(err))
+    } finally {
+      setBusy(false)
+    }
   }
 
-  const handleClarifySubmit = () => {
+  const handleClarifySubmit = async () => {
     if (!pendingClarify || !clarifyAnswer.trim()) {
       return
     }
@@ -75,29 +73,26 @@ export function Conversation() {
     const submittedAnswer = clarifyAnswer
     setBusy(true)
     setConvError(null)
-    respondToGoal(sessionId, correlationId, submittedAnswer)
-      .then(() => {
-        setTurns(prev =>
-          prev.map(t => {
-            if (t.correlationId !== correlationId) {
-              return t
-            }
-            const { pendingAnswer: _removed, ...rest } = t
-            return { ...rest, clarifyAnswer: submittedAnswer }
-          }),
-        )
-        setPendingClarify(null)
-        setClarifyAnswer('')
-        setBusy(false)
-        return getTurns(sessionId)
-      })
-      .then((updatedTurns: readonly Turn[]) => {
-        setTurns(updatedTurns.map(t => ({ ...t })))
-      })
-      .catch((err: unknown) => {
-        setConvError(String(err))
-        setBusy(false)
-      })
+    try {
+      await respondToGoal(sessionId, correlationId, submittedAnswer)
+      setTurns(prev =>
+        prev.map(t => {
+          if (t.correlationId !== correlationId) {
+            return t
+          }
+          const { pendingAnswer: _removed, ...rest } = t
+          return { ...rest, clarifyAnswer: submittedAnswer }
+        }),
+      )
+      setPendingClarify(null)
+      setClarifyAnswer('')
+      const updatedTurns = await getTurns(sessionId)
+      setTurns(updatedTurns.map(t => ({ ...t })))
+    } catch (err: unknown) {
+      setConvError(String(err))
+    } finally {
+      setBusy(false)
+    }
   }
 
   return (

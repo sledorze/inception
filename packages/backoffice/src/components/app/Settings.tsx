@@ -11,30 +11,33 @@ export function Settings() {
   const [error, setError] = useState<string | null>(null)
   const [saving, setSaving] = useState(false)
 
-  const load = () => {
+  const load = async () => {
     setError(null)
-    getSettings()
-      .then(s => {
-        setSettings(s)
-        setDraft({ llmBaseUrl: s.llmBaseUrl, llmModel: s.llmModel, sessionMaxTurns: s.sessionMaxTurns })
-      })
-      .catch((err: unknown) => setError(String(err)))
+    try {
+      const s = await getSettings()
+      setSettings(s)
+      setDraft({ llmBaseUrl: s.llmBaseUrl, llmModel: s.llmModel, sessionMaxTurns: s.sessionMaxTurns })
+    } catch (err: unknown) {
+      setError(String(err))
+    }
   }
 
-  const save = () => {
+  const save = async () => {
     setSaving(true)
     setError(null)
-    patchSettings(draft)
-      .then(updated => {
-        setSettings(updated)
-        setDraft({
-          llmBaseUrl: updated.llmBaseUrl,
-          llmModel: updated.llmModel,
-          sessionMaxTurns: updated.sessionMaxTurns,
-        })
+    try {
+      const updated = await patchSettings(draft)
+      setSettings(updated)
+      setDraft({
+        llmBaseUrl: updated.llmBaseUrl,
+        llmModel: updated.llmModel,
+        sessionMaxTurns: updated.sessionMaxTurns,
       })
-      .catch((err: unknown) => setError(String(err)))
-      .finally(() => setSaving(false))
+    } catch (err: unknown) {
+      setError(String(err))
+    } finally {
+      setSaving(false)
+    }
   }
 
   return (

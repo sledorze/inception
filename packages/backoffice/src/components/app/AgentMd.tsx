@@ -12,38 +12,36 @@ export function AgentMd() {
   const [result, setResult] = useState<{ prevHash: string; newHash: string } | null>(null)
   const [err, setErr] = useState<string | null>(null)
 
-  const load = () => {
+  const load = async () => {
     setLoading(true)
     setErr(null)
     setResult(null)
-    getAgentMd()
-      .then(r => {
-        setContent(r.content)
-        setLoading(false)
-      })
-      .catch((e: unknown) => {
-        setErr(String(e))
-        setLoading(false)
-      })
+    try {
+      const r = await getAgentMd()
+      setContent(r.content)
+    } catch (e: unknown) {
+      setErr(String(e))
+    } finally {
+      setLoading(false)
+    }
   }
 
-  const save = () => {
+  const save = async () => {
     if (content === null || !rationale.trim()) {
       return
     }
     setSaving(true)
     setErr(null)
     setResult(null)
-    patchAgentMd(content, rationale)
-      .then(r => {
-        setResult(r)
-        setSaving(false)
-        setRationale('')
-      })
-      .catch((e: unknown) => {
-        setErr(String(e))
-        setSaving(false)
-      })
+    try {
+      const r = await patchAgentMd(content, rationale)
+      setResult(r)
+      setRationale('')
+    } catch (e: unknown) {
+      setErr(String(e))
+    } finally {
+      setSaving(false)
+    }
   }
 
   return (

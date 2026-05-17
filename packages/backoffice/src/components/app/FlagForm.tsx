@@ -11,21 +11,20 @@ export function FlagForm({ correlationId, onDone }: { correlationId: string; onD
   const [busy, setBusy] = useState(false)
   const [err, setErr] = useState<string | null>(null)
 
-  const submit = () => {
+  const submit = async () => {
     if (!note.trim()) {
       return
     }
     setBusy(true)
     setErr(null)
-    flagExchange(correlationId, note, severity)
-      .then(() => {
-        setBusy(false)
-        onDone()
-      })
-      .catch((e: unknown) => {
-        setErr(String(e))
-        setBusy(false)
-      })
+    try {
+      await flagExchange(correlationId, note, severity)
+      onDone()
+    } catch (e: unknown) {
+      setErr(String(e))
+    } finally {
+      setBusy(false)
+    }
   }
 
   return (

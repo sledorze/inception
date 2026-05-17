@@ -119,7 +119,7 @@ describe('Frontend presentation components must not interpret async state (P41)'
     join(REPO_ROOT, 'packages', 'app', 'src', 'components'),
   ]
 
-  it.fails('no component .tsx interprets AsyncResult/Cause directly', () => {
+  it('no component .tsx interprets AsyncResult/Cause directly', () => {
     const forbidden = [
       'AsyncResult.isSuccess(',
       'AsyncResult.isFailure(',
@@ -138,7 +138,7 @@ describe('Frontend presentation components must not interpret async state (P41)'
     expect(violations, 'state-interpretation in component files — move to atoms.ts').toEqual([])
   })
 
-  it.fails('no component .tsx contains promise chaining (.then)', () => {
+  it('no component .tsx contains promise chaining (.then)', () => {
     const violations: string[] = []
     for (const dir of componentDirs) {
       for (const file of collectTsxFiles(dir)) {

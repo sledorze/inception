@@ -5,6 +5,34 @@ Convention: fix → move (cut from PAIN.md, paste here in the same commit as the
 
 ---
 
+## P41 — UI-state interpretation duplicated into presentation components (P36 regression)
+
+**Severity:** slows
+
+**Symptom:** The Atom migration deleted `useAsyncFetch` (which closed P36) and replaced it
+with an inline `AsyncResult.isSuccess(result) ? result.value : null` /
+`AsyncResult.isFailure(result) ? String(Cause.squash(result.cause)) : null` 2-liner plus 3
+identical imports (`@effect/atom-react`, `effect/unstable/reactivity/AsyncResult`,
+`effect/Cause`), duplicated verbatim across 5 migrated components (Metrics, PainBoard,
+Patterns, Sessions, WorkBoard). State interpretation now lives in the presentation layer with
+no machine boundary preventing further spread. The ~8 un-migrated backoffice components
+(AgentMd, SessionDetail, Settings, Proposals, ListTools, ReadWorkspace, WriteWorkspace,
+CallCapability, EventRow, FlagForm) and 3 app components (Conversation, Login, SubmitGoal)
+still carry the older manual `useState(null)` + promise-chaining (`.then`) variant of the
+same coupling. dep-cruiser's `no-frontend-component-api-import` (P36/P37) catches `api/`
+imports but NOT result-state interpretation inside a component body.
+
+FIXED 2026-05-17 in feat/design-system-enforcement — `AsyncView<T>` discriminated union
+(`Loading | Error | Ready`, each with `.waiting`) added to `packages/backoffice/src/atoms.ts`
+via `Atom.map` + `AsyncResult.match`; 5 atom-based components migrated to `*View` atoms
+(no AsyncResult/Cause imports); 13 legacy components converted from `.then(` to `async/await`;
+`.claude/patterns/frontend-atoms.md` documents the pattern. Machine boundary: two assertions
+in `enforce-conventions.unit.test.ts` now pass (previously `it.fails`).
+test: `packages/host/tests/unit/enforce-conventions.unit.test.ts` —
+"Frontend presentation components must not interpret async state (P41)" (2 assertions GREEN)
+
+---
+
 ## P35 — `async`/`await` and raw `Promise` in `packages/host/src/` are CLAUDE.md-only — no lint enforcement
 
 **Severity:** slows

@@ -1,14 +1,12 @@
 import { useAtomRefresh, useAtomValue } from '@effect/atom-react'
-import * as AsyncResult from 'effect/unstable/reactivity/AsyncResult'
-import * as Cause from 'effect/Cause'
 import { Button } from '@app/design-system/button'
-import { patternsAtom } from '../../atoms.ts'
+import { patternsAtom, patternsView } from '../../atoms.ts'
 
 export function Patterns() {
-  const result = useAtomValue(patternsAtom)
+  const view = useAtomValue(patternsView)
   const refresh = useAtomRefresh(patternsAtom)
-  const patterns = AsyncResult.isSuccess(result) ? result.value : null
-  const error = AsyncResult.isFailure(result) ? String(Cause.squash(result.cause)) : null
+  const patterns = view._tag === 'Ready' ? view.value : null
+  const error = view._tag === 'Error' ? view.message : null
 
   return (
     <div className="space-y-2">

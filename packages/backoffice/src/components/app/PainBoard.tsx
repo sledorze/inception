@@ -1,15 +1,13 @@
 import { useAtomRefresh, useAtomValue } from '@effect/atom-react'
-import * as AsyncResult from 'effect/unstable/reactivity/AsyncResult'
-import * as Cause from 'effect/Cause'
 import { Button } from '@app/design-system/button'
 import { Card } from '@app/design-system/card'
-import { painAtom } from '../../atoms.ts'
+import { painAtom, painView } from '../../atoms.ts'
 
 export function PainBoard() {
-  const result = useAtomValue(painAtom)
+  const view = useAtomValue(painView)
   const refresh = useAtomRefresh(painAtom)
-  const items = AsyncResult.isSuccess(result) ? result.value : null
-  const error = AsyncResult.isFailure(result) ? String(Cause.squash(result.cause)) : null
+  const items = view._tag === 'Ready' ? view.value : null
+  const error = view._tag === 'Error' ? view.message : null
 
   return (
     <Card className="space-y-2 p-4">

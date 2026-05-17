@@ -41,7 +41,9 @@ export function WriteWorkspace() {
       />
       <Button
         data-testid="ww-submit"
-        onClick={() => callTool('write-workspace', { content, path, role }).then(setResult)}
+        onClick={async () => {
+          setResult(await callTool('write-workspace', { content, path, role }))
+        }}
         size="sm"
         type="button"
       >

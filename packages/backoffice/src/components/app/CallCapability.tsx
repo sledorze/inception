@@ -31,7 +31,9 @@ export function CallCapability() {
         />
         <Button
           data-testid="cc-submit"
-          onClick={() => callTool('call-capability', { name, role }).then(setResult)}
+          onClick={async () => {
+            setResult(await callTool('call-capability', { name, role }))
+          }}
           size="sm"
           type="button"
         >

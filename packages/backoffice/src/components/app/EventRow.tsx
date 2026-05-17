@@ -10,18 +10,17 @@ export function EventRow({ event }: { event: SessionEvent }) {
   const [replaying, setReplaying] = useState(false)
   const [replayErr, setReplayErr] = useState<string | null>(null)
 
-  const doReplay = () => {
+  const doReplay = async () => {
     setReplaying(true)
     setReplayErr(null)
-    replayExchange(event.correlationId)
-      .then(r => {
-        setReplay(r)
-        setReplaying(false)
-      })
-      .catch((e: unknown) => {
-        setReplayErr(String(e))
-        setReplaying(false)
-      })
+    try {
+      const r = await replayExchange(event.correlationId)
+      setReplay(r)
+    } catch (e: unknown) {
+      setReplayErr(String(e))
+    } finally {
+      setReplaying(false)
+    }
   }
 
   const isGoalKind =

@@ -1,19 +1,17 @@
 import { useState } from 'react'
 import { useAtomRefresh, useAtomValue } from '@effect/atom-react'
-import * as AsyncResult from 'effect/unstable/reactivity/AsyncResult'
-import * as Cause from 'effect/Cause'
 import { Button } from '@app/design-system/button'
 import { Card } from '@app/design-system/card'
-import { sessionsAtom } from '../../atoms.ts'
+import { sessionsAtom, sessionsView } from '../../atoms.ts'
 import { SessionDetail } from './SessionDetail.tsx'
 import { Patterns } from './Patterns.tsx'
 
 export function Sessions() {
-  const result = useAtomValue(sessionsAtom)
+  const view = useAtomValue(sessionsView)
   const refresh = useAtomRefresh(sessionsAtom)
-  const sessions = AsyncResult.isSuccess(result) ? result.value : null
-  const error = AsyncResult.isFailure(result) ? String(Cause.squash(result.cause)) : null
-  const loading = result.waiting
+  const sessions = view._tag === 'Ready' ? view.value : null
+  const error = view._tag === 'Error' ? view.message : null
+  const loading = view.waiting
   const [selected, setSelected] = useState<string | null>(null)
 
   if (selected !== null) {

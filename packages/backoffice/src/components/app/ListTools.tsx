@@ -23,7 +23,9 @@ export function ListTools() {
         />
         <Button
           data-testid="lt-submit"
-          onClick={() => callTool('list-tools', { role }).then(setResult)}
+          onClick={async () => {
+            setResult(await callTool('list-tools', { role }))
+          }}
           size="sm"
           type="button"
         >

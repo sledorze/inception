@@ -285,12 +285,12 @@ intentional`). Annotated 4 bridge files. Documented pattern in `.claude/patterns
   Created `packages/design-system/.oxlintrc-base.json`; wired `"extends"` in `app/`, `backoffice/`,
   `host/` configs. Green gate: `tests/unit/enforce-conventions.unit.test.ts` — "P40" passes.
 
-- [todo] **10.5** **View-model atoms — decouple UI-state interpretation from components** (closes P41).
-  RED: `tests/unit/enforce-conventions.unit.test.ts` —
-  "Frontend presentation components must not interpret async state (P41)" two `it.fails` assertions
-  added (this cycle). GREEN (later cycle): derived view-model atoms via `Atom.map` +
-  `AsyncResult.match` in `atoms.ts`; migrate 5 atom + ~11 legacy components; add
-  `.claude/patterns/frontend-atoms.md`; add `no-AsyncResult-in-components` boundary; remove `.fails`.
+- [done] **10.5** **View-model atoms — decouple UI-state interpretation from components** (closes P41).
+  GREEN 2026-05-17 in feat/design-system-enforcement: `AsyncView<T>` in `atoms.ts` via `Atom.map` +
+  `AsyncResult.match`; 5 atom components migrated to `*View` atoms; 13 legacy components converted
+  from `.then(` to `async/await`; `.claude/patterns/frontend-atoms.md` added; 2 `it.fails` → passing.
+  test: `packages/host/tests/unit/enforce-conventions.unit.test.ts` —
+  "Frontend presentation components must not interpret async state (P41)"
 
 - [done] **10.6** **Brief Georges with tool/handle context** (closes P42).
   GREEN 2026-05-17 in 09de2686: extracted `buildInitialMessages`; `yield* ToolRegistry` + `yield* DataHandleRegistry`;

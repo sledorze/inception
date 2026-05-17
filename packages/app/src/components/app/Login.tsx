@@ -14,21 +14,20 @@ export function Login({ onSuccess }: LoginProps) {
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
-  const handleSubmit = () => {
+  const handleSubmit = async () => {
     if (!username.trim() || !password.trim()) {
       return
     }
     setBusy(true)
     setError(null)
-    login(username, password)
-      .then(({ token }) => {
-        setToken(token)
-        onSuccess()
-      })
-      .catch((err: unknown) => {
-        setError(String(err))
-        setBusy(false)
-      })
+    try {
+      const { token } = await login(username, password)
+      setToken(token)
+      onSuccess()
+    } catch (err: unknown) {
+      setError(String(err))
+      setBusy(false)
+    }
   }
 
   return (

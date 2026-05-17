@@ -8,21 +8,24 @@ export function Proposals() {
   const [proposals, setProposals] = useState<readonly Proposal[]>([])
   const [msg, setMsg] = useState<string | null>(null)
 
-  const refresh = () => {
+  const refresh = async () => {
     setMsg(null)
-    listProposals()
-      .then(setProposals)
-      .catch((error: unknown) => setMsg(String(error)))
+    try {
+      setProposals(await listProposals())
+    } catch (error: unknown) {
+      setMsg(String(error))
+    }
   }
 
-  const promote = (id: string) => {
+  const promote = async (id: string) => {
     setMsg(null)
-    promoteProposal(id)
-      .then(({ version }) => {
-        setMsg(`Promoted → registry v${version}`)
-        return listProposals().then(setProposals)
-      })
-      .catch((error: unknown) => setMsg(String(error)))
+    try {
+      const { version } = await promoteProposal(id)
+      setMsg(`Promoted → registry v${version}`)
+      setProposals(await listProposals())
+    } catch (error: unknown) {
+      setMsg(String(error))
+    }
   }
 
   return (

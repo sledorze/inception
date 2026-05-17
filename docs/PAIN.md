@@ -68,37 +68,6 @@ All three findings resolved in commit 5030e00c — no open PAIN items added.
 
 ---
 
-## P41 — UI-state interpretation duplicated into presentation components (P36 regression)
-
-**Severity:** slows
-
-**Symptom:** The Atom migration deleted `useAsyncFetch` (which closed P36) and replaced it
-with an inline `AsyncResult.isSuccess(result) ? result.value : null` /
-`AsyncResult.isFailure(result) ? String(Cause.squash(result.cause)) : null` 2-liner plus 3
-identical imports (`@effect/atom-react`, `effect/unstable/reactivity/AsyncResult`,
-`effect/Cause`), duplicated verbatim across 5 migrated components (Metrics, PainBoard,
-Patterns, Sessions, WorkBoard). State interpretation now lives in the presentation layer with
-no machine boundary preventing further spread. The ~8 un-migrated backoffice components
-(AgentMd, SessionDetail, Settings, Proposals, ListTools, ReadWorkspace, WriteWorkspace,
-CallCapability, EventRow, FlagForm) and 3 app components (Conversation, Login, SubmitGoal)
-still carry the older manual `useState(null)` + promise-chaining (`.then`) variant of the
-same coupling. dep-cruiser's `no-frontend-component-api-import` (P36/P37) catches `api/`
-imports but NOT result-state interpretation inside a component body.
-
-**Candidate fix:** Derived view-model atoms in `packages/backoffice/src/atoms.ts` (and an
-`app/atoms.ts` equivalent) via `Atom.map(srcAtom, AsyncResult.match({ onInitial, onFailure,
-onSuccess }))` producing a discriminated union `{ _tag: 'Loading' | 'Error' | 'Ready'; ... }`.
-Components consume the ready view-model via `useAtomValue` and render only — zero
-`AsyncResult`/`Cause` imports in component files. Migrate the legacy components onto the same
-atom + view-model layer (eliminating `.then(` from all component files). Add
-`.claude/patterns/frontend-atoms.md` documenting the view-model-atom pattern, and a
-machine-checked boundary (enforce-conventions assertion or dep-cruiser deny rule) forbidding
-`AsyncResult`/`Cause` imports and `.then(` promise chains in
-`packages/(app|backoffice)/src/components/`.
-
-**Acceptance test.** `packages/host/tests/unit/enforce-conventions.unit.test.ts` —
-"Frontend presentation components must not interpret async state (P41)"
-
 ---
 
 ## P44 — `POST /api/login` has no rate limiting (brute-force possible)

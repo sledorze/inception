@@ -23,7 +23,9 @@ export function ReadWorkspace() {
         />
         <Button
           data-testid="rw-submit"
-          onClick={() => callTool('read-workspace', { path }).then(setResult)}
+          onClick={async () => {
+            setResult(await callTool('read-workspace', { path }))
+          }}
           size="sm"
           type="button"
         >
