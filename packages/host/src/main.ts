@@ -629,7 +629,7 @@ const settingsPatchRoute = HttpRouter.add(
       // means Partial<AppSettings> has absent keys, not undefined-valued keys).
       const updates = Object.fromEntries(
         Object.entries(body ?? {}).filter(([, v]) => v !== undefined),
-      ) as Partial<AppSettings>
+      ) as Partial<AppSettings> // cast: Object.fromEntries loses key specificity; filter above removed undefined values
       const settings = yield* Settings
       const updated = yield* settings.patch(updates)
       return jsonOk(updated)
@@ -701,8 +701,8 @@ rt.runFork(
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 // @effect-diagnostics-next-line anyUnknownInErrorContext:off
 const httpAppRaw = (await rt.runPromise(
-  HttpRouter.toHttpEffect(allRoutes).pipe(Effect.scoped) as any,
-)) as Effect.Effect<HttpServerResponse.HttpServerResponse, unknown, HttpServerRequest.HttpServerRequest>
+  HttpRouter.toHttpEffect(allRoutes).pipe(Effect.scoped) as any, // cast: toHttpEffect return type too narrow for runPromise generic; re-typed below
+)) as Effect.Effect<HttpServerResponse.HttpServerResponse, unknown, HttpServerRequest.HttpServerRequest> // cast: runtime type of the resolved Effect; matches httpAppRaw usage
 
 // Global error handler: log the full cause to stderr and return a structured JSON 500 body.
 // This replaces the previous empty-body 500 that gave users no diagnostic information (P50).
@@ -720,6 +720,7 @@ const httpApp: Effect.Effect<HttpServerResponse.HttpServerResponse, never, HttpS
 // We reuse the ManagedRuntime's root scope so handler lifetimes are bound to the server.
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 const handler = await (rt.runPromise(NodeHttpServer.makeHandler(httpApp, { scope: rt.scope }) as any) as Promise<
+  // cast: makeHandler generic doesn't accept typed httpApp directly; any bridges the Effect AI type gap
   Parameters<typeof createServer>[0]
 >)
 

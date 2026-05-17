@@ -33,7 +33,7 @@ export function Login({ onSuccess }: LoginProps) {
   return (
     <div className="flex min-h-screen items-center justify-center p-4">
       <Card className="w-full max-w-sm space-y-4 p-6">
-        <h1 className="text-xl font-bold">Georges Back-office — Sign in</h1>
+        <h1 className="text-xl font-bold tracking-tight">Georges Back-office — Sign in</h1>
         <Input
           autoComplete="username"
           data-testid="login-username"

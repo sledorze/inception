@@ -45,12 +45,28 @@ from importing `src/api/` directly. The `no-useAsyncFetch-import` rule forbids
 Components receive all data and side-effect callbacks as props. This keeps components
 pure and unit-testable without any network setup.
 
-## No async/await
+## No promise chaining in components — mutations go through action atoms
 
-Use Promise chains (`.then().catch()`) instead of `async`/`await` in all frontend source files.
+Frontend presentation components must not contain `.then()`/`.catch()` promise chains or
+ad-hoc imperative re-fetch workflows. All async data flow is mediated by `@effect/atom-react`
+atoms defined in `src/atoms.ts`:
 
-Rationale: consistency with the host-side rule (Effect over Promise); async functions
-silently swallow unhandled rejections and complicate React event-handler typing.
+- **Reads:** `fetchAtom(fn)` + `Atom.map(_, toView)` read-atom pair; components use
+  `useAtomValue(xView)` + `useAtomRefresh(xAtom)`.
+- **Mutations:** writable action atoms via `AtomRuntime.fn` (the dispatch primitive);
+  components dispatch with `useAtomSet(actionAtom)` (fire-and-forget `(arg)=>void`) and
+  render the action's mapped `AsyncView`. Dependent-list invalidation is a Reactivity
+  `reactivityKeys` topic published on success — never an imperative `.then(relist).then(setState)`
+  chain in the component.
+
+See `.claude/patterns/frontend-atoms.md` for the full recipe including the decoupled
+key-bus pattern and the `takeLatest` concurrency guarantee. Enforced by the P41 assertions
+in `packages/host/tests/unit/enforce-conventions.unit.test.ts` (no component `.tsx` may
+contain `.then(` or interpret `AsyncResult`/`Cause` directly).
+
+Rationale: the host-side "Effect over Promise" rule's frontend analogue is "atoms over
+imperative Promise workflows." `async`/`await` is acceptable inside `atoms.ts` bridge glue
+(`Effect.tryPromise({ try: async () => … })`) but never as control flow in a component body.
 
 ## Test files
 

@@ -40,9 +40,12 @@ export function Login({ onSuccess }: LoginProps) {
             handleSubmit()
           }}
         >
-          <h1 className="text-xl font-bold">Georges — Sign in</h1>
+          <h1 className="text-xl font-bold tracking-tight">Georges — Sign in</h1>
           <div className="space-y-1">
-            <label className="text-sm font-medium" htmlFor="login-username">
+            <label
+              className="text-xs font-medium uppercase tracking-wide text-muted-foreground"
+              htmlFor="login-username"
+            >
               Username
             </label>
             <Input
@@ -56,7 +59,10 @@ export function Login({ onSuccess }: LoginProps) {
             />
           </div>
           <div className="space-y-1">
-            <label className="text-sm font-medium" htmlFor="login-password">
+            <label
+              className="text-xs font-medium uppercase tracking-wide text-muted-foreground"
+              htmlFor="login-password"
+            >
               Password
             </label>
             <Input

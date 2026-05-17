@@ -53,8 +53,9 @@ function canonicalJson(value: unknown): string {
   if (Array.isArray(value)) {
     return `[${value.map(canonicalJson).join(',')}]`
   }
-  const sorted = Object.keys(value as object).toSorted()
-  return `{${sorted.map(k => `${JSON.stringify(k)}:${canonicalJson((value as Record<string, unknown>)[k])}`).join(',')}}`
+  const obj = value as Record<string, unknown> // cast: null and Array ruled out above; TypeScript can't narrow unknown through typeof/Array.isArray
+  const sorted = Object.keys(obj).toSorted()
+  return `{${sorted.map(k => `${JSON.stringify(k)}:${canonicalJson(obj[k])}`).join(',')}}`
 }
 
 export class EventStore extends Context.Service<

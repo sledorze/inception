@@ -68,9 +68,7 @@ const runAgentLoop = <Tools extends Record<string, Tool.Any>>(
 
     let response = yield* Effect.provideService(
       LanguageModel.generateText({
-        // Cast is sound: the array literal is Iterable<MessageEncoded>-compatible.
-        // The schema decoder in Prompt.make validates at runtime.
-        prompt: messages as Parameters<typeof LanguageModel.generateText>[0]['prompt'],
+        prompt: messages as Parameters<typeof LanguageModel.generateText>[0]['prompt'], // cast: array literal doesn't satisfy Effect AI's Prompt union; decoder validates at runtime
         toolkit,
       }),
       CurrentCorrelationId,
@@ -112,7 +110,7 @@ const runAgentLoop = <Tools extends Record<string, Tool.Any>>(
 
       response = yield* Effect.provideService(
         LanguageModel.generateText({
-          prompt: messages as Parameters<typeof LanguageModel.generateText>[0]['prompt'],
+          prompt: messages as Parameters<typeof LanguageModel.generateText>[0]['prompt'], // cast: same as above — Effect AI Prompt union
           toolkit,
         }),
         CurrentCorrelationId,

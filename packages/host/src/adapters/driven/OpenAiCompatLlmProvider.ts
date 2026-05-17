@@ -69,9 +69,7 @@ const makeReasoningAwareFetch =
   ): typeof globalThis.fetch =>
   (input, init) => {
     // Per-request URL rewrite from Settings.llmBaseUrl (P52).
-    // cast: ctx may contain Settings at runtime when provided by bind.ts; Context.getOption
-    // returns None when Settings is absent (e.g. protocol tests) — falls back to original URL.
-    const maybeSettingsSvc = Context.getOption(ctx as Context.Context<EventStore | Settings>, Settings)
+    const maybeSettingsSvc = Context.getOption(ctx as Context.Context<EventStore | Settings>, Settings) // cast: ctx may have Settings at runtime (bind.ts); Context.getOption returns None if absent
     const liveBaseUrlP: Promise<string | null> =
       Option.isSome(maybeSettingsSvc) ?
         Effect.runPromise(
@@ -101,10 +99,10 @@ const makeReasoningAwareFetch =
           // rawBody passed validation: it's an object with an optional choices array.
           // We work with rawBody directly (not the decoded copy) to preserve all original fields
           // (id, model, usage, system_fingerprint, …) in the forwarded response.
-          const choices: unknown = (rawBody as Record<string, unknown>)['choices']
+          const choices: unknown = (rawBody as Record<string, unknown>)['choices'] // cast: schema validated rawBody is an object; index access requires cast from unknown
           if (Array.isArray(choices)) {
             for (const choice of choices) {
-              const msg: unknown = (choice as Record<string, unknown>)['message']
+              const msg: unknown = (choice as Record<string, unknown>)['message'] // cast: choices elements are unknown; schema confirms array of objects above
               if (msg === undefined || msg === null) {
                 continue
               }
@@ -119,10 +117,7 @@ const makeReasoningAwareFetch =
                 reasoning !== undefined &&
                 reasoning.length > 0
               ) {
-                // msg is a live reference inside rawBody — mutation is reflected in the response.
-                // Cast is sound: decodeResponseBody confirmed choices[].message exists, and
-                // decodeLmMessage confirmed msg has content/reasoning_content fields.
-                ;(msg as Record<string, unknown>)['content'] = reasoning
+                ;(msg as Record<string, unknown>)['content'] = reasoning // cast: decodeLmMessage confirmed msg is an object with content field; mutation reflected in response
               }
             }
           }

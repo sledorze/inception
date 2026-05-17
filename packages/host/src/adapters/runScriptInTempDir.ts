@@ -29,7 +29,7 @@ export const runScriptInTempDir = (
     yield* fs.writeFileString(scriptPath, opts.code).pipe(Effect.mapError(cause => new RunScriptError({ cause })))
 
     const cmd = ChildProcess.make(process.execPath, [scriptPath], {
-      env: (opts.env ?? process.env) as Record<string, string>,
+      env: opts.env ?? process.env,
     })
 
     return yield* Effect.scoped(
