@@ -767,3 +767,23 @@ the `main.ts` wiring — IP extracted via `HttpServerRequest.remoteAddress`, fal
 `'unknown'` on `Option.none()`, emitting 429 with `Retry-After: 60` — had no test coverage.
 
 FIXED 2026-05-17 in pending — test: e2e/rbac.spec.ts — "Rate limiting — POST /api/login (P49)" describe block; sends 10 wrong-password requests and asserts 11th returns 429 + Retry-After: 60 header at the HTTP layer (1 test, GREEN).
+
+## P50 — Opaque HTTP 500: no logs, no body, no trace event on LLM failure
+
+**Severity:** blocks work
+
+**Symptom:** Three observability gaps fire together when the LLM endpoint is unreachable:
+(1) `fullLayer` in `bind.ts` wired no `Logger` — zero server-side output on request failures;
+(2) `main.ts:688` cast the route error channel to `never` with `as any` and no `tapErrorCause`
+or `catchAllCause` — any route failure produced an empty-body 500 with nothing logged;
+(3) `domain/events.ts` had no `GoalFailed` kind — a failed goal showed `GoalSubmitted` in the
+trace with no terminal event, making the failure invisible in `/api/admin/trace`.
+Reported when user submitted a goal with LMStudio offline: `Error: 500:` with empty body, zero
+stderr output, and no failure event in the trace.
+
+**Candidate fix:** (1) Add `Logger.layer([Logger.consolePretty({ stderr: true })])` to `fullLayer`;
+(2) wrap resolved `httpApp` with `Effect.tapErrorCause(log) + Effect.catchAllCause(→ JSON 500)`;
+(3) add `GoalFailed` event kind + emit it in `submitGoal.ts` via `tapErrorCause` on `runAgentLoop`;
+(4) log LLM target at boot in `llmLayer`.
+
+FIXED 2026-05-17 in feat/design-system-enforcement (TODO 10.15) — test: packages/host/tests/integration/httpObservability.integration.test.ts (2 tests: GoalFailed emitted when LLM fails, catchAllCause returns structured JSON 500 not empty).

@@ -1,4 +1,4 @@
-import { DateTime, Effect, Random } from 'effect'
+import { Cause, DateTime, Effect, Random } from 'effect'
 import { LanguageModel } from 'effect/unstable/ai'
 import type { LanguageModel as LanguageModelNS, Tool } from 'effect/unstable/ai'
 import { EventKind } from '../domain/events.ts'
@@ -169,7 +169,25 @@ export const makeSubmitGoal = <Tools extends Record<string, Tool.Any>>(
       tools: tools.map(t => ({ description: t.description, name: t.name })),
     }
 
-    const response = yield* runAgentLoop(brief, toolkit, correlationId)
+    const response = yield* runAgentLoop(brief, toolkit, correlationId).pipe(
+      Effect.onError(cause =>
+        DateTime.now.pipe(
+          Effect.flatMap(now =>
+            store.append({
+              actor: 'host',
+              correlationId,
+              kind: EventKind.GoalFailed,
+              occurredAt: DateTime.formatIso(now),
+              payload: { detail: Cause.pretty(cause), error: 'agent_loop_failed' },
+              schemaV: 1,
+              sessionId,
+              storyRef: 'S1',
+            }),
+          ),
+          Effect.orDie,
+        ),
+      ),
+    )
 
     // Query by correlationId only: ClarifyRequested events are emitted with
     // sessionId='bootstrap' by the toolkit handler (sessionId not yet propagated

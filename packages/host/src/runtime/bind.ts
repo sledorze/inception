@@ -1,4 +1,4 @@
-import { Config, ConfigProvider, Effect, FileSystem, Layer, Schema } from 'effect'
+import { Config, ConfigProvider, Effect, FileSystem, Layer, Logger, Schema } from 'effect'
 import * as NodeServices from '@effect/platform-node/NodeServices'
 import { SessionError } from '../application/session.ts'
 import { CapabilityAwareToolRegistry } from '../adapters/driven/CapabilityAwareToolRegistry.ts'
@@ -155,8 +155,11 @@ const llmLayer = Layer.unwrap(
   Effect.gen(function* () {
     const mode = yield* Config.string('LLM_MODE').pipe(Config.withDefault(''))
     if (mode === 'record' || mode === 'replay' || mode === 'fake') {
+      yield* Effect.logInfo(`LLM mode: ${mode} (cassette dir: ${CASSETTE_DIR})`)
       return RecordReplayLlmProvider.layer({ cassetteDir: CASSETTE_DIR, mode: mode as RecordReplayMode })
     }
+    const baseUrl = yield* Config.string('LLM_BASE_URL').pipe(Config.withDefault('http://172.15.8.149:1235/v1'))
+    yield* Effect.logInfo(`LLM mode: live → ${baseUrl}`)
     return OpenAiCompatLlmProvider.layer().pipe(Layer.provide(eventStoreLayer))
   }),
 )
@@ -168,6 +171,7 @@ const llmLayer = Layer.unwrap(
 export const fullLayer = Layer.mergeAll(appLayer, llmLayer, CliUserGateway.layer(), authGatewayLayer).pipe(
   Layer.provideMerge(NodeServices.layer),
   Layer.provide(ConfigProvider.layer(ConfigProvider.fromEnv())),
+  Layer.provide(Logger.layer([Logger.consolePretty({ stderr: true })])),
 )
 
 export type AppServices = Layer.Success<typeof appLayer>

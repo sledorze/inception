@@ -344,6 +344,14 @@ intentional`). Annotated 4 bridge files. Documented pattern in `.claude/patterns
   previous run (dev-mode safety). No-op cleanup via successful admin login in `beforeAll`.
   test: `e2e/rbac.spec.ts` — "Rate limiting — POST /api/login (P49)" (1 assertion GREEN).
 
+- [done] **10.15** **P50 — HTTP observability: Logger + global error handler + GoalFailed event** (2026-05-17).
+  Three gaps closed: (1) `Logger.consolePretty(stderr)` in `fullLayer` so failures reach stderr;
+  (2) `tapErrorCause + catchAllCause` at `main.ts` HTTP boundary replaces the `as any` cast —
+  any route failure now produces a structured JSON `{error, detail}` body instead of empty 500;
+  (3) `GoalFailed` event kind + `tapErrorCause` in `submitGoal.ts` — LLM failures are now visible
+  in `/api/admin/trace`; (4) boot log in `llmLayer` prints resolved LLM mode + endpoint.
+  test: `packages/host/tests/integration/httpObservability.integration.test.ts` (2 tests GREEN).
+
 **Exit:** `pnpm lint:ci` catches a standalone `async function` or `try/catch` in `packages/host/src/`; dep-cruiser
 reports a violation for any component that imports `api/` directly; the three promoted skills are
 invocable and linked from CLAUDE.md.

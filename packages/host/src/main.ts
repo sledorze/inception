@@ -33,7 +33,19 @@ import { createHash } from 'node:crypto'
 // @effect-diagnostics-next-line nodeBuiltinImport:off
 import { createServer } from 'node:http'
 import * as NodeHttpServer from '@effect/platform-node/NodeHttpServer'
-import { Config, DateTime, Effect, FileSystem, Layer, ManagedRuntime, Option, Random, Schema, Stream } from 'effect'
+import {
+  Cause,
+  Config,
+  DateTime,
+  Effect,
+  FileSystem,
+  Layer,
+  ManagedRuntime,
+  Option,
+  Random,
+  Schema,
+  Stream,
+} from 'effect'
 import * as HttpRouter from 'effect/unstable/http/HttpRouter'
 import * as HttpServerRequest from 'effect/unstable/http/HttpServerRequest'
 import * as HttpServerResponse from 'effect/unstable/http/HttpServerResponse'
@@ -684,12 +696,25 @@ rt.runFork(
 // Compile routes into an HTTP effect.
 // Effect.scoped handles the Scope requirement of Layer.build inside toHttpEffect.
 // The app services (AuthGateway, EventStore, etc.) are provided at request time by the runtime.
+// The router build effect type is opaque; we must cast. The error channel is unknown here
+// because toHttpEffect's inner type is not exported — we handle it immediately via catchCause below.
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
-const httpApp = (await rt.runPromise(HttpRouter.toHttpEffect(allRoutes).pipe(Effect.scoped) as any)) as Effect.Effect<
-  HttpServerResponse.HttpServerResponse,
-  never,
-  HttpServerRequest.HttpServerRequest
->
+// @effect-diagnostics-next-line anyUnknownInErrorContext:off
+const httpAppRaw = (await rt.runPromise(
+  HttpRouter.toHttpEffect(allRoutes).pipe(Effect.scoped) as any,
+)) as Effect.Effect<HttpServerResponse.HttpServerResponse, unknown, HttpServerRequest.HttpServerRequest>
+
+// Global error handler: log the full cause to stderr and return a structured JSON 500 body.
+// This replaces the previous empty-body 500 that gave users no diagnostic information (P50).
+const httpApp: Effect.Effect<HttpServerResponse.HttpServerResponse, never, HttpServerRequest.HttpServerRequest> =
+  httpAppRaw.pipe(
+    Effect.onError(cause => Effect.logError(Cause.pretty(cause))),
+    Effect.catchCause(cause =>
+      Effect.succeed(
+        HttpServerResponse.jsonUnsafe({ detail: Cause.pretty(cause), error: 'internal_error' }, { status: 500 }),
+      ),
+    ),
+  )
 
 // makeHandler requires a Scope to manage per-request resource cleanup.
 // We reuse the ManagedRuntime's root scope so handler lifetimes are bound to the server.

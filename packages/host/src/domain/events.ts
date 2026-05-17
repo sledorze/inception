@@ -13,6 +13,7 @@ export const EventKind = {
   ClarifyRequested: 'ClarifyRequested',
   ExchangeFlagged: 'ExchangeFlagged',
   GoalCompleted: 'GoalCompleted',
+  GoalFailed: 'GoalFailed',
   GoalSubmitted: 'GoalSubmitted',
   HandleExhausted: 'HandleExhausted',
   Promoted: 'Promoted',
@@ -33,6 +34,11 @@ export type EventKindType = (typeof EventKind)[keyof typeof EventKind]
 // ─── payload schemas ───────────────────────────────────────────────────────────
 // Use Schema.decodeUnknown(XxxPayload)(event.payload).pipe(Effect.orDie) at
 // every site that reads a stored event's payload field — never `as {…}` casts.
+
+export const GoalFailedPayload = Schema.Struct({
+  detail: Schema.String,
+  error: Schema.String,
+})
 
 export const GoalSubmittedPayload = Schema.Struct({
   goal: Schema.String,
