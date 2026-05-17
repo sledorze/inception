@@ -114,7 +114,7 @@ jobs:
           cache: pnpm
       - run: pnpm install --frozen-lockfile --reporter append-only
       - name: Run Stryker on law tests only (L2.4 ratchet)
-        run: npx stryker run --configFile stryker.laws.config.json --logLevel warn
+        run: npx stryker run stryker.laws.config.json --logLevel warn
       - uses: actions/upload-artifact@v4
         if: always()
         with:
