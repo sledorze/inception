@@ -44,6 +44,22 @@ test: `packages/host/tests/unit/oxlint-rules.unit.test.ts` — P46 `AwaitExpress
 
 ---
 
+## P48 — frontend api layer: `handleErr` ×3, duplicated `authedFetch`/`TOKEN_KEY`, 5 endpoints skip error handling
+
+**Severity:** annoys
+
+FIXED 2026-05-17 in feat/design-system-enforcement (TODO 10.11) — extracted `@app/shared-api`
+workspace package (`packages/shared-api/src/index.ts`) owning `TOKEN_KEY`, token accessors,
+`handleErr`, `authedFetch`, and new `getJson<T>` helper (authedFetch + handleErr + json()).
+Both `packages/app/src/api/auth.ts` and `packages/backoffice/src/api/auth.ts` reduced to
+`export * from '@app/shared-api'`. Removed local `handleErr` re-declaration from `admin.ts`.
+Fixed 5 bare endpoints (`getMetrics`, `getPain`, `getWork`, `listProposals`, `callTool`) to
+route through `getJson` — non-2xx responses now surface the server's error message.
+test: `packages/host/tests/unit/enforce-conventions.unit.test.ts` —
+"Frontend api layer: handleErr declared in exactly one file (P48)" (2 assertions GREEN)
+
+---
+
 ## P41 — UI-state interpretation duplicated into presentation components (P36 regression)
 
 **Severity:** slows

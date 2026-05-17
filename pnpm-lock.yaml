@@ -119,6 +119,9 @@ importers:
       '@app/design-system':
         specifier: workspace:*
         version: link:../design-system
+      '@app/shared-api':
+        specifier: workspace:*
+        version: link:../shared-api
       '@radix-ui/react-slot':
         specifier: ^1.2.4
         version: 1.2.4(@types/react@19.2.14)(react@19.2.4)
@@ -143,6 +146,9 @@ importers:
       '@app/design-system':
         specifier: workspace:*
         version: link:../design-system
+      '@app/shared-api':
+        specifier: workspace:*
+        version: link:../shared-api
       '@effect/atom-react':
         specifier: 4.0.0-beta.66
         version: 4.0.0-beta.66(effect@4.0.0-beta.66)(react@19.2.4)(scheduler@0.27.0)
@@ -222,6 +228,8 @@ importers:
       effect:
         specifier: 4.0.0-beta.66
         version: 4.0.0-beta.66
+
+  packages/shared-api: {}
 
 packages:
 

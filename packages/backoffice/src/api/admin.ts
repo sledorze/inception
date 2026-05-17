@@ -1,4 +1,4 @@
-import { authedFetch } from './auth.ts'
+import { authedFetch, getJson, handleErr } from './auth.ts'
 
 export interface LoopHealth {
   eventCount: number
@@ -22,14 +22,11 @@ export interface TodoItem {
   status: string
 }
 
-export const getMetrics = (): Promise<LoopHealth> =>
-  authedFetch('/api/admin/metrics', { method: 'GET' }).then(res => res.json() as Promise<LoopHealth>)
+export const getMetrics = (): Promise<LoopHealth> => getJson('/api/admin/metrics', { method: 'GET' })
 
-export const getPain = (): Promise<readonly PainItem[]> =>
-  authedFetch('/api/admin/pain', { method: 'GET' }).then(res => res.json() as Promise<readonly PainItem[]>)
+export const getPain = (): Promise<readonly PainItem[]> => getJson('/api/admin/pain', { method: 'GET' })
 
-export const getWork = (): Promise<readonly TodoItem[]> =>
-  authedFetch('/api/admin/work', { method: 'GET' }).then(res => res.json() as Promise<readonly TodoItem[]>)
+export const getWork = (): Promise<readonly TodoItem[]> => getJson('/api/admin/work', { method: 'GET' })
 
 // ─── Phase 8 — Exchange review loop ──────────────────────────────────────────
 
@@ -62,15 +59,6 @@ export interface ReplayResult {
   before: string | null
   after: string | null
   replayCorrelationId: string
-}
-
-const handleErr = (res: Response): Promise<Response> => {
-  if (!res.ok) {
-    return res.text().then(t => {
-      throw new Error(`${res.status}: ${t}`)
-    })
-  }
-  return Promise.resolve(res)
 }
 
 export const getSessions = (): Promise<readonly SessionSummary[]> =>

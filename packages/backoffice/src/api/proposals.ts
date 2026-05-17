@@ -1,4 +1,4 @@
-import { authedFetch, handleErr } from './auth.ts'
+import { getJson, handleErr } from './auth.ts'
 
 export interface Proposal {
   contentHash: string
@@ -12,10 +12,7 @@ export interface Proposal {
   }
 }
 
-export const listProposals = (): Promise<readonly Proposal[]> =>
-  authedFetch('/api/proposals', { method: 'GET' }).then(res => res.json() as Promise<readonly Proposal[]>)
+export const listProposals = (): Promise<readonly Proposal[]> => getJson('/api/proposals', { method: 'GET' })
 
 export const promoteProposal = (id: string): Promise<{ version: number }> =>
-  authedFetch(`/api/proposals/${encodeURIComponent(id)}/promote`, { method: 'POST' })
-    .then(handleErr)
-    .then(res => res.json() as Promise<{ version: number }>)
+  getJson(`/api/proposals/${encodeURIComponent(id)}/promote`, { method: 'POST' })

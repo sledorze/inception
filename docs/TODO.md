@@ -321,11 +321,11 @@ intentional`). Annotated 4 bridge files. Documented pattern in `.claude/patterns
   `pnpm lint` and `pnpm typecheck` both clean on both files.
   test: P46 `AwaitExpression` case in `oxlint-rules.unit.test.ts` (GREEN).
 
-- [todo] **10.11** **P48 — extract shared frontend authed client**:
-  consolidate `handleErr` / `authedFetch` / `TOKEN_KEY` / token accessors into one shared module;
-  route the 5 bare `authedFetch(...).then(r.json())` endpoints through a `getJson<T>` helper that
-  always pipes `handleErr`; assert single `handleErr` declaration in `enforce-conventions.unit.test.ts`.
-  Green gate: `it.fails` → plain `it` in P48 describe.
+- [done] **10.11** **P48 — extract shared frontend authed client** (2026-05-17).
+  Created `packages/shared-api/` (`@app/shared-api`): `TOKEN_KEY`, token accessors, `handleErr`,
+  `authedFetch`, `getJson<T>`. Both `auth.ts` files → `export * from '@app/shared-api'`. Removed
+  duplicate `handleErr` from `admin.ts`. Fixed 5 bare endpoints through `getJson`.
+  test: `packages/host/tests/unit/enforce-conventions.unit.test.ts` — P48 (2 assertions GREEN).
 
 **Exit:** `pnpm lint:ci` catches a standalone `async function` or `try/catch` in `packages/host/src/`; dep-cruiser
 reports a violation for any component that imports `api/` directly; the three promoted skills are

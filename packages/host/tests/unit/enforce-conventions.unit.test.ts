@@ -109,17 +109,16 @@ describe('App renders a single goal-submission surface (P43)', () => {
   })
 })
 
-// ── P48 RED — handleErr declared in more than one api file ───────────────────
-// Three byte-identical copies exist: backoffice/api/auth.ts, app/api/auth.ts, backoffice/api/admin.ts.
-// Remove .fails when the shared authed client is extracted (TODO 10.11 green).
+// ── P48 GREEN — handleErr lives only in @app/shared-api (TODO 10.11) ─────────
+// Extracted to packages/shared-api/src/index.ts; app and backoffice re-export via auth.ts.
 
 describe('Frontend api layer: handleErr declared in exactly one file (P48)', () => {
-  it.fails('handleErr is declared in exactly one packages/*/src/api file', () => {
+  it('handleErr is not re-declared in packages/app or packages/backoffice api/ dirs', () => {
     const apiDirs = [
       join(REPO_ROOT, 'packages', 'app', 'src', 'api'),
       join(REPO_ROOT, 'packages', 'backoffice', 'src', 'api'),
     ]
-    const definingFiles: string[] = []
+    const duplicates: string[] = []
     for (const dir of apiDirs) {
       if (!existsSync(dir)) {
         continue
@@ -130,11 +129,19 @@ describe('Frontend api layer: handleErr declared in exactly one file (P48)', () 
         }
         const src = readFileSync(join(dir, entry.name), 'utf8')
         if (src.includes('const handleErr') || src.includes('function handleErr')) {
-          definingFiles.push(join(dir, entry.name).replace(`${REPO_ROOT}/`, ''))
+          duplicates.push(join(dir, entry.name).replace(`${REPO_ROOT}/`, ''))
         }
       }
     }
-    expect(definingFiles, 'handleErr defined in multiple files — extract to shared authed client').toHaveLength(1)
+    expect(
+      duplicates,
+      'handleErr duplicated in app or backoffice api/ — must live only in @app/shared-api',
+    ).toHaveLength(0)
+  })
+
+  it('handleErr is defined in packages/shared-api/src/index.ts', () => {
+    const sharedSrc = readFileSync(join(REPO_ROOT, 'packages', 'shared-api', 'src', 'index.ts'), 'utf8')
+    expect(sharedSrc.includes('const handleErr') || sharedSrc.includes('function handleErr')).toBe(true)
   })
 })
 
