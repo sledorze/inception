@@ -1,4 +1,4 @@
-import { getJson, handleErr } from './auth.ts'
+import { getJson } from './auth.ts'
 
 export interface Proposal {
   contentHash: string
