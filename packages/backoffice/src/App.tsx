@@ -1,18 +1,12 @@
 import { useEffect, useState } from 'react'
+import { BrowserRouter, Navigate, Route, Routes } from 'react-router'
 import { clearToken, getToken } from './api/auth.ts'
 import { Login } from './components/app/Login.tsx'
-import { Metrics } from './components/app/Metrics.tsx'
-import { PainBoard } from './components/app/PainBoard.tsx'
-import { WorkBoard } from './components/app/WorkBoard.tsx'
-import { Proposals } from './components/app/Proposals.tsx'
-import { CallCapability } from './components/app/CallCapability.tsx'
-import { ListTools } from './components/app/ListTools.tsx'
-import { ReadWorkspace } from './components/app/ReadWorkspace.tsx'
-import { WriteWorkspace } from './components/app/WriteWorkspace.tsx'
-import { Sessions } from './components/app/Sessions.tsx'
-import { AgentMd } from './components/app/AgentMd.tsx'
-import { Settings } from './components/app/Settings.tsx'
-import { Button } from '@app/design-system/button'
+import { AppShell } from './components/app/AppShell.tsx'
+import { ObservabilitySection } from './components/app/ObservabilitySection.tsx'
+import { GovernanceSection } from './components/app/GovernanceSection.tsx'
+import { DevToolsSection } from './components/app/DevToolsSection.tsx'
+import { ConfigSection } from './components/app/ConfigSection.tsx'
 
 export function App() {
   const [authed, setAuthed] = useState(() => getToken() !== null)
@@ -33,24 +27,17 @@ export function App() {
   }
 
   return (
-    <div className="mx-auto max-w-3xl space-y-4 p-4 sm:p-8">
-      <div className="flex items-center justify-between">
-        <h1 className="text-2xl font-bold">Georges Back-office</h1>
-        <Button data-testid="logout" onClick={handleLogout} size="sm" type="button" variant="ghost">
-          Sign out
-        </Button>
-      </div>
-      <Metrics />
-      <PainBoard />
-      <WorkBoard />
-      <Proposals />
-      <CallCapability />
-      <ListTools />
-      <ReadWorkspace />
-      <WriteWorkspace />
-      <Sessions />
-      <AgentMd />
-      <Settings />
-    </div>
+    <BrowserRouter>
+      <AppShell onLogout={handleLogout}>
+        <Routes>
+          <Route element={<Navigate replace to="/observability" />} path="/" />
+          <Route element={<ObservabilitySection />} path="/observability" />
+          <Route element={<GovernanceSection />} path="/governance" />
+          <Route element={<DevToolsSection />} path="/devtools" />
+          <Route element={<ConfigSection />} path="/config" />
+          <Route element={<Navigate replace to="/observability" />} path="*" />
+        </Routes>
+      </AppShell>
+    </BrowserRouter>
   )
 }
