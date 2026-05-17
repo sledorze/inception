@@ -90,7 +90,7 @@ export const DpFileBackedHandle = {
 
             const stdout = yield* runScriptInTempDir({
               code: script,
-              env: { ...process.env, DATA_FILE: opts.filePath } as Record<string, string>,
+              env: { ...process.env, DATA_FILE: opts.filePath },
               prefix: 'dp-handle-script-',
             }).pipe(
               Effect.mapError(cause => new DataHandleError({ cause })),

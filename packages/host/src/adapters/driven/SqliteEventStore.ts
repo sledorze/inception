@@ -51,7 +51,7 @@ function rowToStoredEvent(row: unknown): StoredEvent {
     id: r.id,
     kind: r.kind,
     occurredAt: r.occurred_at,
-    payload: JSON.parse(r.payload) as unknown,
+    payload: JSON.parse(r.payload),
     prevHash: r.prev_hash,
     schemaV: r.schema_v,
     sessionId: r.session_id,

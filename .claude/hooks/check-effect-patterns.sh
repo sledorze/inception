@@ -5,6 +5,7 @@
 #   1. Date.now() / new Date() in src/ — use Clock.currentTimeMillis
 #   2. Effect.runPromise in tests/    — use it.effect from @effect/vitest
 #   3. Effect.gen in test without @effect/vitest import — link usage enforced
+#   5. Unannotated `as Type` casts in src/ — add // cast: <reason> inline
 #
 # Dual-mode:
 #   Claude Code PostToolUse[Edit|Write]: reads file_path from stdin JSON.
@@ -113,6 +114,29 @@ for file in "${SRC_FILES[@]+"${SRC_FILES[@]}"}"; do
     echo "  → Use: const correlationId = yield* CurrentCorrelationId"
     echo "         (import CurrentCorrelationId from 'src/domain/tracing.ts')"
     echo "         randomUUID() generates a fresh ID, breaking goal-level correlation."
+    FAIL=1
+  fi
+done
+
+
+# ── 5. Unannotated `as Type` casts in src ────────────────────────────────────
+# Every `as SomeType` cast must have a trailing `// cast: <reason>` on the same
+# line. This enforces the no-blind-cast convention (see CLAUDE.md §Type safety).
+# Excludes: `as const`, imports (`import * as`, `import type`, `import {`),
+#           and comment-only lines.
+for file in "${SRC_FILES[@]+"${SRC_FILES[@]}"}"; do
+  # Match lines with `as UppercaseName` that are NOT import lines AND don't have
+  # `// cast:` on the same line AND aren't pure comment lines.
+  if grep -nE ' as [A-Z][a-zA-Z]' "$file" 2>/dev/null | \
+     grep -v '// cast:\|as const\b\|import \* as \|import type\b\|import {' | \
+     grep -v '^[0-9]*:[[:space:]]*//' | \
+     grep -qE ' as [A-Z]'; then
+    grep -nE ' as [A-Z][a-zA-Z]' "$file" | \
+      grep -v '// cast:\|as const\b\|import \* as \|import type\b\|import {' | \
+      grep -v '^[0-9]*:[[:space:]]*//'
+    echo "ERROR $file: unannotated 'as Type' cast(s) detected."
+    echo "  → If the cast is necessary, add  // cast: <reason>  on the same line."
+    echo "  → If it's not necessary, remove the cast and use proper typing."
     FAIL=1
   fi
 done

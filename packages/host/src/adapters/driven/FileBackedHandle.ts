@@ -61,7 +61,7 @@ export const FileBackedHandle = {
             }
             const stdout = yield* runScriptInTempDir({
               code: script,
-              env: { ...process.env, DATA_FILE: opts.filePath } as Record<string, string>,
+              env: { ...process.env, DATA_FILE: opts.filePath },
               prefix: 'handle-script-',
             }).pipe(
               Effect.mapError(cause => new DataHandleError({ cause })),

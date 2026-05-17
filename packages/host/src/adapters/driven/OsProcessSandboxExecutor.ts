@@ -46,7 +46,7 @@ export const OsProcessSandboxExecutor = {
           const cmd = ChildProcess.make(
             process.execPath,
             [`--max-old-space-size=${String(constraints.memoryMb)}`, scriptPath],
-            { env: { ...process.env, SANDBOX_SEED: '0', SANDBOX_TIME: String(sandboxTime) } as Record<string, string> },
+            { env: { ...process.env, SANDBOX_SEED: '0', SANDBOX_TIME: String(sandboxTime) } },
           )
 
           return yield* Effect.scoped(

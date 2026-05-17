@@ -71,7 +71,7 @@ export const makeRespondToGoal = <Tools extends Record<string, Tool.Any>>(
     const handleShape = yield* handleReg.get(handleId).pipe(
       Effect.flatMap(h => h.fetchShape()),
       Effect.map(shape => [{ id: handleId, redactedSample: shape.redactedSample, schema: shape.schema }]),
-      Effect.orElseSucceed(() => [] as { id: string; schema: unknown; redactedSample: unknown }[]),
+      Effect.orElseSucceed((): { id: string; schema: unknown; redactedSample: unknown }[] => []),
     )
     const initialMessages = buildInitialMessages({
       agentMd,
@@ -88,7 +88,7 @@ export const makeRespondToGoal = <Tools extends Record<string, Tool.Any>>(
           ...initialMessages,
           { content: question, role: 'assistant' },
           { content: [{ text: answer, type: 'text' }], role: 'user' },
-        ] as Parameters<typeof LanguageModel.generateText>[0]['prompt'],
+        ] as Parameters<typeof LanguageModel.generateText>[0]['prompt'], // cast: array literal doesn't satisfy Effect AI's Prompt union; same pattern as submitGoal.ts
         toolkit,
       }),
       CurrentCorrelationId,

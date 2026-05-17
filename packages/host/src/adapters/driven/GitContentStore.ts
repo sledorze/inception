@@ -98,7 +98,7 @@ export const GitContentStore = {
 
           get: hash =>
             fs.readFile(blobPath(hash)).pipe(
-              Effect.catch(() => Effect.succeed(undefined as Uint8Array | undefined)),
+              Effect.catch(() => Effect.succeed<Uint8Array | undefined>(undefined)),
               Effect.mapError(e => new ContentStoreError({ cause: e })),
             ),
 
