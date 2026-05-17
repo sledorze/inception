@@ -2,7 +2,6 @@ import { useState } from 'react'
 import { clearToken, getToken } from './api/auth.ts'
 import { Login } from './components/app/Login.tsx'
 import { Conversation } from './components/app/Conversation.tsx'
-import { SubmitGoal } from './components/app/SubmitGoal.tsx'
 import { Button } from '@app/design-system/button'
 
 export function App() {
@@ -26,7 +25,6 @@ export function App() {
         </Button>
       </div>
       <Conversation />
-      <SubmitGoal />
     </div>
   )
 }

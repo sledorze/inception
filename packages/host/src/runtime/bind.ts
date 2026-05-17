@@ -134,6 +134,8 @@ const settingsLayer = FileBackedSettings.layer(SETTINGS_PATH)
 export const appLayer = Layer.mergeAll(
   toolkitLayer,
   eventStoreLayer,
+  toolRegistryLayer,
+  dataHandlesLayer,
   capabilityRegistryLayer,
   adminQueryLayer,
   settingsLayer,

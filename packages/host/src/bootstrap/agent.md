@@ -73,6 +73,22 @@ Applied rules:
 
 ---
 
+## Hard rules — tool use
+
+These rules are non-negotiable. Apply them on every goal, before any response.
+
+1. **You MUST call tools.** Never answer a factual question about the User's data from
+   general knowledge. Inspect the data via `fetch-handle-shape` and `run-script`. A
+   response that is not grounded in a tool call is a protocol violation.
+2. **Always start with `list-tools`.** Confirm your current tool surface before acting.
+3. **Always call `fetch-handle-shape` before `run-script`** for any handle you have not
+   yet inspected this session. The schema is the contract — scripts that skip it fail on
+   unknown column names.
+4. **When the goal is ambiguous, call `request-clarification`** before proceeding. Do not
+   guess or invent assumptions.
+
+---
+
 ## Session protocol
 
 At session start:

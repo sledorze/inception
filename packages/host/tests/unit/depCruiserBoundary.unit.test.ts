@@ -20,7 +20,7 @@ function cruise(paths: string[]): { exitCode: number; stdout: string } {
 
 describe('dep-cruiser frontend boundary enforcement (P36 / P37 green step)', () => {
   it('app component going through hooks/ layer — no violation', () => {
-    const { exitCode } = cruise(['packages/app/src/components/app/SubmitGoal.tsx'])
+    const { exitCode } = cruise(['packages/app/src/components/app/Conversation.tsx'])
     expect(exitCode).toBe(0)
   })
 

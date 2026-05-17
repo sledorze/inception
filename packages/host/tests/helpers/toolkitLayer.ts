@@ -35,6 +35,7 @@ export const makeToolkitComponents = (
     handleRegLayer,
     nodeFileSystemLayer: NodeFileSystem.layer,
     policyGateLayer,
+    registryLayer,
     storeLayer,
     toolkitLayer,
     workspaceLayer,

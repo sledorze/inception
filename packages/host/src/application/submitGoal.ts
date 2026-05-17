@@ -3,7 +3,9 @@ import { LanguageModel } from 'effect/unstable/ai'
 import type { LanguageModel as LanguageModelNS, Tool } from 'effect/unstable/ai'
 import { EventKind } from '../domain/events.ts'
 import { CurrentCorrelationId } from '../domain/tracing.ts'
+import { DataHandleRegistry } from '../ports/driven/DataHandle.ts'
 import { EventStore } from '../ports/driven/EventStore.ts'
+import { ToolRegistry } from '../ports/driven/ToolRegistry.ts'
 import type { GoalSubmission } from '../ports/driving/UserGateway.ts'
 import { checkQuarantine } from './quarantine.ts'
 import { AGENT_MD_PATH, readAgentMd } from './session.ts'
@@ -11,22 +13,54 @@ import { AGENT_MD_PATH, readAgentMd } from './session.ts'
 // Max LLM rounds per goal to prevent infinite tool-call loops.
 const MAX_AGENT_ROUNDS = 4
 
+type MsgEntry = { role: string; content: unknown }
+
+export interface AgentBrief {
+  readonly agentMd: string
+  readonly goal: string
+  readonly tools: readonly { name: string; description: string }[]
+  readonly handles: readonly { id: string; schema: unknown; redactedSample: unknown }[]
+}
+
+// Pure function — testable without Effect context.
+export const buildInitialMessages = (b: AgentBrief): MsgEntry[] => {
+  const toolLines = b.tools.map(t => `- **${t.name}**: ${t.description}`)
+  const handleLines = b.handles.map(
+    h => `- **${h.id}**: schema = ${JSON.stringify(h.schema)}, sample = ${JSON.stringify(h.redactedSample)}`,
+  )
+  const brief = [
+    b.agentMd,
+    '',
+    '## Session brief',
+    '',
+    '### Available tools',
+    ...toolLines,
+    '',
+    '### Data handles in scope',
+    ...handleLines,
+    '',
+    'IMPORTANT: You MUST call tools to answer — never rely on general knowledge about the data.',
+    'Start by calling `list-tools`, then inspect the handle with `fetch-handle-shape` or `run-script`.',
+    'If the goal is ambiguous, call `request-clarification` rather than guessing.',
+  ].join('\n')
+
+  return [
+    { content: brief, role: 'system' },
+    { content: [{ text: b.goal, type: 'text' }], role: 'user' },
+  ]
+}
+
 // Agentic loop: calls the LLM up to MAX_AGENT_ROUNDS times, appending tool results
 // back into the prompt each round. Stops when the model makes no more tool calls or
 // calls request-clarification. Models may emit reasoning text alongside tool calls
 // (finish_reason=tool_calls) — text alone is not a stop signal.
 const runAgentLoop = <Tools extends Record<string, Tool.Any>>(
-  agentMd: string,
-  goal: string,
+  brief: AgentBrief,
   toolkit: LanguageModelNS.ToolkitOption<Tools, never, never>,
   correlationId: string,
 ) =>
   Effect.gen(function* () {
-    type MsgEntry = { role: string; content: unknown }
-    let messages: MsgEntry[] = [
-      { content: agentMd, role: 'system' },
-      { content: [{ text: goal, type: 'text' }], role: 'user' },
-    ]
+    let messages: MsgEntry[] = buildInitialMessages(brief)
 
     let response = yield* Effect.provideService(
       LanguageModel.generateText({
@@ -110,7 +144,27 @@ export const makeSubmitGoal = <Tools extends Record<string, Tool.Any>>(
     })
 
     const agentMd = yield* readAgentMd({ path: AGENT_MD_PATH })
-    const response = yield* runAgentLoop(agentMd, s.goal, toolkit, correlationId)
+
+    // Build session brief: enumerate available tools and fetch the handle shape.
+    // Both ToolRegistry and DataHandleRegistry are driven ports (L2.14-clean).
+    const registry = yield* ToolRegistry
+    const handleReg = yield* DataHandleRegistry
+    const tools = yield* registry.listTools('enduser')
+    const handleShape = yield* handleReg.get(s.handleId).pipe(
+      Effect.flatMap(h => h.fetchShape()),
+      Effect.map(shape => [{ id: s.handleId, redactedSample: shape.redactedSample, schema: shape.schema }]),
+      // Degrade gracefully: omit handle from brief if revoked or unavailable.
+      Effect.orElseSucceed(() => [] as { id: string; schema: unknown; redactedSample: unknown }[]),
+    )
+
+    const brief: AgentBrief = {
+      agentMd,
+      goal: s.goal,
+      handles: handleShape,
+      tools: tools.map(t => ({ description: t.description, name: t.name })),
+    }
+
+    const response = yield* runAgentLoop(brief, toolkit, correlationId)
 
     // Query by correlationId only: ClarifyRequested events are emitted with
     // sessionId='bootstrap' by the toolkit handler (sessionId not yet propagated

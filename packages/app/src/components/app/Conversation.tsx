@@ -102,13 +102,22 @@ export function Conversation() {
 
   return (
     <Card className="space-y-3 p-4">
-      <h2 className="font-semibold">Chat with Georges</h2>
+      <div>
+        <h2 className="font-semibold">Chat with Georges</h2>
+        <p className="text-xs text-muted-foreground">
+          Georges is an AI assistant that inspects your data handles using tools. Ask it to describe, analyse, or run
+          scripts against the dataset selected below.
+        </p>
+      </div>
       <p className="font-mono break-all text-xs text-muted-foreground" data-testid="conv-session-id">
-        Session: {sessionId}
+        New conversation · Session: {sessionId}
       </p>
       <div className="h-48 space-y-2 overflow-y-auto rounded border p-2" data-testid="conv-transcript">
         {turns.length === 0 && (
-          <p className="text-sm text-muted-foreground">Send a message to start the conversation.</p>
+          <p className="text-sm text-muted-foreground">
+            Try: <span className="italic">"What is synthetic-001?"</span> — Georges will inspect the dataset and report
+            back.
+          </p>
         )}
         {turns.map((t, i) => (
           <div className="space-y-1" key={t.correlationId}>
@@ -152,13 +161,16 @@ export function Conversation() {
       )}
       {!pendingClarify && (
         <div className="flex items-start gap-2">
-          <Input
-            className="w-36 shrink-0"
-            data-testid="conv-handle"
-            onChange={e => setHandleId(e.target.value)}
-            placeholder="handleId"
-            value={handleId}
-          />
+          <div className="flex w-36 shrink-0 flex-col gap-0.5">
+            <label className="text-xs text-muted-foreground">Dataset</label>
+            <Input
+              data-testid="conv-handle"
+              onChange={e => setHandleId(e.target.value)}
+              placeholder="handleId"
+              title="Data handle ID — the dataset Georges will inspect (e.g. synthetic-001)"
+              value={handleId}
+            />
+          </div>
           <Textarea
             className="flex-1"
             data-testid="conv-goal"

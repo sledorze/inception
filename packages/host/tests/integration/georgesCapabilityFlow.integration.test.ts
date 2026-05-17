@@ -91,15 +91,17 @@ const llmLayer = makeLlmStubLayer([
   { body: TEXT_BODY, status: 200 },
 ])
 
-const { capabilityRegistryLayer, handleRegLayer, storeLayer, toolkitLayer } = makeToolkitComponents(TOOLS, {}, [
-  'propose-capability',
-  'call-capability',
-])
+const { capabilityRegistryLayer, handleRegLayer, registryLayer, storeLayer, toolkitLayer } = makeToolkitComponents(
+  TOOLS,
+  {},
+  ['propose-capability', 'call-capability'],
+)
 
 const TestLayer = Layer.mergeAll(
   toolkitLayer,
   storeLayer,
   handleRegLayer,
+  registryLayer,
   capabilityRegistryLayer,
   NodeFileSystem.layer,
   llmLayer,

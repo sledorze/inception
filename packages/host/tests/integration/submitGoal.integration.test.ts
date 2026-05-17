@@ -43,12 +43,13 @@ const GOAL = { goal: 'Describe the synthetic-001 fixture.', handleId: 'synthetic
 
 const llmLayer = makeLlmStubLayer([{ body: STUB_BODY, status: 200 }])
 
-const { handleRegLayer, storeLayer, toolkitLayer } = makeToolkitComponents([], {})
+const { handleRegLayer, registryLayer, storeLayer, toolkitLayer } = makeToolkitComponents([], {})
 
 const TestLayer = Layer.mergeAll(
   toolkitLayer,
   storeLayer,
   handleRegLayer,
+  registryLayer,
   NodeFileSystem.layer,
   llmLayer,
   InMemoryUserGateway.layer([GOAL]),
