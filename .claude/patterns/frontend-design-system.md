@@ -34,9 +34,9 @@ Do NOT add rules for heuristic patterns with high false-positive risk ("bordered
 ```js
 const COMPONENT_MAP = {
   // existing entries…
-  select: { component: 'Select', from: '@/components/ui/select', install: 'select' },
+  select: { component: 'Select', from: '@app/design-system/select' },
   // new entry:
-  dialog: { component: 'Dialog', from: '@/components/ui/dialog', install: 'dialog' },
+  dialog: { component: 'Dialog', from: '@app/design-system/dialog' },
 }
 ```
 
@@ -72,8 +72,8 @@ const plugin = {
 **Diagnostic message must include:**
 
 1. What was found and why it's wrong
-2. What to use instead (with import path)
-3. Install command if the component might not be present (`npx shadcn add <slug>`)
+2. What to use instead (with `@app/design-system/<name>` import path)
+3. Where the primitive lives if absent (`packages/design-system/src/` — add it there)
 4. Rule rationale link: `Rule rationale: .claude/rules/frontend.md.`
 
 ### Step 2 — Wire in `packages/app/.oxlintrc.json` (and `packages/backoffice/.oxlintrc.json`)
@@ -113,7 +113,7 @@ describe('design-system/no-foo — description', () => {
   it('shadcn <Foo> in src/ → allowed', () => {
     const { stdout } = lint(
       'packages/app/src/ProbeFooOk.tsx',
-      `import { Foo } from '@/components/ui/foo'\nexport const X = () => <Foo>x</Foo>\n`,
+      `import { Foo } from '@app/design-system/foo'\nexport const X = () => <Foo>x</Foo>\n`,
       FRONTEND_CONFIG,
     )
     expect(stdout).not.toContain('no-foo')
@@ -128,14 +128,15 @@ describe('design-system/no-foo — description', () => {
     expect(stdout).not.toContain('no-foo')
   })
 
-  it('diagnostic invites the shadcn component', () => {
+  it('diagnostic invites the design-system component', () => {
     const { stdout } = lint(
       'packages/app/src/ProbeFooMsg.tsx',
       `export const X = () => <foo>x</foo>\n`,
       FRONTEND_CONFIG,
     )
     expect(stdout).toContain('<Foo>')
-    expect(stdout).toContain('npx shadcn add foo')
+    expect(stdout).toContain('@app/design-system/foo')
+    expect(stdout).toContain('packages/design-system/src/')
   })
 })
 ```
@@ -154,9 +155,9 @@ The `beforeAll` creates `packages/app/src/components/ui/` in the fixture dir.
 # Find all violations in the frontend src
 ./node_modules/.bin/oxlint --config packages/app/.oxlintrc.json packages/app/src
 
-# Migrate: replace raw elements with shadcn equivalents
-# If the shadcn component isn't installed yet:
-cd packages/frontend && npx shadcn@latest add <slug> && cd ../..
+# Migrate: replace raw elements with @app/design-system equivalents
+# If the primitive is absent: add it to packages/design-system/src/ and
+# export it from packages/design-system/package.json `exports` map.
 
 # Re-run until clean
 ./node_modules/.bin/oxlint --config packages/app/.oxlintrc.json packages/app/src
