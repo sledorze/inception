@@ -15,14 +15,6 @@ import { expect, test } from '@playwright/test'
 
 const LLM_MODE = process.env['LLM_MODE'] ?? 'fake'
 
-// The rbac.spec.ts rate-limit test intentionally exhausts the per-IP login counter
-// (10 failures + 1 blocked). e2e suites run alphabetically so rbac runs before
-// tenant-isolation. A single successful login resets the counter to 0; use admin
-// credentials which are not under test here.
-test.beforeAll(async ({ request }) => {
-  await request.post('/api/login', { data: { password: 'adminpass', username: 'admin' } })
-})
-
 async function login(page: Page, username: string, password: string): Promise<void> {
   await page.goto('/')
   await page.getByTestId('login-username').fill(username)
