@@ -177,7 +177,7 @@ export const OpenAiCompatLlmProvider = {
         // Gate every LLM HTTP round-trip (URL rewrite + network + body mutation) behind the semaphore.
         // One permit per call; held until the full response body is consumed (non-streaming).
         const fetch: typeof globalThis.fetch = (input, init) =>
-          Effect.runPromiseWith(ctx)(sem.withPermits(1)(Effect.promise(() => rawFetch(input, init))))
+          Effect.promise(() => rawFetch(input, init)).pipe(sem.withPermits(1), Effect.runPromiseWith(ctx))
         return OpenAiLanguageModel.layer({ model }).pipe(
           Layer.provide(OpenAiClient.layer({ apiUrl: baseUrl })),
           Layer.provide(FetchHttpClient.layer),

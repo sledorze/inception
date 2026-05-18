@@ -51,6 +51,7 @@ export function Conversation() {
   const [pendingGoal, setPendingGoal] = useState<string | null>(null)
   const [answeredCid, setAnsweredCid] = useState<string | null>(null)
   const [clarifyAnswer, setClarifyAnswer] = useState('')
+  const [clarifyBusy, setClarifyBusy] = useState(false)
   const scrollRef = useRef<HTMLDivElement>(null)
 
   const turns = view._tag === 'Ready' ? view.value : []
@@ -70,6 +71,8 @@ export function Conversation() {
     : null
   const pendingClarify = sentClarify !== null && sentClarify.correlationId !== answeredCid ? sentClarify : null
   const clarifyPending = pendingClarify !== null
+  // Keep the clarify input visible (in "Thinking…" state) until the respond settles.
+  const showClarifyArea = clarifyPending || clarifyBusy
 
   // Drop the optimistic bubble once the send settles with no pending clarify
   // (the key-bus refetch has hydrated the authoritative transcript by then).
@@ -78,6 +81,13 @@ export function Conversation() {
       setPendingGoal(null)
     }
   }, [sendState.waiting, respondState.waiting, clarifyPending])
+
+  // Clear clarifyBusy once the respond atom settles (response received or error).
+  useEffect(() => {
+    if (!respondState.waiting && clarifyBusy) {
+      setClarifyBusy(false)
+    }
+  }, [respondState.waiting, clarifyBusy])
 
   // Avoid a duplicate user bubble once the real turn arrives in the transcript.
   useEffect(() => {
@@ -113,6 +123,7 @@ export function Conversation() {
       return
     }
     setClarifyAnswer('')
+    setClarifyBusy(true)
     setAnsweredCid(pendingClarify.correlationId)
     respond({ answer: trimmed, correlationId: pendingClarify.correlationId, sessionId })
   }
@@ -244,10 +255,10 @@ export function Conversation() {
       </div>
 
       <div className="shrink-0 border-t border-border bg-background px-4 py-3">
-        {pendingClarify !== null && (
+        {showClarifyArea && (
           <div className="flex items-start gap-2" data-testid="conv-clarify-input-area">
             <Textarea
-              aria-label={`Answer: ${pendingClarify.question}`}
+              aria-label={pendingClarify !== null ? `Answer: ${pendingClarify.question}` : 'Answering…'}
               className="flex-1"
               data-testid="conv-clarify-answer"
               onChange={e => setClarifyAnswer(e.target.value)}
@@ -256,23 +267,23 @@ export function Conversation() {
                   handleClarifySubmit()
                 }
               }}
-              placeholder={`Answer: ${pendingClarify.question}`}
+              placeholder={pendingClarify !== null ? `Answer: ${pendingClarify.question}` : 'Answering…'}
               rows={2}
               value={clarifyAnswer}
             />
             <Button
               data-testid="conv-clarify-submit"
-              disabled={busy}
+              disabled={busy || clarifyBusy}
               onClick={handleClarifySubmit}
               size="sm"
               type="button"
             >
-              {busy ? 'Thinking…' : 'Answer'}
+              {busy || clarifyBusy ? 'Thinking…' : 'Answer'}
             </Button>
           </div>
         )}
 
-        {pendingClarify === null && (
+        {!showClarifyArea && (
           <div className="flex flex-col gap-2 sm:flex-row sm:items-end">
             <div className="flex w-full flex-col gap-0.5 sm:w-36 sm:shrink-0">
               <label className="text-xs text-muted-foreground" htmlFor="conv-handle-id">
