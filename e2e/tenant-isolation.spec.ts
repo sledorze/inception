@@ -10,32 +10,17 @@
  * Runs with LLM_MODE=fake (default) — no cassette required.
  * The fake LLM responds deterministically with a canned reply.
  */
-import type { Page } from '@playwright/test'
 import { expect, test } from '@playwright/test'
+import { AUTH_HEADER, TENANT_HEADER, TENANT_ID_KEY, TOKEN_KEY } from '../../packages/shared-api/src/contract.ts'
+import { loginViaUi } from './helpers/auth.ts'
+import { sendGoal } from './helpers/conversation.ts'
 
 const LLM_MODE = process.env['LLM_MODE'] ?? 'fake'
-
-async function login(page: Page, username: string, password: string): Promise<void> {
-  await page.goto('/')
-  await page.getByTestId('login-username').fill(username)
-  await page.getByTestId('login-password').fill(password)
-  await page.getByTestId('login-submit').click()
-  // Wait until the session list is visible (authenticated shell loaded).
-  await expect(page.getByTestId('new-conversation')).toBeVisible({ timeout: 10_000 })
-}
-
-async function sendGoal(page: Page, goal: string): Promise<void> {
-  const goalInput = page.getByTestId('conv-goal')
-  const sendBtn = page.getByTestId('conv-send')
-  await goalInput.fill(goal)
-  await sendBtn.click()
-  await expect(page.getByTestId('conv-reply-0')).toBeVisible({ timeout: 10_000 })
-}
 
 test('tenant isolation: Default tenant visible on login', async ({ page }) => {
   test.skip(!['fake', 'replay'].includes(LLM_MODE), 'Requires LLM_MODE=fake or LLM_MODE=replay')
 
-  await login(page, 'enduser', 'enduser')
+  await loginViaUi(page, 'enduser', 'enduser')
   // TenantSwitcher should show 'Default' after loading the tenant list.
   await expect(page.getByTestId('tenant-switcher-trigger')).toHaveText('Default', { timeout: 10_000 })
 })
@@ -50,7 +35,7 @@ test('tenant isolation: create new tenant, switch, start conversation, switch ba
   const tenantName = `Acme ${suffix}`
   const tenantSlug = `acme-${suffix}`
 
-  await login(page, 'enduser', 'enduser')
+  await loginViaUi(page, 'enduser', 'enduser')
 
   // Start a Default-tenant conversation.
   await page.getByTestId('new-conversation').click()
@@ -109,7 +94,7 @@ test('tenant isolation: cross-tenant session invisible without switching (direct
 }) => {
   test.skip(!['fake', 'replay'].includes(LLM_MODE), 'Requires LLM_MODE=fake or LLM_MODE=replay')
 
-  await login(page, 'enduser', 'enduser')
+  await loginViaUi(page, 'enduser', 'enduser')
   // The active tenant is Default. Any request to /api/sessions will be scoped
   // to the Default tenant. The session list should not include sessions from
   // other tenants even if their IDs were somehow known.
@@ -117,15 +102,15 @@ test('tenant isolation: cross-tenant session invisible without switching (direct
 
   // Read auth token and current tenant from the browser's localStorage
   // (same keys used by authedFetch — TOKEN_KEY='auth_token', TENANT_KEY='tenant_id').
-  const [token, tenantId] = await page.evaluate(() => [
-    localStorage.getItem('auth_token') ?? '',
-    localStorage.getItem('tenant_id') ?? 'default',
-  ])
+  const [token, tenantId] = await page.evaluate(
+    ([tokenKey, tenantIdKey]) => [localStorage.getItem(tokenKey) ?? '', localStorage.getItem(tenantIdKey) ?? 'default'],
+    [TOKEN_KEY, TENANT_ID_KEY],
+  )
   expect(tenantId).toBe('default')
 
   // Direct API call mirroring what authedFetch does — should succeed for Default.
   const sessionsRes = await page.request.get('/api/sessions', {
-    headers: { Authorization: `Bearer ${token}`, 'X-Tenant-Id': tenantId },
+    headers: { [AUTH_HEADER]: `Bearer ${token}`, [TENANT_HEADER]: tenantId },
   })
   expect(sessionsRes.ok()).toBe(true)
   const sessions = (await sessionsRes.json()) as unknown[]
@@ -133,7 +118,7 @@ test('tenant isolation: cross-tenant session invisible without switching (direct
 
   // A fabricated tenant the enduser is not entitled to must be rejected.
   const crossRes = await page.request.get('/api/sessions', {
-    headers: { Authorization: `Bearer ${token}`, 'X-Tenant-Id': 'nonexistent-tenant-xyz' },
+    headers: { [AUTH_HEADER]: `Bearer ${token}`, [TENANT_HEADER]: 'nonexistent-tenant-xyz' },
   })
   expect(crossRes.status()).toBe(403)
 })

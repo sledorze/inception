@@ -19,48 +19,43 @@
  * - GET /events is unconditionally 404
  */
 import { expect, test } from '@playwright/test'
-
-const BASE = 'http://localhost:3100'
+import { loginViaApi } from './helpers/auth.ts'
 
 test.describe('RBAC — HTTP-layer enforcement (L0.3)', () => {
   let adminToken: string
 
   test.beforeAll(async ({ request }) => {
-    const res = await request.post(`${BASE}/api/login`, {
-      data: { password: 'adminpass', username: 'admin' },
-    })
-    expect(res.status()).toBe(200)
-    const body = (await res.json()) as { token: string }
-    adminToken = body.token
+    adminToken = await loginViaApi(request, 'admin', 'adminpass')
+    expect(typeof adminToken).toBe('string')
   })
 
   test('GET /events returns 404 — leak closed', async ({ request }) => {
-    const res = await request.get(`${BASE}/events`)
+    const res = await request.get('/events')
     expect(res.status()).toBe(404)
   })
 
   test('unauthenticated GET /api/admin/metrics returns 401', async ({ request }) => {
-    const res = await request.get(`${BASE}/api/admin/metrics`)
+    const res = await request.get('/api/admin/metrics')
     expect(res.status()).toBe(401)
   })
 
   test('unauthenticated GET /api/admin/pain returns 401', async ({ request }) => {
-    const res = await request.get(`${BASE}/api/admin/pain`)
+    const res = await request.get('/api/admin/pain')
     expect(res.status()).toBe(401)
   })
 
   test('unauthenticated GET /api/admin/work returns 401', async ({ request }) => {
-    const res = await request.get(`${BASE}/api/admin/work`)
+    const res = await request.get('/api/admin/work')
     expect(res.status()).toBe(401)
   })
 
   test('unauthenticated GET /api/admin/trace returns 401', async ({ request }) => {
-    const res = await request.get(`${BASE}/api/admin/trace`)
+    const res = await request.get('/api/admin/trace')
     expect(res.status()).toBe(401)
   })
 
   test('admin token: GET /api/admin/metrics returns 200 with numeric fields', async ({ request }) => {
-    const res = await request.get(`${BASE}/api/admin/metrics`, {
+    const res = await request.get('/api/admin/metrics', {
       headers: { Authorization: `Bearer ${adminToken}` },
     })
     expect(res.status()).toBe(200)
@@ -70,7 +65,7 @@ test.describe('RBAC — HTTP-layer enforcement (L0.3)', () => {
   })
 
   test('admin token: GET /api/admin/trace returns 200 with array', async ({ request }) => {
-    const res = await request.get(`${BASE}/api/admin/trace`, {
+    const res = await request.get('/api/admin/trace', {
       headers: { Authorization: `Bearer ${adminToken}` },
     })
     expect(res.status()).toBe(200)
@@ -79,7 +74,7 @@ test.describe('RBAC — HTTP-layer enforcement (L0.3)', () => {
   })
 
   test('admin token: GET /api/admin/pain returns 200 with array', async ({ request }) => {
-    const res = await request.get(`${BASE}/api/admin/pain`, {
+    const res = await request.get('/api/admin/pain', {
       headers: { Authorization: `Bearer ${adminToken}` },
     })
     expect(res.status()).toBe(200)
@@ -88,7 +83,7 @@ test.describe('RBAC — HTTP-layer enforcement (L0.3)', () => {
   })
 
   test('admin token: GET /api/admin/work returns 200 with array', async ({ request }) => {
-    const res = await request.get(`${BASE}/api/admin/work`, {
+    const res = await request.get('/api/admin/work', {
       headers: { Authorization: `Bearer ${adminToken}` },
     })
     expect(res.status()).toBe(200)
@@ -97,7 +92,7 @@ test.describe('RBAC — HTTP-layer enforcement (L0.3)', () => {
   })
 
   test('GET /health is open — no auth needed', async ({ request }) => {
-    const res = await request.get(`${BASE}/health`)
+    const res = await request.get('/health')
     expect(res.status()).toBe(200)
   })
 })

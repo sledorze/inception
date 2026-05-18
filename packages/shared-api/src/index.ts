@@ -1,5 +1,7 @@
-const TOKEN_KEY = 'auth_token'
-const TENANT_KEY = 'tenant_id'
+import { TENANT_ID_KEY, TOKEN_KEY } from './contract.ts'
+
+export { AUTH_HEADER, TENANT_HEADER, TENANT_ID_KEY, TOKEN_KEY } from './contract.ts'
+export { TestIds } from './testIds.ts'
 
 export const getToken = (): string | null => localStorage.getItem(TOKEN_KEY)
 export const setToken = (t: string): void => {
@@ -9,12 +11,12 @@ export const clearToken = (): void => {
   localStorage.removeItem(TOKEN_KEY)
 }
 
-export const getTenantId = (): string | null => localStorage.getItem(TENANT_KEY)
+export const getTenantId = (): string | null => localStorage.getItem(TENANT_ID_KEY)
 export const setTenantId = (id: string): void => {
-  localStorage.setItem(TENANT_KEY, id)
+  localStorage.setItem(TENANT_ID_KEY, id)
 }
 export const clearTenantId = (): void => {
-  localStorage.removeItem(TENANT_KEY)
+  localStorage.removeItem(TENANT_ID_KEY)
 }
 
 export const switchTenant = (tenantId: string): void => {

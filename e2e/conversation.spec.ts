@@ -12,15 +12,14 @@
 import type { Page } from '@playwright/test'
 import { expect, test } from '@playwright/test'
 import { FAKE_CLARIFY_TRIGGER } from '../packages/host/src/adapters/driven/RecordReplayLlmProvider.ts'
+import { loginViaUi } from './helpers/auth.ts'
+import { sendGoal } from './helpers/conversation.ts'
 
 const LLM_MODE = process.env['LLM_MODE'] ?? 'fake'
 
 /** Log in as the enduser, then open a fresh persistent session. */
 async function loginAsEnduser(page: Page): Promise<void> {
-  await page.goto('/')
-  await page.getByTestId('login-username').fill('enduser')
-  await page.getByTestId('login-password').fill('enduser')
-  await page.getByTestId('login-submit').click()
+  await loginViaUi(page, 'enduser', 'enduser')
   // Post-login lands on the session list (/). Start a new conversation —
   // routes to /sessions/<uuid> where the goal composer lives.
   await page.getByTestId('new-conversation').click({ timeout: 10_000 })
@@ -35,14 +34,10 @@ test('conversation: send a goal and receive a non-empty reply', async ({ page })
 
   await loginAsEnduser(page)
 
-  const goalInput = page.getByTestId('conv-goal')
-  const sendBtn = page.getByTestId('conv-send')
-
-  await goalInput.fill('What is synthetic-001?')
-  await sendBtn.click()
+  await sendGoal(page, 'What is synthetic-001?')
 
   // Thinking… button means the request is in flight
-  await expect(sendBtn).toHaveText('Thinking…')
+  await expect(page.getByTestId('conv-send')).toHaveText('Thinking…')
 
   // Reply appears near-instantly in fake/replay mode; 10 s is generous headroom
   const firstReply = page.getByTestId('conv-reply-0')
@@ -65,13 +60,9 @@ test('conversation: reply is grounded — references handle columns', async ({ p
 
   await loginAsEnduser(page)
 
-  const goalInput = page.getByTestId('conv-goal')
-  const sendBtn = page.getByTestId('conv-send')
+  await sendGoal(page, 'What is synthetic-001?')
 
-  await goalInput.fill('What is synthetic-001?')
-  await sendBtn.click()
-
-  await expect(sendBtn).toHaveText('Thinking…')
+  await expect(page.getByTestId('conv-send')).toHaveText('Thinking…')
 
   const firstReply = page.getByTestId('conv-reply-0')
   await expect(firstReply).toBeVisible({ timeout: 10_000 })

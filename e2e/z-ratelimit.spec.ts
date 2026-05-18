@@ -9,15 +9,13 @@
  */
 import { expect, test } from '@playwright/test'
 
-const BASE = 'http://localhost:3100'
-
 test.describe('Rate limiting — POST /api/login (P49)', () => {
   let alreadyLocked = false
 
   test.beforeAll(async ({ request }) => {
     // A successful admin login calls recordSuccess → resets the counter to 0.
     // If this returns 429, the server is locked from a previous run; skip.
-    const setup = await request.post(`${BASE}/api/login`, {
+    const setup = await request.post('/api/login', {
       data: { password: 'adminpass', username: 'admin' },
     })
     alreadyLocked = setup.status() === 429
@@ -28,14 +26,14 @@ test.describe('Rate limiting — POST /api/login (P49)', () => {
 
     // 10 wrong-password attempts — each must return 401 (counter not yet at limit).
     for (let i = 0; i < 10; i++) {
-      const res = await request.post(`${BASE}/api/login`, {
+      const res = await request.post('/api/login', {
         data: { password: 'definitely-wrong-password', username: `nonexistent-${String(i)}` },
       })
       expect(res.status()).toBe(401)
     }
 
     // 11th attempt from same IP — counter is at maxAttempts; blocked before credential check.
-    const blocked = await request.post(`${BASE}/api/login`, {
+    const blocked = await request.post('/api/login', {
       data: { password: 'definitely-wrong-password', username: 'nonexistent-final' },
     })
     expect(blocked.status()).toBe(429)
