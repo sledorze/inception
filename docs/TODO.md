@@ -408,8 +408,27 @@ invocable and linked from CLAUDE.md.
 
 ---
 
+## Phase 11 — Multi-tenant isolation (S12 + L1.9)
+
+Advances S12 from "described" to "demonstrated." Exit: deterministic Playwright e2e proves cross-tenant invisibility; `L1.9.spec.ts` green + `if absent` variant red; EventStore protocol test tenant-filter cases over both adapters green.
+
+- [todo] **11.0** **SPEC amendment + TODO breakdown** (docs only, Slice 0) — L1.9 added §3; S12 + supersession note added §5; §8 Tenant row; §9 `tenantId` field; §13 four tech-decision rows; Appendix A Tenant entry; SPEC-nav L1.9 row + count 39→40; TODO Phase 11 + P.6. Docs-only commit.
+- [todo] **11.1** **Spike — idempotent SQLite migration + hash exclusion** (Slice 0.5, throwaway `it.effect`): `PRAGMA table_info(events)` → `ALTER TABLE ADD COLUMN tenant_id TEXT` → backfill to `'default'` → assert historical `contentHash`/`prevHash` chains re-verify with `tenantId` excluded; `EventStore.query({tenantId})` returns only matching rows. Gates 11.2.
+- [todo] **11.2** **EventStore port + adapters + protocol test** (Slice 1): `tenantId` on `StoredEvent`/`NewEvent`/`EventStoreQuery`; `SqliteEventStore` idempotent migration + index; `InMemoryEventStore` parity; `tests/protocol/EventStore.spec.ts` tenant-scoping cases over both adapters; `tests/integration` migration/backfill test. Critical files: `packages/host/src/ports/driven/EventStore.ts`, `packages/host/src/adapters/driven/SqliteEventStore.ts`, `packages/host/src/adapters/driven/InMemoryEventStore.ts`.
+- [todo] **11.3** **`CurrentTenantId` FiberRef + tenant registry** (Slice 2): `CurrentTenantId` FiberRef in `domain/tracing.ts`; `TenantCreated`/`TenantRenamed` event kinds in `domain/events.ts`; `application/listTenants.ts` + `createTenant` + `renameTenant` + `seedDefaultTenant.ts` (pattern: `deleteSession.ts`). Unit test: fold + idempotent seed.
+- [todo] **11.4** **Identity entitlement + auth** (Slice 3): `tenantIds: string[]` on `ScryptAuthGateway` identity record; seed identities get `['default']`; `createTenant` grants creator entitlement; auth integration test. Critical: `packages/host/src/adapters/driving/ScryptAuthGateway.ts`, `packages/host/src/ports/driving/AuthGateway.ts`.
+- [todo] **11.5** **`withTenant` middleware + tenant-scoped application services** (Slice 4): middleware in `packages/host/src/main.ts` (read `X-Tenant-Id`, authorise, 403, bind `CurrentTenantId`); `listSessions` + `submitGoal` + `respondToGoal` read `CurrentTenantId` and stamp every append. Keep `tests/integration/bootstrap.integration.test.ts` green.
+- [todo] **11.6** **HTTP routes** (Slice 5): `GET/POST/PATCH /api/tenants`; `withTenant` applied to `/api/goals`, `/api/sessions`, `/api/sessions/:id/turns`, `/respond`. HTTP integration tests incl. 403 cross-tenant.
+- [todo] **11.7** **Law L1.9 test** (Slice 6): `packages/host/tests/laws/L1.9.spec.ts` — tenant A events/sessions/turns provably invisible to a principal scoped to tenant B; `if absent` variant red without query scoping.
+- [todo] **11.8** **Frontend — shared-api + atoms** (Slice 7): `getTenantId`/`setTenantId` cookie helpers in `packages/shared-api/src/index.ts` (mirror `getToken`); `authedFetch` injects `X-Tenant-Id`; `tenant:changed` CustomEvent; `listTenants`/`createTenant`/`renameTenant` in `packages/app/src/api/chat.ts`; `tenantsAtom/View` + `currentTenantAtom` in `packages/app/src/atoms.ts`; reactivity keys tenant-aware (`sessions:<tenantId>`, `turns:<tenantId>:<sessionId>`).
+- [todo] **11.9** **Frontend — switcher UI** (Slice 8): tenant switcher dropdown in `packages/app/src/components/app/AppShell.tsx` header (list entitled tenants + create + rename). Component test (`*.test.tsx`). On switch: set cookie → dispatch `tenant:changed` → navigate `/` → invalidate session/turns atoms.
+- [todo] **11.10** **Deterministic Playwright e2e** (Slice 9): `e2e/tenant-isolation.test.ts`, `LLM_MODE=replay` — log in → Default tenant visible → create "Acme" → switch (cookie) → start conversation scoped to Acme → switch back to Default → Acme conversation NOT visible → `correlationId` maps to turn.
+
+---
+
 ## Parked / later
 
+- [parked] **P.6** **RLS / Postgres migration** — SQLite has no native row-level security (`CREATE POLICY`, per-connection roles are Postgres features). L1.9 compensating control is application-layer query scoping + `L1.9.spec.ts`. Exit plan: Postgres `EventStore` adapter with `CREATE POLICY tenant_isolation ON events USING (tenant_id = current_setting('app.tenant_id'))`. Trigger: tenant count or event volume makes application-layer scoping a trust concern (not just a performance concern).
 - [parked] **P.5** Live LLM model selection — `llmModel` from Settings applied without restart. Model is baked into `OpenAiLanguageModel.layer({ model })` at build time; making it live requires the language-model layer to be dynamic (per-request model param or layer rebuild). Scoped separately from the base-URL fix (10.17).
 - [parked] **P.1** S5 hard code-over-data wall implementation (waits on a clear sensitive-data fixture).
 - [parked] **P.2** S6 long-session recall heuristics (adaptive beyond bounded last-N; MVP kernel is in Phase 6 items 6.1–6.7).

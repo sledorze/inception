@@ -30,8 +30,9 @@ For ports/stories/calibrations: grep SPEC.md directly (they change faster than l
 | L1.6 | Vector Budget                      | 136       | `packages/host/tests/laws/L1.6.spec.ts` |
 | L1.7 | Information Budget per Handle (DP) | 138       | `packages/host/tests/laws/L1.7.spec.ts` |
 | L1.8 | Host Corroboration                 | 140       | `packages/host/tests/laws/L1.8.spec.ts` |
+| L1.9 | Tenant Isolation                   | 143       | `packages/host/tests/laws/L1.9.spec.ts` |
 
-## Tier 2 — Operating laws (SPEC.md §3 line 143)
+## Tier 2 — Operating laws (SPEC.md §3 line 146)
 
 | ID    | Name                            | SPEC line | Paired test                              |
 | ----- | ------------------------------- | --------- | ---------------------------------------- |
@@ -81,4 +82,4 @@ For ports/stories/calibrations: grep SPEC.md directly (they change faster than l
 
 ---
 
-_All 39 laws now have paired spec files (100% coverage per L0.4). Law test coverage ratchet: maintained by L0.4.spec.ts._
+_All 40 laws now have paired spec files (100% coverage per L0.4). Law test coverage ratchet: maintained by L0.4.spec.ts._
