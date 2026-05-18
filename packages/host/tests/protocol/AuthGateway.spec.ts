@@ -91,14 +91,16 @@ function runContract(name: string, makeLayer: () => Layer.Layer<AuthGateway>) {
       ),
     )
 
-    it.effect('verify of valid token returns Principal with correct role', () =>
+    it.effect('verify of valid token returns Principal with correct role and tenantIds', () =>
       run(
         Effect.gen(function* () {
           const auth = yield* AuthGateway
           const session = yield* auth.login('alice', 'secret')
+          expect(session.tenantIds).toContain('default')
           const principal = yield* auth.verify(session.token)
           expect(principal.subject).toBe('alice')
           expect(principal.role).toBe('admin')
+          expect(principal.tenantIds).toContain('default')
         }),
       ),
     )

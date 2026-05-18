@@ -10,6 +10,7 @@ export interface FakeCred {
   readonly password: string
   readonly role: Role
   readonly username: string
+  readonly tenantIds?: readonly string[]
 }
 
 export const FakeAuthGateway = {
@@ -33,6 +34,7 @@ export const FakeAuthGateway = {
                 issuedAtMs: now,
                 role: cred.role,
                 subject: username,
+                tenantIds: cred.tenantIds ?? ['default'],
                 token,
               }
               sessions.set(token, session)
@@ -54,7 +56,7 @@ export const FakeAuthGateway = {
               if (now > session.expiresAtMs) {
                 return yield* new SessionExpired()
               }
-              return { role: session.role, subject: session.subject }
+              return { role: session.role, subject: session.subject, tenantIds: [...session.tenantIds] }
             }),
         })
       }),

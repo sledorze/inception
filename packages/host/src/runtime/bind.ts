@@ -38,6 +38,7 @@ const CredentialEntrySchema = Schema.Struct({
   salt: Schema.String,
   scryptHash: Schema.String,
   subject: Schema.String,
+  tenantIds: Schema.Array(Schema.String).pipe(Schema.withDecodingDefaultKey(Effect.succeed(['default']))),
 })
 
 const authGatewayLayer: Layer.Layer<

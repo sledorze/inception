@@ -17,6 +17,7 @@ export interface CredentialEntry {
   readonly salt: string // hex-encoded random salt
   readonly scryptHash: string // hex-encoded scrypt(password, salt, 32)
   readonly subject: string
+  readonly tenantIds?: readonly string[]
 }
 
 /** Hash a plaintext password with a given salt. Used to pre-compute stored credentials. */
@@ -56,6 +57,7 @@ const buildLogin =
         issuedAtMs: now,
         role: cred.role,
         subject: username,
+        tenantIds: cred.tenantIds ?? ['default'],
         token,
       }
       sessions.set(token, session)
@@ -87,7 +89,7 @@ const buildVerify =
       const renewed: AuthSession = { ...session, expiresAtMs: now + SESSION_TTL_MS }
       sessions.set(token, renewed)
       yield* persist(sessions)
-      return { role: renewed.role, subject: renewed.subject }
+      return { role: renewed.role, subject: renewed.subject, tenantIds: [...renewed.tenantIds] }
     })
 
 const noPersist = (_: Map<string, AuthSession>): Effect.Effect<void> => Effect.void

@@ -1,5 +1,4 @@
-import type { Effect } from 'effect'
-import { Context, Schema } from 'effect'
+import { Context, Effect, Schema } from 'effect'
 
 export type Role = 'admin' | 'enduser'
 
@@ -10,6 +9,8 @@ export const AuthSessionSchema = Schema.Struct({
   issuedAtMs: Schema.Number,
   role: RoleSchema,
   subject: Schema.String,
+  // optional on the encoded (JSON) side — absent in sessions persisted before S12
+  tenantIds: Schema.Array(Schema.String).pipe(Schema.withDecodingDefaultKey(Effect.succeed(['default']))),
   token: Schema.String,
 })
 export type AuthSession = typeof AuthSessionSchema.Type
@@ -17,6 +18,7 @@ export type AuthSession = typeof AuthSessionSchema.Type
 export const PrincipalSchema = Schema.Struct({
   role: RoleSchema,
   subject: Schema.String,
+  tenantIds: Schema.Array(Schema.String),
 })
 export type Principal = typeof PrincipalSchema.Type
 
