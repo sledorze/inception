@@ -63,6 +63,7 @@ export const makeRespondToGoal = <Tools extends Record<string, Tool.Any>>(
       schemaV: 1,
       sessionId,
       storyRef: 'S8',
+      tenantId: 'default',
     })
 
     const agentMd = yield* readAgentMd({ path: AGENT_MD_PATH })
@@ -116,6 +117,7 @@ export const makeRespondToGoal = <Tools extends Record<string, Tool.Any>>(
       schemaV: 1,
       sessionId,
       storyRef: 'S8',
+      tenantId: 'default',
     })
 
     return { correlationId, sessionId }

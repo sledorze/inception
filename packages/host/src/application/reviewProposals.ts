@@ -48,6 +48,7 @@ const emitDecision =
           schemaV: 1,
           sessionId: proposal.sessionId,
           storyRef: 'S2',
+          tenantId: 'default',
         })
         .pipe(Effect.orDie)
     }).pipe(Effect.withSpan(`ReviewProposals.${kind}`))

@@ -406,6 +406,7 @@ const flagExchangeRoute = HttpRouter.add(
         schemaV: 1,
         sessionId: firstEvent.sessionId,
         storyRef: 'S8',
+        tenantId: 'default',
       })
       return HttpServerResponse.empty({ status: 204 })
     }),
@@ -512,6 +513,7 @@ const agentMdPatchRoute = HttpRouter.add(
         schemaV: 1,
         sessionId: 'admin',
         storyRef: 'S8',
+        tenantId: 'default',
       })
 
       return jsonOk({ newHash, prevHash })

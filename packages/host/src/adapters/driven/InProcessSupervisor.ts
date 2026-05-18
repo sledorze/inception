@@ -91,6 +91,7 @@ export const InProcessSupervisor = {
                   schemaV: 1,
                   sessionId,
                   storyRef: 'supervision',
+                  tenantId: 'default',
                 })
                 // R5 (sandbox escape) quarantines the session immediately (L2.3).
                 if (result.riskId === 'R5') {
@@ -103,6 +104,7 @@ export const InProcessSupervisor = {
                     schemaV: 1,
                     sessionId,
                     storyRef: 'supervision',
+                    tenantId: 'default',
                   })
                 }
               }

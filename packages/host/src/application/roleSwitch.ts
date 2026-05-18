@@ -42,6 +42,7 @@ export const switchRole = (
       schemaV: 1,
       sessionId: ctx.sessionId,
       storyRef: ctx.storyRef,
+      tenantId: 'default',
     })
 
     return next

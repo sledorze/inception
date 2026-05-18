@@ -23,6 +23,7 @@ export const login = Effect.fn('login.login')(function* (username: string, passw
     schemaV: 1,
     sessionId: 'auth',
     storyRef: 'L0.3',
+    tenantId: 'default',
   })
 
   return session

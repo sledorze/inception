@@ -32,6 +32,9 @@ export const InMemoryEventStore = {
             if (filter.storyRef !== undefined) {
               result = result.filter(e => e.storyRef === filter.storyRef)
             }
+            if (filter.tenantId !== undefined) {
+              result = result.filter(e => e.tenantId === filter.tenantId)
+            }
             if (filter.sessionId !== undefined) {
               result = result.filter(e => e.sessionId === filter.sessionId)
             }

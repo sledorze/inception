@@ -40,6 +40,7 @@ export const deleteSession = Effect.fn('application.deleteSession')(function* (s
       schemaV: 1,
       sessionId,
       storyRef: 'S8',
+      tenantId: 'default',
     })
     .pipe(Effect.orDie)
 })

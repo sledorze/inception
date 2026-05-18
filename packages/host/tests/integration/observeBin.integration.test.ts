@@ -29,6 +29,7 @@ const baseEvent = (): NewEvent => ({
   schemaV: 1,
   sessionId: globalThis.crypto.randomUUID(),
   storyRef: 'S1',
+  tenantId: 'default',
 })
 
 type TestServices = EventStore | ObservabilityGateway

@@ -36,6 +36,7 @@ export const recordRejection = Effect.fn('rejectionPattern.recordRejection')(fun
     schemaV: 1,
     sessionId,
     storyRef,
+    tenantId: 'default',
   })
 
   // Count UserRejected events for this storyRef across all sessions.
@@ -53,6 +54,7 @@ export const recordRejection = Effect.fn('rejectionPattern.recordRejection')(fun
       schemaV: 1,
       sessionId,
       storyRef,
+      tenantId: 'default',
     })
   }
 })

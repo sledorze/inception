@@ -218,6 +218,7 @@ export const makeSubmitGoal = <Tools extends Record<string, Tool.Any>>(
       schemaV: 1,
       sessionId,
       storyRef: 'S1',
+      tenantId: 'default',
     })
 
     const agentMd = yield* readAgentMd({ path: AGENT_MD_PATH })
@@ -265,6 +266,7 @@ export const makeSubmitGoal = <Tools extends Record<string, Tool.Any>>(
               schemaV: 1,
               sessionId,
               storyRef: 'S1',
+              tenantId: 'default',
             }),
           ),
           Effect.orDie,
@@ -289,6 +291,7 @@ export const makeSubmitGoal = <Tools extends Record<string, Tool.Any>>(
         schemaV: 1,
         sessionId,
         storyRef: 'S1',
+        tenantId: 'default',
       })
     }
 

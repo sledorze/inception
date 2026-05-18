@@ -49,6 +49,7 @@ export const checkSupervisorDivergence = (
         schemaV: 1,
         sessionId,
         storyRef: 'supervision',
+        tenantId: 'default',
       })
     }
 

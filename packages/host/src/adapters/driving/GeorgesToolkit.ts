@@ -163,6 +163,7 @@ export const GeorgesToolkitLive = GeorgesToolkit.toLayer(
             schemaV: 1,
             sessionId: 'bootstrap',
             storyRef: 'S1',
+            tenantId: 'default',
           })
           .pipe(Effect.orDie)
       })
@@ -266,6 +267,7 @@ export const GeorgesToolkitLive = GeorgesToolkit.toLayer(
             schemaV: 1,
             sessionId: 'bootstrap',
             storyRef: 'S2',
+            tenantId: 'default',
           })
           .pipe(Effect.orDie)
         yield* emitCorroborator('propose-capability', { role, scope: manifest.scope })
@@ -298,6 +300,7 @@ export const GeorgesToolkitLive = GeorgesToolkit.toLayer(
             schemaV: 1,
             sessionId: 'bootstrap',
             storyRef: 'S8',
+            tenantId: 'default',
           })
           .pipe(Effect.orDie)
         yield* emitCorroborator('request-clarification', { question })
@@ -352,6 +355,7 @@ export const GeorgesToolkitLive = GeorgesToolkit.toLayer(
             schemaV: 1,
             sessionId: 'bootstrap',
             storyRef: 'S1',
+            tenantId: 'default',
           })
           .pipe(Effect.orDie)
         yield* emitCorroborator('run-script', { handleId, role })
