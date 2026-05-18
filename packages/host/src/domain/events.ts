@@ -28,6 +28,7 @@ export const EventKind = {
   SupervisorDivergence: 'SupervisorDivergence',
   SupervisorTrip: 'SupervisorTrip',
   TenantCreated: 'TenantCreated',
+  TenantGranted: 'TenantGranted',
   TenantRenamed: 'TenantRenamed',
   ToolResultObserved: 'ToolResultObserved',
   UnknownShapeObserved: 'UnknownShapeObserved',
@@ -106,15 +107,23 @@ export const SessionDeletedPayload = Schema.Struct({
   sessionId: SessionId,
 })
 
+export const TenantGrantedPayload = Schema.Struct({
+  subject: Schema.String,
+  tenantId: Schema.String,
+})
+
 // "Project" in the UI (see SPEC Appendix A).
 export const TenantCreatedPayload = Schema.Struct({
   name: Schema.String,
   tenantId: Schema.String,
+  // v optional on decode so pre-P60 historical events still parse.
+  v: Schema.optional(Schema.Literal(1)),
 })
 
 export const TenantRenamedPayload = Schema.Struct({
   name: Schema.String,
   tenantId: Schema.String,
+  v: Schema.optional(Schema.Literal(1)),
 })
 
 // ─── HTTP request body schemas ─────────────────────────────────────────────────

@@ -848,3 +848,103 @@ stderr output, and no failure event in the trace.
 (4) log LLM target at boot in `llmLayer`.
 
 FIXED 2026-05-17 in feat/design-system-enforcement (TODO 10.15) — test: packages/host/tests/integration/httpObservability.integration.test.ts (2 tests: GoalFailed emitted when LLM fails, catchAllCause returns structured JSON 500 not empty).
+
+---
+
+## P55 — Silent `tenantIds[0] ?? 'default'` fallback on empty entitlements array
+
+**Severity:** annoys
+**Symptom:** `packages/shared-api/src/index.ts` (or `Login.tsx`) resolves the initial tenant via `tenantIds[0] ?? 'default'`. If a principal has no entitlements (misconfigured identity), the cookie silently defaults to `'default'` and a cross-tenant read attempt follows. The server will 403 but the UX provides no explanation.
+**Candidate fix:** Surface a clear "No projects available — contact admin" message when `tenantIds` is empty; avoid setting the cookie at all in that state.
+
+FIXED 2026-05-18 in 811874bc — test: packages/app/src/components/app/Login.tsx guard (empty tenantIds → error message rendered, switchTenant not called).
+
+---
+
+## P56 — Error state not surfaced in TenantSwitcher when tenants fail to load
+
+**Severity:** annoys
+**Symptom:** `TenantSwitcher.tsx` reads `tenantsResult._tag === 'Ready'` but falls through to an empty list on `'Loading'` or `'Error'` — there is no spinner or error message. If the `/api/tenants` call errors (network down, 500), the switcher silently shows the tenant id as the label with no projects listed.
+**Candidate fix:** Add an error branch in `TenantSwitcher.tsx` rendering `"Failed to load projects"` and a retry button; the `'Loading'` branch should show a skeleton or spinner.
+
+FIXED 2026-05-18 in 811874bc — test: packages/app/src/components/app/TenantSwitcher.tsx (Loading + Error branches + Retry button with data-testid="tenants-retry").
+
+---
+
+## P57 — `sessionsAtom` re-export is a semantically confusing alias
+
+**Severity:** annoys
+**Symptom:** `packages/app/src/atoms.ts` exports `sessionsAtom = sessionsAtomFamily` — an alias that exposes the internal family directly. Callers write `sessionsAtom(tenantId)` which is correct but the name suggests a single atom, not a family factory.
+**Candidate fix:** Rename the export to `sessionsAtomFamily` (matches `sessionsViewFamily`) or remove the alias entirely and have callers import the view family directly.
+
+FIXED 2026-05-18 in 811874bc — test: TypeScript typecheck clean; SessionList.tsx updated to sessionsAtomFamily.
+
+---
+
+## P58 — SQLite migration 2 issues redundant PRAGMA on a fresh DB
+
+**Severity:** annoys
+**Symptom:** `SqliteEventStore` runs `PRAGMA table_info(events)` on every boot to decide whether to add `tenant_id`. On a fresh DB the PRAGMA + ALTER path is unreachable (migration 1 already creates the table with `tenant_id`), creating dead code. The backward-compat intent was undocumented.
+**Candidate fix:** Add clarifying comment explaining the backward-compat rationale; no behaviour change needed since the existing logic is correct for old DBs.
+
+FIXED 2026-05-18 in 811874bc — test: existing EventStore.spec.ts protocol tests remain green; migration intent documented in comment.
+
+---
+
+## P62 — "Projects" vs "Tenants" vocabulary split without a documented anti-corruption layer
+
+**Severity:** annoys
+**Symptom:** The frontend labels every tenant as a "Project" while the domain and API use "tenant". The translation was implicit and undocumented.
+**Candidate fix:** Add "Project" entry to SPEC Appendix A glossary. Add a one-line alias comment to `TenantCreatedPayload`.
+
+FIXED 2026-05-18 in 811874bc — test: docs/SPEC.md Appendix A "Project" entry + domain/events.ts TenantCreatedPayload comment.
+
+---
+
+## P68 — No e2e helper/fixture layer; login flow duplicated 4×
+
+**Severity:** slows
+**Symptom:** No `e2e/helpers/` directory. Login flow duplicated 4×; `sendGoal` inlined 3× in `conversation.spec.ts`. Violates "consolidate infrastructure at 2" rule.
+**Candidate fix:** Create `e2e/helpers/auth.ts` + `e2e/helpers/conversation.ts` mirroring `packages/host/tests/helpers/` precedent.
+
+FIXED 2026-05-18 in 4ecfbb45 — test: e2e/helpers/auth.ts (loginViaUi, loginViaApi) + e2e/helpers/conversation.ts (sendGoal); all four specs refactored to use helpers.
+
+---
+
+## P69 — `data-testid` strings have no central registry
+
+**Severity:** slows
+**Symptom:** Every `data-testid` value typed independently in component, `*.test.tsx`, and e2e spec. Rename breaks two other files with no compile error.
+**Candidate fix:** Node-safe testid constants module in `@app/shared-api`.
+
+FIXED 2026-05-18 in 4ecfbb45 — test: packages/shared-api/src/testIds.ts (TestIds registry exported from @app/shared-api).
+
+---
+
+## P70 — e2e bypasses the factorised API contract; reaches into localStorage internals
+
+**Severity:** slows
+**Symptom:** `tenant-isolation.spec.ts` hardcodes `'auth_token'`/`'tenant_id'` localStorage keys and header names instead of importing from `@app/shared-api`. `rbac.spec.ts`/`z-ratelimit.spec.ts` hardcode `BASE='http://localhost:3100'`.
+**Candidate fix:** Node-safe `contract.ts` module; e2e specs import constants; `BASE` replaced with `request` fixture relative paths.
+
+FIXED 2026-05-18 in 4ecfbb45 — test: packages/shared-api/src/contract.ts (TOKEN_KEY, TENANT_ID_KEY, AUTH_HEADER, TENANT_HEADER); tenant-isolation.spec.ts uses contract constants; BASE removed from rbac/z-ratelimit specs.
+
+---
+
+## P71 — `toolkit.test.ts` raw CSS descendant selectors; whole suite skipped
+
+**Severity:** annoys
+**Symptom:** `e2e/toolkit.test.ts` entirely `test.skip(true, …)`; `e2e/example.spec.ts` empty placeholder. Both inflate e2e count with no real assertions.
+**Candidate fix:** Delete both files.
+
+FIXED 2026-05-18 in 4ecfbb45 — test: e2e/toolkit.test.ts + e2e/example.spec.ts deleted.
+
+---
+
+## P72 — e2e file-naming inconsistency `.spec.ts` vs `.test.ts`
+
+**Severity:** annoys
+**Symptom:** `e2e/` mixed `.spec.ts` and `.test.ts`; `check-test-conventions.ts` only covered `packages/host/`.
+**Candidate fix:** Rename `.test.ts` → `.spec.ts`; add e2e naming rule to `check-test-conventions.ts`.
+
+FIXED 2026-05-18 in 4ecfbb45 — test: scripts/check-test-conventions.ts e2e naming rule (exits 1 on any e2e/\*.test.ts); tenant-isolation.test.ts renamed to .spec.ts.

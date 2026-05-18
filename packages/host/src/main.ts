@@ -84,6 +84,7 @@ import { requireRole } from './application/authorize.ts'
 import { AGENT_MD_PATH } from './application/session.ts'
 import { listTenants } from './application/listTenants.ts'
 import { createTenant } from './application/createTenant.ts'
+import { grantTenant, TenantNotFoundTag } from './application/grantTenant.ts'
 import { renameTenant } from './application/renameTenant.ts'
 import { seedDefaultTenant } from './application/seedDefaultTenant.ts'
 import { EventStore } from './ports/driven/EventStore.ts'
@@ -92,8 +93,8 @@ import type { AppSettings } from './ports/driven/Settings.ts'
 import { AppSettingsSchema, Settings } from './ports/driven/Settings.ts'
 import type { AdminQueryError } from './ports/driving/AdminQuery.ts'
 import { AdminQuery } from './ports/driving/AdminQuery.ts'
+import type { AuthGateway } from './ports/driving/AuthGateway.ts'
 import {
-  AuthGateway,
   type Principal,
   InvalidCredentialsTag,
   SessionExpiredTag,
@@ -257,8 +258,9 @@ const createTenantRoute = HttpRouter.add(
       }
       const tenantId = body.id ?? (yield* Random.nextUUIDv4)
       yield* createTenant(tenantId, body.name.trim())
-      const auth = yield* AuthGateway
-      yield* auth.grantTenant(principal.subject, tenantId)
+      // Grant creator access via application service (P59/P66: emits TenantGranted event).
+      // createTenant guarantees the tenant exists so TenantNotFound cannot occur here.
+      yield* grantTenant(principal.subject, tenantId)
       return jsonOk({ id: tenantId, name: body.name.trim() })
     }),
   ),
@@ -267,18 +269,40 @@ const createTenantRoute = HttpRouter.add(
 const renameTenantRoute = HttpRouter.add(
   'PATCH',
   '/api/tenants/:tenantId',
-  withPrincipal('enduser')(principal =>
+  // P67: use withTenant for entitlement check (consistent with other tenant-scoped routes).
+  withTenant('enduser')(
     Effect.gen(function* () {
       const { tenantId } = yield* HttpRouter.schemaPathParams(Schema.Struct({ tenantId: Schema.String }))
-      if (!principal.tenantIds.includes(tenantId)) {
-        return textErr('forbidden', 403)
-      }
       const body = yield* parseBody(Schema.Struct({ name: Schema.String }))
       if (body === null || body.name.trim() === '') {
         return textErr('missing name', 422)
       }
       yield* renameTenant(tenantId, body.name.trim())
       return HttpServerResponse.empty({ status: 204 })
+    }),
+  ),
+)
+
+// Admin: grant a user access to a tenant. P61: existence guard in grantTenant service.
+const grantTenantRoute = HttpRouter.add(
+  'POST',
+  '/api/tenants/:tenantId/grant',
+  withRole('admin')(
+    Effect.gen(function* () {
+      const { tenantId } = yield* HttpRouter.schemaPathParams(Schema.Struct({ tenantId: Schema.String }))
+      const body = yield* parseBody(Schema.Struct({ subject: Schema.String }))
+      if (body === null) {
+        return textErr('missing subject', 422)
+      }
+      return yield* grantTenant(body.subject, tenantId).pipe(
+        Effect.matchEffect({
+          onFailure: err =>
+            Effect.succeed(
+              err._tag === TenantNotFoundTag ? textErr('tenant not found', 404) : textErr('server error', 500),
+            ),
+          onSuccess: () => Effect.succeed(HttpServerResponse.empty({ status: 204 })),
+        }),
+      )
     }),
   ),
 )
@@ -727,6 +751,7 @@ const allRoutes = Layer.mergeAll(
   loginRoute,
   listTenantsRoute,
   createTenantRoute,
+  grantTenantRoute,
   renameTenantRoute,
   submitGoalRoute,
   rejectGoalRoute,

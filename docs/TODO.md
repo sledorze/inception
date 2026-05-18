@@ -426,6 +426,46 @@ Advances S12 from "described" to "demonstrated." Exit: deterministic Playwright 
 
 ---
 
+## Phase 12 — Multi-tenant audit trail hardening
+
+Post-Phase-11 correctness pass. Three expert-identified gaps in the multi-tenant implementation that are not caught by existing tests: an L1.4 traceability violation, a phantom-grant footgun, and missing event versioning on tenant payloads. Exit: `grantTenant` visible in `/api/admin/trace`; phantom tenantId returns 404; `TenantCreated`/`TenantRenamed` payloads carry `v`; `L1.4.spec.ts` covers the grant scenario.
+
+- [todo] **12.1** **`TenantGranted` event + `application/grantTenant.ts` service** (closes P59, L1.4): add `TenantGranted { subject, tenantId }` kind to `domain/events.ts`; extract `application/grantTenant.ts` (wraps `AuthGateway.grantTenant` + emits event under `CurrentTenantId` + `CurrentCorrelationId`); replace direct `auth.grantTenant` call in `main.ts:261`; add red→green `TenantGranted` scenario to `L1.4.spec.ts`.
+
+- [todo] **12.2** **Tenant existence guard on grant route** (closes P61): inside `application/grantTenant.ts` call `listTenants` first; return typed `TenantNotFound` error if absent; surface as 404 in the HTTP route. Red acceptance test: `grantTenant` with a phantom id returns `TenantNotFound`.
+
+- [todo] **12.3** **Schema version field on tenant payloads** (closes P60 schema-evolution gap): add `v: Schema.Literal(1)` to `TenantCreatedPayload` + `TenantRenamedPayload`; guard in `listTenants` fold (skip unknown `v` with logged warning); update `createTenant.ts` / `renameTenant.ts` / `seedDefaultTenant.ts` to pass `v: 1`. Non-breaking: decode path applies default for missing `v` (historical events).
+
+- [todo] **12.4** **Extract `SYSTEM_TENANT_ID` / `TENANTS_SESSION_ID` constants** (closes P65): add both to `domain/tenantRegistry.ts` (new file) or `domain/ids.ts`; replace all 4 bare-string sites in `createTenant.ts`, `renameTenant.ts`, `seedDefaultTenant.ts`, `listTenants.ts`. No behaviour change. Red acceptance test: `listTenants` after `createTenant` returns the created tenant (currently always true, but guards against future string drift).
+
+- [todo] **12.5** **Inline entitlement logic → `withTenant` + thin application services** (closes P66, P67): (a) `application/createTenant.ts` accepts optional `creatorSubject`; calls `grantTenant` application service (12.1) internally — route handler becomes one-service call; (b) `renameTenantRoute` switched from `withPrincipal` + manual check to `withTenant('enduser')` guard; add 403 case to `tenantRoutes.integration.test.ts`.
+
+- [todo] **12.6** **Decouple entitlement from `AuthGateway`** (closes P63, P64 — depends on 12.1): remove `grantTenant` from the `AuthGateway` port after `application/grantTenant.ts` lands; `AuthGateway.verify` reconstructs `tenantIds` by querying `TenantGranted` events from `EventStore`; both adapters (`Scrypt`, `Fake`) lose the `mutableCreds` + grants-map machinery; `buildGrantTenant` duplication (P64) deleted rather than consolidated. This is the largest item — spike first to confirm the verify-path query cost is acceptable.
+
+**Exit:** `L1.4.spec.ts` tenant-grant scenario red→green; `POST /api/tenants/:id/grant` with unknown tenantId returns 404; `TenantCreated` payload carries `v: 1` in all writers; `listTenants` fold skips future unknown versions; no bare `'__system__'` / `'__tenants__'` strings outside `domain/tenantRegistry.ts`; `createTenantRoute` calls one application service; `AuthGateway` port has no `grantTenant` method.
+
+---
+
+## Phase 13 — e2e factorisation + observability/cohesion hardening
+
+Post-Phase-12 structural pass. Two clusters: (a) e2e test layer factorisation — login helpers, testid registry, Node-safe auth-contract, dead-spec pruning, naming convention; (b) Host cohesion — `Effect.orDie` error swallowing, `readonly` type erosion, `main.ts` decomposition. Exit: no `getByTestId`/raw-HTTP/`localStorage` literal duplicated across e2e files; `@app/shared-api` split into browser + Node-safe contract; `check-test-conventions.ts` covers `e2e/`; tenant-append failures emit a trace-visible typed event; `main.ts` is composition + listen only (≤100 lines).
+
+- [done] **13.1** **`e2e/helpers/` — auth + conversation fixtures** (closes P68): `e2e/helpers/auth.ts` (`loginViaUi`, `loginViaApi`) + `e2e/helpers/conversation.ts` (`sendGoal`); all 4 login duplications + 3 `sendGoal` inline copies migrated to helpers. Commit: 4ecfbb45.
+
+- [done] **13.2** **Node-safe testid + auth-contract module** (closes P69, P70): `packages/shared-api/src/contract.ts` (TOKEN_KEY, TENANT_ID_KEY, AUTH_HEADER, TENANT_HEADER) + `src/testIds.ts` (TestIds registry); tenant-isolation.spec.ts uses contract constants; BASE constant removed from rbac/z-ratelimit specs. Commit: 4ecfbb45.
+
+- [done] **13.3** **Prune dead specs + naming convention rule** (closes P71, P72): deleted `e2e/toolkit.test.ts` + `e2e/example.spec.ts`; renamed `tenant-isolation.test.ts` → `.spec.ts`; added e2e naming rule to `scripts/check-test-conventions.ts`. Commit: 4ecfbb45.
+
+- [todo] **13.4** **`tapErrorCause` + failure event on tenant appends** (closes P73): replace `.pipe(Effect.orDie)` in `createTenant.ts`, `renameTenant.ts`, `seedDefaultTenant.ts` with `tapErrorCause` + typed failure events (`TenantCreateFailed`, `TenantRenameFailed`) — mirrors `GoalFailed` pattern from 10.15; add a tenant-write-failure scenario to `L1.4.spec.ts`. Red acceptance test: injected failing `EventStore` → typed failure event emitted, error returned as typed Effect failure (not Defect).
+
+- [todo] **13.5** **`Ref`-modelled grant state + schema-decoded headers** (closes P74): model `mutableCreds` as `Ref<HashMap<string, CredentialEntry>>` in both adapters so `readonly` on `CredentialEntry` holds structurally; decode `x-tenant-id` header via `Schema.String` with a typed `BadRequest` error in the `withTenant` middleware. Red acceptance test: `withTenant` with a non-string `x-tenant-id` value returns 400.
+
+- [todo] **13.6** **Extract `adapters/driving/http/guards.ts`; thin `main.ts`** (closes P75): extract `withPrincipal`, `withTenant`, `withRole` to `adapters/driving/http/guards.ts`; group domain routes into domain modules; `main.ts` becomes composition + listen only (≤100 lines). Add dep-cruiser or grep rule asserting no middleware function is defined in `main.ts`. Depends on 12.5 (route cleanup).
+
+**Exit:** no `getByTestId`/raw-HTTP/`localStorage` literal duplicated across e2e files; `@app/shared-api` has a Node-safe contract sub-module reused by component and e2e; `check-test-conventions.ts` covers `e2e/` naming; tenant-append failures emit a typed failure event visible in `/api/admin/trace`; `main.ts` is ≤100 lines of composition + listen.
+
+---
+
 ## Parked / later
 
 - [parked] **P.6** **RLS / Postgres migration** — SQLite has no native row-level security (`CREATE POLICY`, per-connection roles are Postgres features). L1.9 compensating control is application-layer query scoping + `L1.9.spec.ts`. Exit plan: Postgres `EventStore` adapter with `CREATE POLICY tenant_isolation ON events USING (tenant_id = current_setting('app.tenant_id'))`. Trigger: tenant count or event volume makes application-layer scoping a trust concern (not just a performance concern).

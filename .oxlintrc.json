@@ -10,13 +10,14 @@
   "ignorePatterns": ["node_modules", "dist", ".astro", "coverage", ".stryker-tmp", "vendor"],
   "overrides": [
     {
-      "files": ["**/*.test.ts", "**/*.test.tsx", "**/*.spec.ts", "**/*.config.ts", "**/*.config.mts"],
-      "rules": {
-        "import/no-nodejs-modules": "off"
-      }
-    },
-    {
-      "files": ["scripts/**/*.ts"],
+      "files": [
+        "**/*.test.ts",
+        "**/*.test.tsx",
+        "**/*.spec.ts",
+        "**/*.config.ts",
+        "**/*.config.mts",
+        "scripts/**/*.ts"
+      ],
       "rules": {
         "import/no-nodejs-modules": "off"
       }
