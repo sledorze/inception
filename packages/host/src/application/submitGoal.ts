@@ -2,6 +2,7 @@ import { Cause, DateTime, Effect, Option, Random } from 'effect'
 import { AiError, LanguageModel } from 'effect/unstable/ai'
 import type { LanguageModel as LanguageModelNS, Tool } from 'effect/unstable/ai'
 import { EventKind } from '../domain/events.ts'
+import { bootstrapSessionId, type CorrelationId, nextCorrelationId } from '../domain/ids.ts'
 import { CurrentCorrelationId } from '../domain/tracing.ts'
 import { DataHandleRegistry } from '../ports/driven/DataHandle.ts'
 import { canonicalJson, EventStore } from '../ports/driven/EventStore.ts'
@@ -82,7 +83,7 @@ export const buildInitialMessages = (b: AgentBrief): MsgEntry[] => {
 const generateWithRecovery = <Tools extends Record<string, Tool.Any>>(
   msgs: readonly MsgEntry[],
   toolkit: LanguageModelNS.ToolkitOption<Tools, never, never>,
-  correlationId: string,
+  correlationId: CorrelationId,
 ) => {
   const callLlm = (m: readonly MsgEntry[]) =>
     Effect.provideService(
@@ -148,7 +149,7 @@ const generateWithRecovery = <Tools extends Record<string, Tool.Any>>(
 const runAgentLoop = <Tools extends Record<string, Tool.Any>>(
   brief: AgentBrief,
   toolkit: LanguageModelNS.ToolkitOption<Tools, never, never>,
-  correlationId: string,
+  correlationId: CorrelationId,
 ) =>
   Effect.gen(function* () {
     let messages: MsgEntry[] = buildInitialMessages(brief)
@@ -200,8 +201,8 @@ export const makeSubmitGoal = <Tools extends Record<string, Tool.Any>>(
   toolkit: LanguageModelNS.ToolkitOption<Tools, never, never>,
 ) =>
   Effect.fn('application.submitGoal')(function* (s: GoalSubmission) {
-    const sessionId = s.sessionId ?? 'bootstrap'
-    const correlationId = yield* Random.nextUUIDv4
+    const sessionId = s.sessionId ?? bootstrapSessionId
+    const correlationId = yield* nextCorrelationId
     const store = yield* EventStore
 
     // Block deleted sessions before touching the LLM.

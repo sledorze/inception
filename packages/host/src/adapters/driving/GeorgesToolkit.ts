@@ -15,6 +15,7 @@ import { PolicyGate } from '../../ports/driven/PolicyGate.ts'
 import { ToolRegistry } from '../../ports/driven/ToolRegistry.ts'
 import { WorkspaceMount } from '../../ports/driven/WorkspaceMount.ts'
 import { EventKind } from '../../domain/events.ts'
+import { bootstrapSessionId, HandleId } from '../../domain/ids.ts'
 import { CurrentCorrelationId } from '../../domain/tracing.ts'
 import { runScriptInTempDir } from '../runScriptInTempDir.ts'
 
@@ -89,7 +90,7 @@ export const FetchHandleShapeTool = Tool.make('fetch-handle-shape', {
   description: 'Returns the schema and a redacted sample for a data handle. Never returns raw bytes (L1.3).',
   failure: WorkspaceFailureSchema,
   failureMode: 'return',
-  parameters: Schema.Struct({ handleId: Schema.String, role: Schema.String }),
+  parameters: Schema.Struct({ handleId: HandleId, role: Schema.String }),
   success: Schema.Struct({ redactedSample: Schema.Unknown, schema: Schema.Unknown }),
 })
 
@@ -98,7 +99,7 @@ export const RunScriptTool = Tool.make('run-script', {
     'Submits a script to the sandbox against a data handle. Returns aggregate only — never raw data bytes (L1.3).',
   failure: WorkspaceFailureSchema,
   failureMode: 'return',
-  parameters: Schema.Struct({ handleId: Schema.String, role: Schema.String, script: Schema.String }),
+  parameters: Schema.Struct({ handleId: HandleId, role: Schema.String, script: Schema.String }),
   success: Schema.Struct({
     bitsConsumed: Schema.Number,
     exitCode: Schema.Number,
@@ -161,7 +162,7 @@ export const GeorgesToolkitLive = GeorgesToolkit.toLayer(
             occurredAt: DateTime.formatIso(yield* DateTime.now),
             payload: { ...payload, toolName },
             schemaV: 1,
-            sessionId: 'bootstrap',
+            sessionId: bootstrapSessionId,
             storyRef: 'S1',
           })
           .pipe(Effect.orDie)
@@ -196,7 +197,7 @@ export const GeorgesToolkitLive = GeorgesToolkit.toLayer(
         handleId,
         role,
       }: {
-        handleId: string
+        handleId: HandleId
         role: string
       }) {
         yield* checkPolicy('fetch-handle-shape')
@@ -264,7 +265,7 @@ export const GeorgesToolkitLive = GeorgesToolkit.toLayer(
               version: manifest.version,
             },
             schemaV: 1,
-            sessionId: 'bootstrap',
+            sessionId: bootstrapSessionId,
             storyRef: 'S2',
           })
           .pipe(Effect.orDie)
@@ -296,7 +297,7 @@ export const GeorgesToolkitLive = GeorgesToolkit.toLayer(
             occurredAt: DateTime.formatIso(yield* DateTime.now),
             payload: { question },
             schemaV: 1,
-            sessionId: 'bootstrap',
+            sessionId: bootstrapSessionId,
             storyRef: 'S8',
           })
           .pipe(Effect.orDie)
@@ -309,7 +310,7 @@ export const GeorgesToolkitLive = GeorgesToolkit.toLayer(
         role,
         script,
       }: {
-        handleId: string
+        handleId: HandleId
         role: string
         script: string
       }) {
@@ -350,7 +351,7 @@ export const GeorgesToolkitLive = GeorgesToolkit.toLayer(
               summary: aggregate.summary,
             },
             schemaV: 1,
-            sessionId: 'bootstrap',
+            sessionId: bootstrapSessionId,
             storyRef: 'S1',
           })
           .pipe(Effect.orDie)

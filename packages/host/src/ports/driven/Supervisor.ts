@@ -11,6 +11,7 @@
  */
 import type { Effect } from 'effect'
 import { Context, Schema } from 'effect'
+import type { SessionId } from '../../domain/ids.ts'
 
 export const SignalResultSchema = Schema.Struct({
   // Computed value of the metric (e.g. ratio, count).
@@ -33,6 +34,6 @@ export class Supervisor extends Context.Service<
   {
     // Compute all implemented risk signals for a session and emit trip events
     // to EventStore for any that exceed their threshold.
-    readonly evaluate: (sessionId: string) => Effect.Effect<readonly SignalResult[], SupervisorError>
+    readonly evaluate: (sessionId: SessionId) => Effect.Effect<readonly SignalResult[], SupervisorError>
   }
 >()('@app/host/ports/driven/Supervisor') {}

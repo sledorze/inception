@@ -1,4 +1,5 @@
 import { Schema } from 'effect'
+import { CorrelationId, HandleId, SessionId } from './ids.ts'
 
 // Canonical event kind strings for the EventStore (§9).
 // All `store.append({ kind: ... })` and `e.kind === ...` comparisons must use
@@ -44,7 +45,7 @@ export const GoalFailedPayload = Schema.Struct({
 
 export const GoalSubmittedPayload = Schema.Struct({
   goal: Schema.String,
-  handleId: Schema.String,
+  handleId: HandleId,
 })
 
 export const GoalCompletedPayload = Schema.Struct({
@@ -79,7 +80,7 @@ export const AuthenticatedPayload = Schema.Struct({
 })
 
 export const ExchangeFlaggedPayload = Schema.Struct({
-  correlationId: Schema.String,
+  correlationId: CorrelationId,
   note: Schema.String,
   severity: Schema.Literals(['observation', 'issue', 'blocker']),
 })
@@ -93,32 +94,32 @@ export const AgentMdAmendedPayload = Schema.Struct({
 
 export const ScriptExecutedPayload = Schema.Struct({
   exitCode: Schema.Number,
-  handleId: Schema.String,
+  handleId: HandleId,
   role: Schema.String,
   script: Schema.String,
   summary: Schema.String.check(Schema.isMaxLength(512)),
 })
 
 export const SessionDeletedPayload = Schema.Struct({
-  sessionId: Schema.String,
+  sessionId: SessionId,
 })
 
 // ─── HTTP request body schemas ─────────────────────────────────────────────────
 
 export const SubmitGoalBody = Schema.Struct({
   goal: Schema.String,
-  handleId: Schema.String,
-  sessionId: Schema.optional(Schema.String),
+  handleId: HandleId,
+  sessionId: Schema.optional(SessionId),
 })
 
 export const RejectGoalBody = Schema.Struct({
   reason: Schema.optional(Schema.String),
-  sessionId: Schema.optional(Schema.String),
+  sessionId: Schema.optional(SessionId),
 })
 
 export const RespondBody = Schema.Struct({
   answer: Schema.String,
-  correlationId: Schema.String,
+  correlationId: CorrelationId,
 })
 
 export const FlagExchangeBody = Schema.Struct({

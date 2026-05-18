@@ -34,19 +34,7 @@ import { createHash } from 'node:crypto'
 // @effect-diagnostics-next-line nodeBuiltinImport:off
 import { createServer } from 'node:http'
 import * as NodeHttpServer from '@effect/platform-node/NodeHttpServer'
-import {
-  Cause,
-  Config,
-  DateTime,
-  Effect,
-  FileSystem,
-  Layer,
-  ManagedRuntime,
-  Option,
-  Random,
-  Schema,
-  Stream,
-} from 'effect'
+import { Cause, Config, DateTime, Effect, FileSystem, Layer, ManagedRuntime, Option, Schema, Stream } from 'effect'
 import * as HttpRouter from 'effect/unstable/http/HttpRouter'
 import * as HttpServerRequest from 'effect/unstable/http/HttpServerRequest'
 import * as HttpServerResponse from 'effect/unstable/http/HttpServerResponse'
@@ -62,6 +50,14 @@ import {
   RespondBody,
   SubmitGoalBody,
 } from './domain/events.ts'
+import {
+  bootstrapSessionId,
+  CorrelationId,
+  makeSessionId,
+  nextCorrelationId,
+  nextSessionId,
+  SessionId,
+} from './domain/ids.ts'
 import { listSessions } from './application/listSessions.ts'
 import { projectSessionTurns } from './application/sessionTurns.ts'
 import { deleteSession, isSessionDeleted } from './application/deleteSession.ts'
@@ -189,7 +185,7 @@ const submitGoalRoute = HttpRouter.add(
       }
       const { goal, handleId, sessionId: reqSessionId } = body
       const toolkit = yield* GeorgesToolkit
-      const sessionId = reqSessionId ?? (yield* Random.nextUUIDv4)
+      const sessionId = reqSessionId ?? (yield* nextSessionId)
       if (yield* isSessionDeleted(sessionId)) {
         return textErr('session deleted', 410)
       }
@@ -218,9 +214,10 @@ const rejectGoalRoute = HttpRouter.add(
   '/api/goals/:correlationId/reject',
   withRole('enduser')(
     Effect.gen(function* () {
-      const { correlationId } = yield* HttpRouter.schemaPathParams(Schema.Struct({ correlationId: Schema.String }))
+      const { correlationId } = yield* HttpRouter.schemaPathParams(Schema.Struct({ correlationId: CorrelationId }))
       const body = yield* parseBody(RejectGoalBody)
-      const { reason = 'no reason given', sessionId = 'bootstrap' } = body ?? {}
+      const { reason = 'no reason given', sessionId: rawSessionId } = body ?? {}
+      const sessionId = rawSessionId ?? bootstrapSessionId
       yield* recordRejection({ correlationId, reason, sessionId, storyRef: 'S3' })
       return HttpServerResponse.empty({ status: 204 })
     }),
@@ -232,7 +229,7 @@ const sessionTurnsRoute = HttpRouter.add(
   '/api/sessions/:sessionId/turns',
   withRole('enduser')(
     Effect.gen(function* () {
-      const { sessionId } = yield* HttpRouter.schemaPathParams(Schema.Struct({ sessionId: Schema.String }))
+      const { sessionId } = yield* HttpRouter.schemaPathParams(Schema.Struct({ sessionId: SessionId }))
       if (yield* isSessionDeleted(sessionId)) {
         return textErr('not found', 404)
       }
@@ -260,7 +257,7 @@ const sessionRespondRoute = HttpRouter.add(
       if (body === null) {
         return textErr('missing correlationId or answer', 422)
       }
-      const { sessionId } = yield* HttpRouter.schemaPathParams(Schema.Struct({ sessionId: Schema.String }))
+      const { sessionId } = yield* HttpRouter.schemaPathParams(Schema.Struct({ sessionId: SessionId }))
       if (yield* isSessionDeleted(sessionId)) {
         return textErr('session deleted', 410)
       }
@@ -277,7 +274,7 @@ const sessionDeleteRoute = HttpRouter.add(
   '/api/sessions/:sessionId',
   withRole('enduser')(
     Effect.gen(function* () {
-      const { sessionId } = yield* HttpRouter.schemaPathParams(Schema.Struct({ sessionId: Schema.String }))
+      const { sessionId } = yield* HttpRouter.schemaPathParams(Schema.Struct({ sessionId: SessionId }))
       yield* deleteSession(sessionId)
       return HttpServerResponse.empty({ status: 204 })
     }),
@@ -349,7 +346,7 @@ const sessionEventsRoute = HttpRouter.add(
   '/api/sessions/:sessionId/events',
   withRole('admin')(
     Effect.gen(function* () {
-      const { sessionId } = yield* HttpRouter.schemaPathParams(Schema.Struct({ sessionId: Schema.String }))
+      const { sessionId } = yield* HttpRouter.schemaPathParams(Schema.Struct({ sessionId: SessionId }))
       const store = yield* EventStore
       const events = yield* store.query({ sessionId })
       // Strip raw payload bytes — return kind/actor/correlationId/occurredAt/id but not payload (L1.3).
@@ -385,7 +382,7 @@ const flagExchangeRoute = HttpRouter.add(
   '/api/exchanges/:correlationId/flag',
   withRole('admin')(
     Effect.gen(function* () {
-      const { correlationId } = yield* HttpRouter.schemaPathParams(Schema.Struct({ correlationId: Schema.String }))
+      const { correlationId } = yield* HttpRouter.schemaPathParams(Schema.Struct({ correlationId: CorrelationId }))
       const body = yield* parseBody(FlagExchangeBody)
       if (body === null) {
         return textErr('missing note or severity', 422)
@@ -505,12 +502,12 @@ const agentMdPatchRoute = HttpRouter.add(
 
       yield* store.append({
         actor: 'claude',
-        correlationId: yield* Random.nextUUIDv4,
+        correlationId: yield* nextCorrelationId,
         kind: EventKind.AgentMdAmended,
         occurredAt: DateTime.formatIso(yield* DateTime.now),
         payload: { newHash, patternIds: body.patternIds ?? [], prevHash, rationale: body.rationale },
         schemaV: 1,
-        sessionId: 'admin',
+        sessionId: makeSessionId('admin'),
         storyRef: 'S8',
       })
 
@@ -533,7 +530,7 @@ const replayExchangeRoute = HttpRouter.add(
   '/api/exchanges/:correlationId/replay',
   withRole('admin')(
     Effect.gen(function* () {
-      const { correlationId } = yield* HttpRouter.schemaPathParams(Schema.Struct({ correlationId: Schema.String }))
+      const { correlationId } = yield* HttpRouter.schemaPathParams(Schema.Struct({ correlationId: CorrelationId }))
       const store = yield* EventStore
       const events = yield* store.query({ correlationId })
       const goalEvent = events.find(e => e.kind === EventKind.GoalSubmitted)
@@ -545,8 +542,8 @@ const replayExchangeRoute = HttpRouter.add(
       )
       const originalText = yield* extractCompletedText(events.findLast(e => e.kind === EventKind.GoalCompleted))
 
-      // Re-run with a fresh correlationId.
-      const replaySessionId = `replay-${correlationId.slice(0, 8)}`
+      // Re-run with a fresh sessionId derived from the correlation prefix.
+      const replaySessionId = makeSessionId(`replay-${correlationId.slice(0, 8)}`)
       const toolkit = yield* GeorgesToolkit
       const result = yield* makeSubmitGoal(toolkit)({ goal, handleId, sessionId: replaySessionId })
       const newEvents = yield* store.query({ correlationId: result.correlationId })

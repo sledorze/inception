@@ -1,6 +1,7 @@
 import { createHash } from 'node:crypto'
 import type { Effect } from 'effect'
 import { Context, Schema } from 'effect'
+import type { CorrelationId, SessionId } from '../../domain/ids.ts'
 
 // §9 — actor taxonomy
 export type Actor = 'user' | 'georges' | 'host' | 'claude' | 'supervisor' | 'monitor' | 'witness'
@@ -10,8 +11,8 @@ export interface StoredEvent {
   readonly kind: string
   readonly actor: Actor
   readonly storyRef: string
-  readonly sessionId: string
-  readonly correlationId: string
+  readonly sessionId: SessionId
+  readonly correlationId: CorrelationId
   readonly contentHash: string
   readonly prevHash: string // 'genesis' for first event in a session
   readonly schemaV: number
@@ -24,8 +25,8 @@ export type NewEvent = Omit<StoredEvent, 'id' | 'contentHash' | 'prevHash'>
 
 export interface EventStoreQuery {
   readonly storyRef?: string
-  readonly sessionId?: string
-  readonly correlationId?: string
+  readonly sessionId?: SessionId
+  readonly correlationId?: CorrelationId
   readonly limit?: number
 }
 

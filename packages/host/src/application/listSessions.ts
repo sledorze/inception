@@ -11,10 +11,11 @@
  */
 import { Effect } from 'effect'
 import { EventKind } from '../domain/events.ts'
+import { type SessionId } from '../domain/ids.ts'
 import { EventStore } from '../ports/driven/EventStore.ts'
 
 export interface SessionSummary {
-  readonly sessionId: string
+  readonly sessionId: SessionId
   readonly eventCount: number
   readonly goalCount: number
   readonly lastActivity: string
@@ -24,7 +25,10 @@ export interface SessionSummary {
 export const listSessions: Effect.Effect<readonly SessionSummary[], never, EventStore> = Effect.gen(function* () {
   const store = yield* EventStore
   const events = yield* store.query({}).pipe(Effect.orDie)
-  const sessions = new Map<string, { sessionId: string; eventCount: number; goalCount: number; lastActivity: string }>()
+  const sessions = new Map<
+    SessionId,
+    { sessionId: SessionId; eventCount: number; goalCount: number; lastActivity: string }
+  >()
   const deleted = new Set<string>()
   for (const e of events) {
     if (e.kind === EventKind.SessionDeleted) {
