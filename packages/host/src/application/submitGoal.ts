@@ -57,19 +57,27 @@ export const buildInitialMessages = (b: AgentBrief): MsgEntry[] => {
 // Runs generateText and converts ToolParameterValidationError into a failed tool-result
 // message visible to Georges, so he can self-correct on the next round (P54).
 // Without this, a missing required param (e.g. "role" on list-tools) surfaces as a 500.
+// One recovery attempt only — a second consecutive validation error propagates normally.
+//
+// Effect.fn cannot wrap this function because TypeScript collapses generic type parameters
+// when passing generic functions to higher-order wrappers (Args loses the Tools binding).
+// Effect.withSpan is used instead to preserve the tracing span.
 const generateWithRecovery = <Tools extends Record<string, Tool.Any>>(
   msgs: readonly MsgEntry[],
   toolkit: LanguageModelNS.ToolkitOption<Tools, never, never>,
   correlationId: string,
-) =>
-  Effect.provideService(
-    LanguageModel.generateText({
-      prompt: msgs as Parameters<typeof LanguageModel.generateText>[0]['prompt'],
-      toolkit,
-    }),
-    CurrentCorrelationId,
-    correlationId,
-  ).pipe(
+) => {
+  const callLlm = (m: readonly MsgEntry[]) =>
+    Effect.provideService(
+      LanguageModel.generateText({
+        prompt: m as Parameters<typeof LanguageModel.generateText>[0]['prompt'],
+        toolkit,
+      }),
+      CurrentCorrelationId,
+      correlationId,
+    )
+
+  return callLlm(msgs).pipe(
     Effect.catchCause(cause => {
       const maybeErr = Cause.findErrorOption(cause)
       if (Option.isNone(maybeErr)) {
@@ -89,7 +97,7 @@ const generateWithRecovery = <Tools extends Record<string, Tool.Any>>(
               {
                 id: syntheticId,
                 name: reason.toolName,
-                params: reason.toolParams as unknown, // cast: Schema.Json is a subtype of unknown; safe downcast required by MsgEntry's content: unknown shape
+                params: reason.toolParams as unknown, // cast: raw JSON from wire; MsgEntry content accepts unknown at this position
                 providerExecuted: false,
                 type: 'tool-call' as const,
               },
@@ -109,17 +117,12 @@ const generateWithRecovery = <Tools extends Record<string, Tool.Any>>(
             role: 'tool',
           },
         ]
-        return yield* Effect.provideService(
-          LanguageModel.generateText({
-            prompt: recovery as Parameters<typeof LanguageModel.generateText>[0]['prompt'],
-            toolkit,
-          }),
-          CurrentCorrelationId,
-          correlationId,
-        )
+        return yield* callLlm(recovery)
       })
     }),
+    Effect.withSpan('submitGoal.generateWithRecovery'),
   )
+}
 
 // Agentic loop: calls the LLM up to MAX_AGENT_ROUNDS times, appending tool results
 // back into the prompt each round. Stops when the model makes no more tool calls or
