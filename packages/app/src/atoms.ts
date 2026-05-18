@@ -4,7 +4,7 @@ import * as Layer from 'effect/Layer'
 import * as AsyncResult from 'effect/unstable/reactivity/AsyncResult'
 import * as Atom from 'effect/unstable/reactivity/Atom'
 import * as Reactivity from 'effect/unstable/reactivity/Reactivity'
-import { getTenantId } from './api/auth.ts'
+import { copyConversationLink, getTenantId } from './api/auth.ts'
 import {
   createTenant,
   deleteSession,
@@ -117,3 +117,8 @@ export const renameTenantAtom = atomRuntime.fn(({ id, name }: { id: string; name
     yield* Reactivity.invalidate(['tenants'])
   }),
 )
+
+export const copyLinkAtom = atomRuntime.fn(({ sessionId }: { sessionId: string }) =>
+  Effect.tryPromise({ catch: e => String(e), try: () => copyConversationLink(sessionId) }),
+)
+export const copyLinkView = Atom.map(copyLinkAtom, toView)

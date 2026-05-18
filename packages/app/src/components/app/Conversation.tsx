@@ -8,7 +8,15 @@ import { Button } from '@app/design-system/button'
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@app/design-system/collapsible'
 import { Input } from '@app/design-system/input'
 import { Textarea } from '@app/design-system/textarea'
-import { respondAtom, respondView, sendGoalAtom, sendGoalView, turnsView } from '../../atoms.ts'
+import {
+  copyLinkAtom,
+  copyLinkView,
+  respondAtom,
+  respondView,
+  sendGoalAtom,
+  sendGoalView,
+  turnsView,
+} from '../../atoms.ts'
 
 const mdComponents: Components = {
   code: ({ children }) => <code className="rounded bg-background px-1 py-0.5 font-mono text-xs">{children}</code>,
@@ -45,6 +53,8 @@ export function Conversation() {
   const sendState = useAtomValue(sendGoalView)
   const respond = useAtomSet(respondAtom)
   const respondState = useAtomValue(respondView)
+  const copyLink = useAtomSet(copyLinkAtom)
+  const copyState = useAtomValue(copyLinkView)
 
   const [goal, setGoal] = useState('')
   const [handleId, setHandleId] = useState('synthetic-001')
@@ -147,6 +157,18 @@ export function Conversation() {
             Session: {sessionId}
           </p>
         </div>
+        <Button
+          className="ml-auto"
+          data-testid="conv-copy-link"
+          onClick={() => {
+            copyLink({ sessionId })
+          }}
+          size="sm"
+          type="button"
+          variant="ghost"
+        >
+          {copyState._tag === 'Ready' ? 'Copied!' : 'Copy link'}
+        </Button>
       </div>
 
       <div
