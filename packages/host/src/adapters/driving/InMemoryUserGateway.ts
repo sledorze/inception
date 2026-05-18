@@ -1,8 +1,9 @@
 import { Effect, Layer, MutableRef } from 'effect'
+import type { CorrelationId, SessionId } from '../../domain/ids.ts'
 import { UserGateway } from '../../ports/driving/UserGateway.ts'
 import type { GoalSubmission } from '../../ports/driving/UserGateway.ts'
 
-export type RespondedCall = { correlationId: string; text: string; sessionId: string }
+export type RespondedCall = { correlationId: CorrelationId; text: string; sessionId: SessionId }
 
 export const InMemoryUserGateway = {
   /** Convenience layer for callers that don't need postcondition inspection. */

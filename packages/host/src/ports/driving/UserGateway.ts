@@ -1,10 +1,11 @@
 import type { Effect } from 'effect'
 import { Context, Schema } from 'effect'
+import type { CorrelationId, HandleId, SessionId } from '../../domain/ids.ts'
 
 export interface GoalSubmission {
   readonly goal: string
-  readonly handleId: string
-  readonly sessionId?: string
+  readonly handleId: HandleId
+  readonly sessionId?: SessionId
 }
 
 export class UserGatewayError extends Schema.TaggedErrorClass<UserGatewayError>()('@app/host/UserGatewayError', {
@@ -17,6 +18,10 @@ export class UserGateway extends Context.Service<
     readonly listen: <R>(
       onGoal: (submission: GoalSubmission) => Effect.Effect<void, never, R>,
     ) => Effect.Effect<void, UserGatewayError, R>
-    readonly respond: (correlationId: string, text: string, sessionId: string) => Effect.Effect<void, UserGatewayError>
+    readonly respond: (
+      correlationId: CorrelationId,
+      text: string,
+      sessionId: SessionId,
+    ) => Effect.Effect<void, UserGatewayError>
   }
 >()('@app/host/ports/driving/UserGateway') {}

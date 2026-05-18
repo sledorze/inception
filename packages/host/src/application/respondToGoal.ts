@@ -1,7 +1,8 @@
-import { DateTime, Effect, Option, Random, Schema } from 'effect'
+import { DateTime, Effect, Option, Schema } from 'effect'
 import { LanguageModel } from 'effect/unstable/ai'
 import type { LanguageModel as LanguageModelNS, Tool } from 'effect/unstable/ai'
 import { ClarifyRequestedPayload, EventKind, GoalSubmittedPayload } from '../domain/events.ts'
+import { CorrelationId, nextCorrelationId, type SessionId } from '../domain/ids.ts'
 import { CurrentCorrelationId } from '../domain/tracing.ts'
 import { DataHandleRegistry } from '../ports/driven/DataHandle.ts'
 import { EventStore } from '../ports/driven/EventStore.ts'
@@ -14,7 +15,7 @@ import { checkSessionDeleted } from './deleteSession.ts'
 
 export class ClarifyNotFoundError extends Schema.TaggedErrorClass<ClarifyNotFoundError>()(
   '@app/host/ClarifyNotFoundError',
-  { correlationId: Schema.String },
+  { correlationId: CorrelationId },
 ) {}
 
 // Returns decoded { goal, handleId, question } wrapped in Some, or None when either event is absent.
@@ -40,7 +41,11 @@ const findClarifyContext = (
 export const makeRespondToGoal = <Tools extends Record<string, Tool.Any>>(
   toolkit: LanguageModelNS.ToolkitOption<Tools, never, never>,
 ) =>
-  Effect.fn('application.respondToGoal')(function* (correlationId: string, answer: string, sessionId: string) {
+  Effect.fn('application.respondToGoal')(function* (
+    correlationId: CorrelationId,
+    answer: string,
+    sessionId: SessionId,
+  ) {
     const store = yield* EventStore
     // Block deleted sessions before appending.
     yield* checkSessionDeleted(sessionId)
@@ -93,7 +98,7 @@ export const makeRespondToGoal = <Tools extends Record<string, Tool.Any>>(
       tools: tools.map(t => ({ description: t.description, name: t.name })),
     })
 
-    const newCorrelationId = yield* Random.nextUUIDv4
+    const newCorrelationId = yield* nextCorrelationId
     const response = yield* Effect.provideService(
       LanguageModel.generateText({
         prompt: [

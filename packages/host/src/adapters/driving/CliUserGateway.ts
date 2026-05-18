@@ -2,13 +2,14 @@
 // @effect-diagnostics-next-line nodeBuiltinImport:off
 import { createServer } from 'node:http'
 import { Config, Effect, Layer, Queue, Schema } from 'effect'
+import { HandleId, SessionId } from '../../domain/ids.ts'
 import { UserGateway, UserGatewayError } from '../../ports/driving/UserGateway.ts'
 import type { GoalSubmission } from '../../ports/driving/UserGateway.ts'
 
 const GoalSubmissionSchema = Schema.Struct({
   goal: Schema.String,
-  handleId: Schema.String,
-  sessionId: Schema.optional(Schema.String),
+  handleId: HandleId,
+  sessionId: Schema.optional(SessionId),
 })
 
 const makeListenEffect = <R>(
