@@ -1,6 +1,6 @@
 import { authedFetch, handleErr } from './auth.ts'
 
-export interface ScriptEntry {
+interface ScriptEntry {
   exitCode: number
   handleId: string
   role: string

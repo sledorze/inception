@@ -31,7 +31,7 @@ export const sessionsView = Atom.map(sessionsAtom, toView)
 
 // ── Per-session transcript — Atom.family keyed by sessionId, each subscribed ──
 // to its own "turns:<id>" topic so it self-refreshes on send/respond.
-export const turnsAtom = Atom.family((sessionId: string) =>
+const turnsAtom = Atom.family((sessionId: string) =>
   Atom.withReactivity([turnsKey(sessionId)])(fetchAtom(() => getTurns(sessionId))),
 )
 export const turnsView = Atom.family((sessionId: string) => Atom.map(turnsAtom(sessionId), toView))
