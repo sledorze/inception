@@ -13,7 +13,7 @@ const writeText = vi.fn<(text: string) => Promise<void>>()
 
 vi.mock('@app/shared-api', async importOriginal => {
   const actual = await importOriginal<Record<string, unknown>>()
-  return { ...actual, copyConversationLink: (s: string) => writeText(s) }
+  return { ...actual, copyConversationLink: () => writeText(globalThis.location.href) }
 })
 
 vi.mock('../../hooks/chat.ts', () => ({
@@ -91,12 +91,11 @@ describe('Conversation', () => {
     await waitFor(() => expect(respondToGoal).toHaveBeenCalledWith('sess-2', 'c2', 'synthetic-001'))
   })
 
-  it('copies the conversation link and shows "Copied!" when the Copy link button is clicked', async () => {
+  it('copies the conversation link when the copy link icon button is clicked', async () => {
     renderAt('sess-copy')
     const btn = await screen.findByTestId('conv-copy-link')
-    expect(btn).toHaveTextContent('Copy link')
+    expect(btn).toHaveAttribute('aria-label', 'Copy conversation link')
     await userEvent.click(btn)
-    await waitFor(() => expect(writeText).toHaveBeenCalledWith('sess-copy'))
-    expect(btn).toHaveTextContent('Copied!')
+    await waitFor(() => expect(writeText).toHaveBeenCalledTimes(1))
   })
 })

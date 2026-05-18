@@ -118,7 +118,6 @@ export const renameTenantAtom = atomRuntime.fn(({ id, name }: { id: string; name
   }),
 )
 
-export const copyLinkAtom = atomRuntime.fn(({ sessionId }: { sessionId: string }) =>
-  Effect.tryPromise({ catch: e => String(e), try: () => copyConversationLink(sessionId) }),
+export const copyLinkAtom = atomRuntime.fn(() =>
+  Effect.tryPromise({ catch: e => String(e), try: () => copyConversationLink() }),
 )
-export const copyLinkView = Atom.map(copyLinkAtom, toView)
