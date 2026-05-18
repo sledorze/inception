@@ -43,6 +43,7 @@ export class Forbidden extends Schema.TaggedErrorClass<Forbidden>()(ForbiddenTag
 export class AuthGateway extends Context.Service<
   AuthGateway,
   {
+    readonly grantTenant: (subject: string, tenantId: string) => Effect.Effect<void>
     readonly login: (username: string, password: string) => Effect.Effect<AuthSession, InvalidCredentials>
     readonly logout: (token: string) => Effect.Effect<void>
     readonly verify: (token: string) => Effect.Effect<Principal, SessionExpired | SessionNotFound>

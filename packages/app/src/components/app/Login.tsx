@@ -2,7 +2,7 @@ import { useState } from 'react'
 import { Button } from '@app/design-system/button'
 import { Card } from '@app/design-system/card'
 import { Input } from '@app/design-system/input'
-import { login, setToken } from '../../hooks/auth.ts'
+import { login, setTenantId, setToken } from '../../hooks/auth.ts'
 
 interface LoginProps {
   onSuccess: () => void
@@ -21,8 +21,9 @@ export function Login({ onSuccess }: LoginProps) {
     setBusy(true)
     setError(null)
     try {
-      const { token } = await login(username, password)
-      setToken(token)
+      const session = await login(username, password)
+      setToken(session.token)
+      setTenantId(session.tenantIds[0] ?? 'default')
       onSuccess()
     } catch (err: unknown) {
       setError(String(err))

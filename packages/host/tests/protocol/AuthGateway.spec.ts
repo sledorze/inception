@@ -104,6 +104,32 @@ function runContract(name: string, makeLayer: () => Layer.Layer<AuthGateway>) {
         }),
       ),
     )
+
+    it.effect('grantTenant adds the tenant to principal tenantIds after next verify', () =>
+      run(
+        Effect.gen(function* () {
+          const auth = yield* AuthGateway
+          const session = yield* auth.login('alice', 'secret')
+          yield* auth.grantTenant('alice', 'acme')
+          const principal = yield* auth.verify(session.token)
+          expect(principal.tenantIds).toContain('default')
+          expect(principal.tenantIds).toContain('acme')
+        }),
+      ),
+    )
+
+    it.effect('grantTenant is idempotent — double-grant does not duplicate tenantId', () =>
+      run(
+        Effect.gen(function* () {
+          const auth = yield* AuthGateway
+          yield* auth.grantTenant('alice', 'acme')
+          yield* auth.grantTenant('alice', 'acme')
+          const session = yield* auth.login('alice', 'secret')
+          const principal = yield* auth.verify(session.token)
+          expect(principal.tenantIds.filter(id => id === 'acme').length).toBe(1)
+        }),
+      ),
+    )
   })
 }
 

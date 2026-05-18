@@ -74,14 +74,23 @@ import { login } from './application/login.ts'
 import { makeLoginRateLimiter } from './application/loginRateLimiter.ts'
 import { requireRole } from './application/authorize.ts'
 import { AGENT_MD_PATH } from './application/session.ts'
+import { listTenants } from './application/listTenants.ts'
+import { createTenant } from './application/createTenant.ts'
+import { renameTenant } from './application/renameTenant.ts'
+import { seedDefaultTenant } from './application/seedDefaultTenant.ts'
 import { EventStore } from './ports/driven/EventStore.ts'
 import type { StoredEvent } from './ports/driven/EventStore.ts'
 import type { AppSettings } from './ports/driven/Settings.ts'
 import { AppSettingsSchema, Settings } from './ports/driven/Settings.ts'
 import type { AdminQueryError } from './ports/driving/AdminQuery.ts'
 import { AdminQuery } from './ports/driving/AdminQuery.ts'
-import type { AuthGateway } from './ports/driving/AuthGateway.ts'
-import { InvalidCredentialsTag, SessionExpiredTag, SessionNotFoundTag } from './ports/driving/AuthGateway.ts'
+import {
+  AuthGateway,
+  type Principal,
+  InvalidCredentialsTag,
+  SessionExpiredTag,
+  SessionNotFoundTag,
+} from './ports/driving/AuthGateway.ts'
 import { CurrentTenantId } from './domain/tracing.ts'
 import { GeorgesToolkit, fullLayer } from './runtime/bind.ts'
 import { UserGateway } from './ports/driving/UserGateway.ts'
@@ -97,11 +106,14 @@ const extractBearer = Effect.gen(function* () {
   return auth.startsWith('Bearer ') ? auth.slice(7) : undefined
 })
 
-/** Returns 401/403 when auth fails; otherwise runs the handler. */
-const withRole =
+/**
+ * Shared auth helper — verify token, yield the Principal to the handler.
+ * Returns 401/403 when auth fails. Used by withRole, withTenant, and tenant CRUD routes.
+ */
+const withPrincipal =
   (role: 'admin' | 'enduser') =>
   <E, R>(
-    handler: Effect.Effect<HttpServerResponse.HttpServerResponse, E, R>,
+    handler: (principal: Principal) => Effect.Effect<HttpServerResponse.HttpServerResponse, E, R>,
   ): Effect.Effect<HttpServerResponse.HttpServerResponse, E, R | HttpServerRequest.HttpServerRequest | AuthGateway> =>
     Effect.gen(function* () {
       const token = yield* extractBearer
@@ -113,10 +125,18 @@ const withRole =
                 HttpServerResponse.text('unauthorized', { status: 401 })
               : HttpServerResponse.text('forbidden', { status: 403 }),
             ),
-          onSuccess: () => handler,
+          onSuccess: principal => handler(principal),
         }),
       )
     })
+
+/** Returns 401/403 when auth fails; otherwise runs the handler. */
+const withRole =
+  (role: 'admin' | 'enduser') =>
+  <E, R>(
+    handler: Effect.Effect<HttpServerResponse.HttpServerResponse, E, R>,
+  ): Effect.Effect<HttpServerResponse.HttpServerResponse, E, R | HttpServerRequest.HttpServerRequest | AuthGateway> =>
+    withPrincipal(role)(() => handler)
 
 /**
  * Tenant guard — read `X-Tenant-Id` header, verify the authenticated principal is
@@ -135,20 +155,10 @@ const withTenant =
       if (!requestedTenantId) {
         return HttpServerResponse.text('X-Tenant-Id header required', { status: 400 })
       }
-      const token = yield* extractBearer
-      return yield* requireRole(token, role).pipe(
-        Effect.matchEffect({
-          onFailure: err =>
-            Effect.succeed(
-              err._tag === SessionNotFoundTag || err._tag === SessionExpiredTag ?
-                HttpServerResponse.text('unauthorized', { status: 401 })
-              : HttpServerResponse.text('forbidden', { status: 403 }),
-            ),
-          onSuccess: principal =>
-            principal.tenantIds.includes(requestedTenantId) ?
-              Effect.provideService(handler, CurrentTenantId, requestedTenantId)
-            : Effect.succeed(HttpServerResponse.text('forbidden', { status: 403 })),
-        }),
+      return yield* withPrincipal(role)(principal =>
+        principal.tenantIds.includes(requestedTenantId) ?
+          Effect.provideService(handler, CurrentTenantId, requestedTenantId)
+        : Effect.succeed(HttpServerResponse.text('forbidden', { status: 403 })),
       )
     })
 
@@ -213,10 +223,62 @@ const loginRoute = HttpRouter.add(
   }),
 )
 
+// ─── Tenant CRUD routes ───────────────────────────────────────────────────────
+
+const listTenantsRoute = HttpRouter.add(
+  'GET',
+  '/api/tenants',
+  withPrincipal('enduser')(principal =>
+    Effect.gen(function* () {
+      const all = yield* listTenants()
+      return jsonOk(all.filter(t => principal.tenantIds.includes(t.id)))
+    }),
+  ),
+)
+
+const CreateTenantBody = Schema.Struct({ id: Schema.optional(Schema.String), name: Schema.String })
+
+const createTenantRoute = HttpRouter.add(
+  'POST',
+  '/api/tenants',
+  withPrincipal('enduser')(principal =>
+    Effect.gen(function* () {
+      const body = yield* parseBody(CreateTenantBody)
+      if (body === null || body.name.trim() === '') {
+        return textErr('missing name', 422)
+      }
+      const tenantId = body.id ?? (yield* Random.nextUUIDv4)
+      yield* createTenant(tenantId, body.name.trim())
+      const auth = yield* AuthGateway
+      yield* auth.grantTenant(principal.subject, tenantId)
+      return jsonOk({ id: tenantId, name: body.name.trim() })
+    }),
+  ),
+)
+
+const renameTenantRoute = HttpRouter.add(
+  'PATCH',
+  '/api/tenants/:tenantId',
+  withPrincipal('enduser')(principal =>
+    Effect.gen(function* () {
+      const { tenantId } = yield* HttpRouter.schemaPathParams(Schema.Struct({ tenantId: Schema.String }))
+      if (!principal.tenantIds.includes(tenantId)) {
+        return textErr('forbidden', 403)
+      }
+      const body = yield* parseBody(Schema.Struct({ name: Schema.String }))
+      if (body === null || body.name.trim() === '') {
+        return textErr('missing name', 422)
+      }
+      yield* renameTenant(tenantId, body.name.trim())
+      return HttpServerResponse.empty({ status: 204 })
+    }),
+  ),
+)
+
 const submitGoalRoute = HttpRouter.add(
   'POST',
   '/api/goals',
-  withRole('enduser')(
+  withTenant('enduser')(
     Effect.gen(function* () {
       const body = yield* parseBody(SubmitGoalBody)
       if (body === null) {
@@ -265,7 +327,7 @@ const rejectGoalRoute = HttpRouter.add(
 const sessionTurnsRoute = HttpRouter.add(
   'GET',
   '/api/sessions/:sessionId/turns',
-  withRole('enduser')(
+  withTenant('enduser')(
     Effect.gen(function* () {
       const { sessionId } = yield* HttpRouter.schemaPathParams(Schema.Struct({ sessionId: Schema.String }))
       if (yield* isSessionDeleted(sessionId)) {
@@ -289,7 +351,7 @@ const sessionTurnsRoute = HttpRouter.add(
 const sessionRespondRoute = HttpRouter.add(
   'POST',
   '/api/sessions/:sessionId/respond',
-  withRole('enduser')(
+  withTenant('enduser')(
     Effect.gen(function* () {
       const body = yield* parseBody(RespondBody)
       if (body === null) {
@@ -377,7 +439,11 @@ const toolRoute = HttpRouter.add(
 
 // ─── S8: Exchange review loop routes ─────────────────────────────────────────
 
-const listSessionsRoute = HttpRouter.add('GET', '/api/sessions', withRole('enduser')(Effect.map(listSessions, jsonOk)))
+const listSessionsRoute = HttpRouter.add(
+  'GET',
+  '/api/sessions',
+  withTenant('enduser')(Effect.map(listSessions, jsonOk)),
+)
 
 const sessionEventsRoute = HttpRouter.add(
   'GET',
@@ -650,6 +716,9 @@ const spaRoute = HttpStaticServer.layer({ root: DIST, spa: true }).pipe(
 const allRoutes = Layer.mergeAll(
   healthRoute,
   loginRoute,
+  listTenantsRoute,
+  createTenantRoute,
+  renameTenantRoute,
   submitGoalRoute,
   rejectGoalRoute,
   sessionTurnsRoute,
@@ -680,6 +749,9 @@ const allRoutes = Layer.mergeAll(
 const rt = ManagedRuntime.make(fullLayer.pipe(Layer.provideMerge(NodeHttpServer.layerHttpServices)))
 
 const PORT = await rt.runPromise(Config.int('PORT').pipe(Config.withDefault(3000)))
+
+// Seed the default tenant (idempotent — same correlationId; no-op on re-run).
+rt.runFork(seedDefaultTenant().pipe(Effect.orDie))
 
 // Start the UserGateway listener as a background fiber — processes goals on :3001.
 rt.runFork(
