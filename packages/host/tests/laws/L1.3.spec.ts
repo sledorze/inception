@@ -173,6 +173,31 @@ layer(testLayer)('L1.3 — Code-over-Data', it => {
     }),
   )
 
+  it.effect(
+    'run-script emits a ScriptExecuted event with script source but NO raw-bytes fields (L1.3 code-over-data wall)',
+    () =>
+      Effect.gen(function* () {
+        const id = randomUUID()
+        yield* registerHandle(makeFakeHandle(id))
+        yield* callRunScript(id)
+        const store = yield* EventStore
+        const events = yield* store.query({ sessionId: 'bootstrap' })
+        const scriptEvent = events.find(e => e.kind === 'ScriptExecuted')
+        expect(scriptEvent, 'ScriptExecuted event must be emitted').toBeDefined()
+        expect(scriptEvent?.actor).toBe('host')
+        const payload = scriptEvent?.payload as Record<string, unknown>
+        // Script source IS carried — the feature.
+        expect(payload['script']).toBe('console.log(1)')
+        expect(payload['exitCode']).toBe(0)
+        expect(payload['summary']).toBe('count=10')
+        // If-absent: raw-bytes fields (stdoutHash, bitsConsumed) must NOT appear.
+        // Their presence would violate the code-over-data wall.
+        expect(Object.keys(payload).toSorted()).toStrictEqual(['exitCode', 'handleId', 'role', 'script', 'summary'])
+        expect(typeof payload['summary']).toBe('string')
+        expect((payload['summary'] as string).length).toBeLessThanOrEqual(512)
+      }),
+  )
+
   // fetch-handle-shape --------------------------------------------------------
 
   it.effect('fetch-handle-shape returns { schema, redactedSample } for a valid handle', () =>

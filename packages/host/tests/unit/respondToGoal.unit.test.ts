@@ -7,6 +7,7 @@
  * Happy path tested:
  *   (b) GoalCompleted lands under the ORIGINAL correlationId, not the LLM's internal newCorrelationId.
  *       This proves the correlation chain is intact across the clarify round-trip.
+ *   (c) Prior session turns appear in the LLM prompt (S6/L3.5 recall on the clarify-answer path).
  */
 import { describe, expect, it } from '@effect/vitest'
 import { DateTime, Effect, Layer } from 'effect'
@@ -18,6 +19,8 @@ import { InMemoryToolRegistry } from '../../src/adapters/driven/InMemoryToolRegi
 import { ClarifyNotFoundError, makeRespondToGoal } from '../../src/application/respondToGoal.ts'
 import { EventKind } from '../../src/domain/events.ts'
 import { EventStore } from '../../src/ports/driven/EventStore.ts'
+
+type Prompt = Parameters<LanguageModel.Service['generateText']>[0]['prompt']
 
 const NOW = '2024-01-01T00:00:00.000Z'
 
@@ -60,6 +63,23 @@ const fakeLanguageModelLayer = Layer.succeed(
   }),
 )
 
+// Capturing stub: records every prompt for assertion.
+const makeCapturingLayer = (captured: Prompt[]) =>
+  Layer.succeed(
+    LanguageModel.LanguageModel,
+    LanguageModel.LanguageModel.of({
+      generateObject: (() => Effect.die('not used')) as LanguageModel.Service['generateObject'],
+      generateText: opts => {
+        captured.push(opts.prompt)
+        return Effect.succeed(
+          new LanguageModel.GenerateTextResponse([{ text: 'Stub reply.', type: 'text' }]),
+        ) as ReturnType<LanguageModel.Service['generateText']>
+      },
+      streamObject: (() => Effect.die('not used')) as LanguageModel.Service['streamObject'],
+      streamText: (() => Effect.die('not used')) as LanguageModel.Service['streamText'],
+    }),
+  )
+
 const testLayer = Layer.mergeAll(
   InMemoryEventStore.layer,
   fakeLanguageModelLayer,
@@ -99,4 +119,58 @@ describe(makeRespondToGoal, () => {
       expect(completed?.payload).toMatchObject({ text: 'Stub reply.' })
     }).pipe(Effect.provide(testLayer), Effect.provide(DateTime.layerCurrentZoneLocal)),
   )
+
+  it.effect('prior session turns appear in the LLM prompt on the clarify-answer path (S6/L3.5 recall)', () => {
+    const captured: Prompt[] = []
+    const correlationId = 'cid-clarify-recall'
+    const sessionId = 'session-recall'
+
+    return Effect.gen(function* () {
+      const store = yield* EventStore
+
+      // Seed one completed prior turn in the session.
+      yield* store.append({
+        actor: 'user',
+        correlationId: 'prior-cid',
+        kind: EventKind.GoalSubmitted,
+        occurredAt: NOW,
+        payload: { goal: 'Prior question', handleId: 'h1', sessionId },
+        schemaV: 1,
+        sessionId,
+        storyRef: 'S6',
+      })
+      yield* store.append({
+        actor: 'host',
+        correlationId: 'prior-cid',
+        kind: EventKind.GoalCompleted,
+        occurredAt: NOW,
+        payload: { text: 'Prior answer' },
+        schemaV: 1,
+        sessionId,
+        storyRef: 'S6',
+      })
+
+      // Seed the clarify turn for the current correlationId.
+      yield* seedEvents(correlationId, sessionId)
+
+      const toolkit = {} as Parameters<typeof makeRespondToGoal>[0]
+      yield* makeRespondToGoal(toolkit)(correlationId, 'My answer.', sessionId)
+
+      expect(captured.length).toBeGreaterThan(0)
+      const promptStr = JSON.stringify(captured[0])
+      expect(promptStr, 'prior goal must appear in clarify-answer prompt').toContain('Prior question')
+      expect(promptStr, 'prior reply must appear in clarify-answer prompt').toContain('Prior answer')
+    }).pipe(
+      Effect.provide(
+        Layer.mergeAll(
+          InMemoryEventStore.layer,
+          makeCapturingLayer(captured),
+          NodeFileSystem.layer,
+          InMemoryToolRegistry.layer([]),
+          InMemoryDataHandleRegistry.layer(),
+        ),
+      ),
+      Effect.provide(DateTime.layerCurrentZoneLocal),
+    )
+  })
 })

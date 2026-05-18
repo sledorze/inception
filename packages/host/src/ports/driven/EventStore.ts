@@ -46,7 +46,7 @@ export function computeContentHash(event: NewEvent): string {
   return createHash('sha256').update(material).digest('hex')
 }
 
-function canonicalJson(value: unknown): string {
+export function canonicalJson(value: unknown): string {
   if (value === null || typeof value !== 'object') {
     return JSON.stringify(value)
   }

@@ -140,8 +140,50 @@ Advances S6 (parked P.2) and S8 (placeholder) to _demonstrated_. Exit: determini
   - S6 kernel code-complete; e2e RED pending human-gated cassette (LMStudio required). Cassette recording unblocks the S6 demo claim.
   - S8 (`respond(clarify)`, `ClarifyRequested/ClarifyAnswered`, `UserGateway.respond`) not started — unparking 6.9. Conversation component now exists (6.6 prerequisite met), so 6.9 can proceed in parallel with cassette recording.
   - Phase 6 is not yet "done" (no live demo). Self-refine: unpark 6.9 as next slice; 6.6 demo claimed once cassette committed + `LLM_MODE=replay pnpm e2e` passes.
-- [parked] **6.8** Vertical Slice 2 (bounded multi-turn recall, L3.5 last-N) — deferred until 6.9 + cassette land.
+- [done] **6.8** Vertical Slice 2 (bounded multi-turn recall, L3.5 last-N) — all steps GREEN (2026-05-18):
+  1. Extracted `application/sessionTurns.ts` — `projectSessionTurns` projection (Kleppmann/Young: no event reshaping); refactored `sessionTurnsRoute` to use it; `sessionTurns.unit.test.ts` (6 tests).
+  2. `RECALL_WINDOW=3` (§12); extended `AgentBrief.priorTurns`; `buildInitialMessages` interleaves prior turns as `user`/`assistant` pairs oldest→newest between brief and current goal; prefix-KV stable until window slides.
+  3. `makeSubmitGoal`: `store.query({sessionId})` → `projectSessionTurns` → filter-completed + `slice(-RECALL_WINDOW)` → `priorTurns` in brief.
+  4. `respondToGoal`: same recall wiring on the clarify-answer path.
+  5. §12 row: S6 recall window N=3 (bootstrap=true, L3.5/S6).
+  6. Tests: `submitGoal-recall.unit.test.ts` (2, red→green acceptance); `submitGoal-brief.unit.test.ts` interleave case; `L3.5.spec.ts` if-absent bounded+curated law; `respondToGoal.unit.test.ts` clarify-path recall.
+     Deferred (unchanged): append-only multi-turn LLM e2e cassette (LMStudio, `LLM_MODE=record`, temperature=0+seed=42 per 6.3 decision) — recorded human-gated, same pattern as 6.6/6.9.
 - [done] **6.9** Slice 3 — S8 `respond(clarify)`: all code shipped + cassettes recorded (`0138c778...json` seed for "help me" → request-clarification, `0b75a4a6...json` for post-answer LLM call) + `LLM_MODE=replay pnpm e2e` green (2026-05-16). Both fake and replay modes verified.
+
+- [done] **6.10** **Persistent, switchable chat sessions (`packages/app`)** (2026-05-17).
+  Consumer chat had no session lifecycle (`Conversation` minted `crypto.randomUUID()` per
+  mount — reload silently orphaned the transcript). This is the prerequisite for the
+  deferred append-only multi-turn replay (6.8). Numbered breakdown (all steps GREEN):
+  1. Backend: extracted `application/listSessions.ts` (server-side aggregation, lifted
+     from the inline `GET /api/sessions` route body — thin-route L2.14); widened the
+     route guard to `withRole('enduser')` (admin still passes via the existing
+     `requireRole` `admin ⊃ enduser` hierarchy — no RBAC generalization needed, L0.3
+     unchanged); route docstring `admin:` → `admin/enduser:`.
+  2. Frontend deps + api: added `@effect/atom-react`/`effect`/`react-router`/`scheduler`
+     (exact backoffice versions) to `packages/app`; `listSessions()` + `SessionSummary`
+     in `api/chat.ts`.
+  3. `packages/app/src/atoms.ts` (mirrors `backoffice/src/atoms.ts`): `AsyncView`/
+     `toView`/`fetchAtom`; `sessionsAtom`/`sessionsView` (topic `sessions`); `turnsAtom`/
+     `turnsView` via `Atom.family(sessionId)` (topic `turns:<id>`); `sendGoalAtom`/
+     `respondAtom` via `atomRuntime.fn` — per-session invalidation published inside the
+     effect via `Reactivity.invalidate([turns:<id>, sessions])` (static `reactivityKeys`
+     can't depend on the arg; idiomatic Effect dynamic-key bus).
+  4. Router shell: `App.tsx` → `BrowserRouter` + routes (`/`→`SessionList`,
+     `/sessions/:sessionId`→`Conversation`, `*`→`Navigate /`), inline header (no
+     backoffice `AppShell`); new `SessionList.tsx` with "New conversation" button
+     (`navigate('/sessions/'+crypto.randomUUID())`, pure event handler).
+  5. `Conversation.tsx` rewritten as a near-pure render component: `useParams()`
+     sessionId, data from `turnsView`, sends via `useAtomSet(sendGoalAtom/respondAtom)`,
+     optimistic bubble from action `AsyncView` + input `useState`; key-bus refetch
+     hydrates the authoritative transcript on load/switch (closes the reload-orphan
+     gap). Zero `.then(`, no `AsyncResult`/`Cause` in the component (P41 green).
+  6. This record. Verification: app typecheck + `pnpm lint` clean; P41/P43
+     enforcement (15) + `listSessions.unit.test.ts` (3) + L0.3 (4) + AdminQuery (10) +
+     AuthGateway (14) + bootstrap.integration (4) green; new frontend harness:
+     `SessionList.test.tsx` (4) + `Conversation.test.tsx` (3) via
+     `@effect/atom-react` `RegistryProvider` + `MemoryRouter` + happy-dom.
+     Deferred (unchanged): append-only multi-turn LLM replay remains **6.8** (this slice
+     is its prerequisite, intentionally landed first; its cassette re-record is separate).
 
 ---
 

@@ -17,7 +17,7 @@
  *   GET  /api/admin/pain                      — admin: open PAIN items
  *   GET  /api/admin/work                      — admin: TODO work items
  *   GET  /api/admin/trace                     — admin: event trace (replaces GET /events)
- *   GET  /api/sessions                        — admin: list all sessions with metadata (S8)
+ *   GET  /api/sessions                        — admin/enduser: list all sessions with metadata (S8)
  *   GET  /api/sessions/:id/events             — admin: raw events for a session (S8)
  *   POST /api/exchanges/:id/flag              — admin: flag an exchange with a note (S8)
  *   GET  /api/patterns                        — admin: naively-bucketed rejection patterns (S8)
@@ -26,6 +26,7 @@
  *   POST /api/exchanges/:id/replay            — admin: replay a goal under current agent.md (S8)
  *   GET  /api/settings                         — admin: read runtime settings
  *   PATCH /api/settings                        — admin: patch runtime settings
+ *   DELETE /api/sessions/:id                 — enduser: tombstone (soft-delete) a session (S8)
  *   GET  /events                              — 404 (leak closed)
  *   GET  /*                                   — static SPA (spa:true makes refresh work)
  */
@@ -52,7 +53,6 @@ import * as HttpServerResponse from 'effect/unstable/http/HttpServerResponse'
 import * as HttpStaticServer from 'effect/unstable/http/HttpStaticServer'
 import {
   AmendAgentMdBody,
-  ClarifyAnsweredPayload,
   ClarifyRequestedPayload,
   EventKind,
   FlagExchangeBody,
@@ -62,6 +62,9 @@ import {
   RespondBody,
   SubmitGoalBody,
 } from './domain/events.ts'
+import { listSessions } from './application/listSessions.ts'
+import { projectSessionTurns } from './application/sessionTurns.ts'
+import { deleteSession, isSessionDeleted } from './application/deleteSession.ts'
 import { makeSubmitGoal } from './application/submitGoal.ts'
 import { makeRespondToGoal } from './application/respondToGoal.ts'
 import { recordRejection } from './application/rejectionPattern.ts'
@@ -187,6 +190,9 @@ const submitGoalRoute = HttpRouter.add(
       const { goal, handleId, sessionId: reqSessionId } = body
       const toolkit = yield* GeorgesToolkit
       const sessionId = reqSessionId ?? (yield* Random.nextUUIDv4)
+      if (yield* isSessionDeleted(sessionId)) {
+        return textErr('session deleted', 410)
+      }
       const { correlationId } = yield* makeSubmitGoal(toolkit)({ goal, handleId, sessionId })
       const store = yield* EventStore
       const events = yield* store.query({ correlationId })
@@ -227,49 +233,19 @@ const sessionTurnsRoute = HttpRouter.add(
   withRole('enduser')(
     Effect.gen(function* () {
       const { sessionId } = yield* HttpRouter.schemaPathParams(Schema.Struct({ sessionId: Schema.String }))
+      if (yield* isSessionDeleted(sessionId)) {
+        return textErr('not found', 404)
+      }
       const store = yield* EventStore
       const events = yield* store.query({ sessionId })
-      const goals = new Map<string, string>()
-      const replies = new Map<string, string>()
-      const clarifyQuestions = new Map<string, string>()
-      const clarifyAnswers = new Map<string, string>()
-      const order: string[] = []
-      for (const e of events) {
-        if (e.kind === EventKind.GoalSubmitted) {
-          const p = yield* Schema.decodeUnknownEffect(GoalSubmittedPayload)(e.payload).pipe(Effect.orDie)
-          goals.set(e.correlationId, p.goal)
-          order.push(e.correlationId)
-        } else if (e.kind === EventKind.GoalCompleted) {
-          const p = yield* Schema.decodeUnknownEffect(GoalCompletedPayload)(e.payload).pipe(Effect.orDie)
-          replies.set(e.correlationId, p.text)
-        } else if (e.kind === EventKind.ClarifyAnswered) {
-          const p = yield* Schema.decodeUnknownEffect(ClarifyAnsweredPayload)(e.payload).pipe(Effect.orDie)
-          clarifyAnswers.set(e.correlationId, p.answer)
-        } else if (e.kind === EventKind.ClarifyRequested) {
-          // Collect inline — avoids N+1 store.query calls per turn.
-          const p = yield* Schema.decodeUnknownEffect(ClarifyRequestedPayload)(e.payload).pipe(Effect.orDie)
-          clarifyQuestions.set(e.correlationId, p.question)
-        }
-      }
-      let idx = 0
-      const turns = order
-        .filter(cid => replies.has(cid) || clarifyQuestions.has(cid))
-        .map(cid => {
-          const turn: Record<string, unknown> = { correlationId: cid, goal: goals.get(cid) ?? '', turnIndex: idx++ }
-          const reply = replies.get(cid)
-          const clarifyQuestion = clarifyQuestions.get(cid)
-          const clarifyAnswer = clarifyAnswers.get(cid)
-          if (reply !== undefined) {
-            turn['reply'] = reply
-          }
-          if (clarifyQuestion !== undefined) {
-            turn['clarifyQuestion'] = clarifyQuestion
-          }
-          if (clarifyAnswer !== undefined) {
-            turn['clarifyAnswer'] = clarifyAnswer
-          }
-          return turn
-        })
+      // Fetch ScriptExecuted events (sessionId:'bootstrap') by correlationId join.
+      // ScriptExecuted events are emitted under sessionId='bootstrap' (toolkit context gap);
+      // they are associated to the correct turn via correlationId.
+      const cids = [...new Set(events.map(e => e.correlationId))]
+      const scriptEvents = yield* Effect.forEach(cids, cid => store.query({ correlationId: cid }), {
+        concurrency: 'unbounded',
+      }).pipe(Effect.map(rs => rs.flat().filter(e => e.kind === EventKind.ScriptExecuted)))
+      const turns = yield* projectSessionTurns([...events, ...scriptEvents])
       return jsonOk(turns)
     }),
   ),
@@ -285,10 +261,25 @@ const sessionRespondRoute = HttpRouter.add(
         return textErr('missing correlationId or answer', 422)
       }
       const { sessionId } = yield* HttpRouter.schemaPathParams(Schema.Struct({ sessionId: Schema.String }))
+      if (yield* isSessionDeleted(sessionId)) {
+        return textErr('session deleted', 410)
+      }
       const { correlationId, answer } = body
       const toolkit = yield* GeorgesToolkit
       const result = yield* makeRespondToGoal(toolkit)(correlationId, answer, sessionId)
       return jsonOk(result)
+    }),
+  ),
+)
+
+const sessionDeleteRoute = HttpRouter.add(
+  'DELETE',
+  '/api/sessions/:sessionId',
+  withRole('enduser')(
+    Effect.gen(function* () {
+      const { sessionId } = yield* HttpRouter.schemaPathParams(Schema.Struct({ sessionId: Schema.String }))
+      yield* deleteSession(sessionId)
+      return HttpServerResponse.empty({ status: 204 })
     }),
   ),
 )
@@ -351,41 +342,7 @@ const toolRoute = HttpRouter.add(
 
 // ─── S8: Exchange review loop routes ─────────────────────────────────────────
 
-const listSessionsRoute = HttpRouter.add(
-  'GET',
-  '/api/sessions',
-  withRole('admin')(
-    Effect.gen(function* () {
-      const store = yield* EventStore
-      const events = yield* store.query({})
-      const sessions = new Map<
-        string,
-        { sessionId: string; eventCount: number; lastActivity: string; goalCount: number }
-      >()
-      for (const e of events) {
-        const s = sessions.get(e.sessionId)
-        if (s === undefined) {
-          sessions.set(e.sessionId, {
-            eventCount: 1,
-            goalCount: e.kind === EventKind.GoalSubmitted ? 1 : 0,
-            lastActivity: e.occurredAt,
-            sessionId: e.sessionId,
-          })
-        } else {
-          s.eventCount++
-          if (e.occurredAt > s.lastActivity) {
-            s.lastActivity = e.occurredAt
-          }
-          if (e.kind === EventKind.GoalSubmitted) {
-            s.goalCount++
-          }
-        }
-      }
-      const sorted = [...sessions.values()].toSorted((a, b) => b.lastActivity.localeCompare(a.lastActivity))
-      return jsonOk(sorted)
-    }),
-  ),
-)
+const listSessionsRoute = HttpRouter.add('GET', '/api/sessions', withRole('enduser')(Effect.map(listSessions, jsonOk)))
 
 const sessionEventsRoute = HttpRouter.add(
   'GET',
@@ -410,7 +367,9 @@ const sessionEventsRoute = HttpRouter.add(
               e.kind === EventKind.GoalCompleted ||
               e.kind === EventKind.ClarifyRequested ||
               e.kind === EventKind.ClarifyAnswered ||
-              e.kind === EventKind.ExchangeFlagged
+              e.kind === EventKind.ExchangeFlagged ||
+              e.kind === EventKind.ScriptExecuted ||
+              e.kind === EventKind.SessionDeleted
             ) ?
               e.payload
             : '[redacted]',
@@ -658,6 +617,7 @@ const allRoutes = Layer.mergeAll(
   rejectGoalRoute,
   sessionTurnsRoute,
   sessionRespondRoute,
+  sessionDeleteRoute,
   listProposalsRoute,
   promoteProposalRoute,
   adminMetricsRoute,

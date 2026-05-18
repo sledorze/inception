@@ -7,9 +7,10 @@
  * This test asserts the chain can be verified, and that mutation breaks verification.
  */
 import { randomUUID } from 'node:crypto'
-import { Effect } from 'effect'
+import { DateTime, Effect, Layer } from 'effect'
 import { describe, expect, it } from '@effect/vitest'
 import { InMemoryEventStore } from '../../src/adapters/driven/InMemoryEventStore.ts'
+import { deleteSession } from '../../src/application/deleteSession.ts'
 import { computeContentHash, EventStore } from '../../src/ports/driven/EventStore.ts'
 import type { NewEvent, StoredEvent } from '../../src/ports/driven/EventStore.ts'
 import { EventKind } from '../../src/domain/events.ts'
@@ -99,5 +100,31 @@ describe('L1.4 — tamper-evident hash chain', () => {
         expect(verifyChain(tampered)).toBeFalsy()
       }),
     ),
+  )
+
+  it.effect(
+    'original events survive tombstone — deleteSession preserves history and chain stays intact (L1.4 guard)',
+    () =>
+      Effect.provide(
+        Effect.gen(function* () {
+          const session = randomUUID()
+          // Seed two events for the session.
+          const [a, b] = yield* Effect.all([append(baseEvent(session)), append(baseEvent(session))])
+          // Tombstone the session.
+          yield* deleteSession(session)
+          // History is preserved: the original events are still returned.
+          const store = yield* EventStore
+          const events = yield* store.query({ sessionId: session })
+          expect(events.find(e => e.id === a.id)).toBeDefined()
+          expect(events.find(e => e.id === b.id)).toBeDefined()
+          // The tombstone itself is appended, not a replacement.
+          expect(events.some(e => e.kind === EventKind.SessionDeleted)).toBe(true)
+          // The full chain (original events + tombstone) verifies correctly.
+          expect(verifyChain(events), 'hash chain must remain intact through the tombstone').toBe(true)
+        }),
+        InMemoryEventStore.layer.pipe(
+          Layer.provideMerge(DateTime.layerCurrentZoneLocal as Layer.Layer<DateTime.CurrentTimeZone>),
+        ),
+      ),
   )
 })

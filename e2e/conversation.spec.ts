@@ -15,13 +15,16 @@ import { FAKE_CLARIFY_TRIGGER } from '../packages/host/src/adapters/driven/Recor
 
 const LLM_MODE = process.env['LLM_MODE'] ?? 'fake'
 
-/** Log in as the enduser account before each conversation test. */
+/** Log in as the enduser, then open a fresh persistent session. */
 async function loginAsEnduser(page: Page): Promise<void> {
   await page.goto('/')
   await page.getByTestId('login-username').fill('enduser')
   await page.getByTestId('login-password').fill('enduser')
   await page.getByTestId('login-submit').click()
-  // Wait until the login screen disappears (goal input becomes visible).
+  // Post-login lands on the session list (/). Start a new conversation —
+  // routes to /sessions/<uuid> where the goal composer lives.
+  await page.getByTestId('new-conversation').click({ timeout: 10_000 })
+  await expect(page).toHaveURL(/\/sessions\/[0-9a-f-]{36}$/u, { timeout: 10_000 })
   await expect(page.getByTestId('conv-goal')).toBeVisible({ timeout: 10_000 })
 }
 
