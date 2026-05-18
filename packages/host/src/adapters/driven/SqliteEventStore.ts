@@ -2,6 +2,7 @@ import { Effect, Layer, Random, Schema } from 'effect'
 import { SqlClient } from 'effect/unstable/sql'
 import * as SqliteClientLib from '@effect/sql-sqlite-node/SqliteClient'
 import * as SqliteMigrator from '@effect/sql-sqlite-node/SqliteMigrator'
+import { makeCorrelationId, makeSessionId } from '../../domain/ids.ts'
 import { computeContentHash, EventStore, EventStoreError } from '../../ports/driven/EventStore.ts'
 import type { NewEvent, StoredEvent } from '../../ports/driven/EventStore.ts'
 
@@ -65,14 +66,14 @@ function rowToStoredEvent(row: unknown): StoredEvent {
   return {
     actor: r.actor,
     contentHash: r.content_hash,
-    correlationId: r.correlation_id,
+    correlationId: makeCorrelationId(r.correlation_id),
     id: r.id,
     kind: r.kind,
     occurredAt: r.occurred_at,
     payload: JSON.parse(r.payload),
     prevHash: r.prev_hash,
     schemaV: r.schema_v,
-    sessionId: r.session_id,
+    sessionId: makeSessionId(r.session_id),
     storyRef: r.story_ref,
     tenantId: r.tenant_id,
   }

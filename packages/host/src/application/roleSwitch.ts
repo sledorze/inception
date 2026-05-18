@@ -8,6 +8,7 @@
  */
 import { DateTime, Effect } from 'effect'
 import { EventKind } from '../domain/events.ts'
+import { type CorrelationId, type SessionId } from '../domain/ids.ts'
 import { CurrentTenantId } from '../domain/tracing.ts'
 import { EventStore } from '../ports/driven/EventStore.ts'
 import type { EventStoreError } from '../ports/driven/EventStore.ts'
@@ -15,8 +16,8 @@ import { RoleRegistry } from '../ports/driven/RoleRegistry.ts'
 import type { RoleDescriptor, RoleNotFound } from '../ports/driven/RoleRegistry.ts'
 
 export interface RoleSwitchContext {
-  readonly correlationId: string
-  readonly sessionId: string
+  readonly correlationId: CorrelationId
+  readonly sessionId: SessionId
   readonly storyRef: string
 }
 

@@ -11,6 +11,7 @@
  * claim is emitted after the Host has already appended its observation.
  */
 import { Effect } from 'effect'
+import { type SessionId } from '../domain/ids.ts'
 import { EventStore } from '../ports/driven/EventStore.ts'
 import type { EventStoreError, StoredEvent } from '../ports/driven/EventStore.ts'
 
@@ -19,7 +20,7 @@ const CLAIM_ACTOR = 'georges' as const
 const CORROBORATOR_ACTOR = 'host' as const
 
 export const findUncorroboratedClaims = (
-  sessionId: string,
+  sessionId: SessionId,
 ): Effect.Effect<readonly StoredEvent[], EventStoreError, EventStore> =>
   Effect.gen(function* () {
     const store = yield* EventStore

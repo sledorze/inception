@@ -11,12 +11,13 @@
  */
 import { DateTime, Effect } from 'effect'
 import { EventKind } from '../domain/events.ts'
+import { makeCorrelationId, type SessionId } from '../domain/ids.ts'
 import { CurrentTenantId } from '../domain/tracing.ts'
 import { EventStore } from '../ports/driven/EventStore.ts'
 import type { SignalResult } from '../ports/driven/Supervisor.ts'
 
 export const checkSupervisorDivergence = (
-  sessionId: string,
+  sessionId: SessionId,
   supervisorResults: readonly SignalResult[],
   monitorResults: readonly SignalResult[],
 ): Effect.Effect<readonly string[], never, EventStore> =>
@@ -38,7 +39,7 @@ export const checkSupervisorDivergence = (
       divergences.push(riskId)
       yield* store.append({
         actor: 'monitor',
-        correlationId: `monitor-divergence-${riskId}-${sessionId}`,
+        correlationId: makeCorrelationId(`monitor-divergence-${riskId}-${sessionId}`),
         kind: EventKind.SupervisorDivergence,
         occurredAt: DateTime.formatIso(yield* DateTime.now),
         payload: {

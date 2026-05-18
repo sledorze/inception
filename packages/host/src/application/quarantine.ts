@@ -7,16 +7,17 @@
  */
 import { Effect, Schema } from 'effect'
 import { EventKind } from '../domain/events.ts'
+import { SessionId } from '../domain/ids.ts'
 import { EventStore } from '../ports/driven/EventStore.ts'
 
 export class SessionQuarantinedError extends Schema.TaggedErrorClass<SessionQuarantinedError>()(
   '@app/host/SessionQuarantinedError',
-  { sessionId: Schema.String },
+  { sessionId: SessionId },
 ) {}
 
 // Returns void when the session is not quarantined; fails with SessionQuarantinedError
 // when the last quarantine-related event for this session is SessionQuarantined.
-export const checkQuarantine = Effect.fn('quarantine.checkQuarantine')(function* (sessionId: string) {
+export const checkQuarantine = Effect.fn('quarantine.checkQuarantine')(function* (sessionId: SessionId) {
   const store = yield* EventStore
   const events = yield* store.query({ sessionId })
   const quarantineEvents = events.filter(

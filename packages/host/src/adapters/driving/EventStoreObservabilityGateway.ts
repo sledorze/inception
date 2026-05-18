@@ -1,4 +1,5 @@
 import { Effect, Layer } from 'effect'
+import { makeSessionId } from '../../domain/ids.ts'
 import { EventStore } from '../../ports/driven/EventStore.ts'
 import type { StoredEvent } from '../../ports/driven/EventStore.ts'
 import { ObservabilityGateway, ObservabilityGatewayError } from '../../ports/driving/ObservabilityGateway.ts'
@@ -27,7 +28,11 @@ export const EventStoreObservabilityGateway = {
         query: q =>
           Effect.gen(function* () {
             const events = yield* store
-              .query(q)
+              .query({
+                ...(q.limit !== undefined ? { limit: q.limit } : {}),
+                ...(q.storyRef !== undefined ? { storyRef: q.storyRef } : {}),
+                ...(q.sessionId !== undefined ? { sessionId: makeSessionId(q.sessionId) } : {}),
+              })
               .pipe(Effect.mapError(cause => new ObservabilityGatewayError({ cause })))
             return events.map(toObservedEvent)
           }),

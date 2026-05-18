@@ -9,6 +9,7 @@
  */
 import { DateTime, Effect } from 'effect'
 import { EventKind } from '../domain/events.ts'
+import { type CorrelationId, makeCorrelationId, type SessionId } from '../domain/ids.ts'
 import { CurrentTenantId } from '../domain/tracing.ts'
 import { EventStore } from '../ports/driven/EventStore.ts'
 
@@ -20,9 +21,9 @@ export const recordRejection = Effect.fn('rejectionPattern.recordRejection')(fun
   sessionId,
   storyRef,
 }: {
-  correlationId: string
+  correlationId: CorrelationId
   reason: string
-  sessionId: string
+  sessionId: SessionId
   storyRef: string
 }) {
   const store = yield* EventStore
@@ -49,7 +50,7 @@ export const recordRejection = Effect.fn('rejectionPattern.recordRejection')(fun
   if (rejectionCount >= REJECTION_THRESHOLD && !candidateAlreadyEmitted) {
     yield* store.append({
       actor: 'host',
-      correlationId: `rejection-pattern-${storyRef}`,
+      correlationId: makeCorrelationId(`rejection-pattern-${storyRef}`),
       kind: EventKind.RejectionPatternCandidate,
       occurredAt: now,
       payload: { rejectionCount, storyRef },

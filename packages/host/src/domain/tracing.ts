@@ -1,7 +1,8 @@
 import { Context } from 'effect'
+import { bootstrapCorrelationId, type CorrelationId } from './ids.ts'
 
-export const CurrentCorrelationId = Context.Reference<string>('@app/host/CurrentCorrelationId', {
-  defaultValue: () => 'bootstrap',
+export const CurrentCorrelationId = Context.Reference<CorrelationId>('@app/host/CurrentCorrelationId', {
+  defaultValue: () => bootstrapCorrelationId,
 })
 
 // Active tenant for the current request (L1.9 §13).

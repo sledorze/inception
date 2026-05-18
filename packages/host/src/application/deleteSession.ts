@@ -7,35 +7,37 @@
  */
 import { DateTime, Effect, Schema } from 'effect'
 import { EventKind } from '../domain/events.ts'
+import { makeCorrelationId, SessionId } from '../domain/ids.ts'
 import { CurrentTenantId } from '../domain/tracing.ts'
 import { EventStore } from '../ports/driven/EventStore.ts'
 
 export class SessionDeletedError extends Schema.TaggedErrorClass<SessionDeletedError>()(
   '@app/host/SessionDeletedError',
-  { sessionId: Schema.String },
+  { sessionId: SessionId },
 ) {}
 
-export const isSessionDeleted = Effect.fn('deleteSession.isSessionDeleted')(function* (sessionId: string) {
+export const isSessionDeleted = Effect.fn('deleteSession.isSessionDeleted')(function* (sessionId: SessionId) {
   const store = yield* EventStore
   const events = yield* store.query({ sessionId })
   return events.some(e => e.kind === EventKind.SessionDeleted)
 })
 
 // Returns void when the session is not deleted; fails with SessionDeletedError when it is.
-export const checkSessionDeleted = Effect.fn('deleteSession.checkSessionDeleted')(function* (sessionId: string) {
+export const checkSessionDeleted = Effect.fn('deleteSession.checkSessionDeleted')(function* (sessionId: SessionId) {
   if (yield* isSessionDeleted(sessionId)) {
     return yield* new SessionDeletedError({ sessionId })
   }
 })
 
-export const deleteSession = Effect.fn('application.deleteSession')(function* (sessionId: string) {
+export const deleteSession = Effect.fn('application.deleteSession')(function* (sessionId: SessionId) {
   const store = yield* EventStore
   const tenantId = yield* CurrentTenantId
   yield* store
     .append({
       actor: 'user',
       // Deterministic correlationId makes the append idempotent (same contentHash on re-call).
-      correlationId: sessionId,
+      // SessionId used as CorrelationId for idempotency — same underlying string, different domains.
+      correlationId: makeCorrelationId(sessionId),
       kind: EventKind.SessionDeleted,
       occurredAt: DateTime.formatIso(yield* DateTime.now),
       payload: { sessionId },

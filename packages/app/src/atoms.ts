@@ -37,28 +37,34 @@ export const currentTenantAtom = Atom.make(getTenantId() ?? 'default')
 export const tenantsAtom = Atom.withReactivity(['tenants'])(fetchAtom(listTenants))
 export const tenantsView = Atom.map(tenantsAtom, toView)
 
+// Topic keys for the decoupled Reactivity key-bus. A session's turns live under
+// a per-session topic so dispatching in one session never refetches another.
+const turnsKey = (sessionId: string) => `turns:${sessionId}`
+const sessionsKey = (tenantId: string) => `sessions:${tenantId}`
+
 // ── Sessions list — family keyed by tenantId; key bus is "sessions:<tenantId>" ─
 const sessionsAtomFamily = Atom.family((tenantId: string) =>
-  Atom.withReactivity([`sessions:${tenantId}`])(fetchAtom(() => listSessions())),
+  Atom.withReactivity([sessionsKey(tenantId)])(fetchAtom(() => listSessions())),
 )
 const sessionsViewFamily = Atom.family((tenantId: string) => Atom.map(sessionsAtomFamily(tenantId), toView))
 
 export const sessionsAtom = sessionsAtomFamily
 export const sessionsView = sessionsViewFamily
 
-// ── Per-session transcript — family keyed by "tenantId:sessionId" ─────────────
-// String key prevents cross-tenant cache sharing without object-equality issues.
-const turnsAtomFamily = Atom.family((key: string) =>
-  Atom.withReactivity([`turns:${key}`])(fetchAtom(() => getTurns(key.slice(key.indexOf(':') + 1)))),
+// ── Per-session transcript — Atom.family keyed by sessionId, each subscribed ──
+// to its own "turns:<id>" topic so it self-refreshes on send/respond.
+const turnsAtom = Atom.family((sessionId: string) =>
+  Atom.withReactivity([turnsKey(sessionId)])(fetchAtom(() => getTurns(sessionId))),
 )
-const turnsViewFamily = Atom.family((key: string) => Atom.map(turnsAtomFamily(key), toView))
-
-export const turnsView = (tenantId: string, sessionId: string) => turnsViewFamily(`${tenantId}:${sessionId}`)
+export const turnsView = Atom.family((sessionId: string) => Atom.map(turnsAtom(sessionId), toView))
 
 // AtomRuntime<never> — shares defaultMemoMap with Atom.withReactivity so the
 // Reactivity service instance is the same; invalidation reaches the read atoms.
 const atomRuntime = Atom.runtime(Layer.empty)
 
+// reactivityKeys is static-only, so per-session invalidation is published
+// inside the effect via Reactivity.invalidate (keys derived from the arg).
+// Default concurrency = takeLatest (interrupt-prior on re-dispatch).
 export const sendGoalAtom = atomRuntime.fn(
   ({ goal, handleId, sessionId }: { sessionId: string; goal: string; handleId: string }) =>
     Effect.gen(function* () {
@@ -67,7 +73,7 @@ export const sendGoalAtom = atomRuntime.fn(
         catch: e => String(e),
         try: () => sendMessage(sessionId, goal, handleId),
       })
-      yield* Reactivity.invalidate([`turns:${tenantId}:${sessionId}`, `sessions:${tenantId}`])
+      yield* Reactivity.invalidate([turnsKey(sessionId), sessionsKey(tenantId)])
       return result
     }),
 )
@@ -81,7 +87,7 @@ export const respondAtom = atomRuntime.fn(
         catch: e => String(e),
         try: () => respondToGoal(sessionId, correlationId, answer),
       })
-      yield* Reactivity.invalidate([`turns:${tenantId}:${sessionId}`, `sessions:${tenantId}`])
+      yield* Reactivity.invalidate([turnsKey(sessionId), sessionsKey(tenantId)])
       return result
     }),
 )
@@ -91,7 +97,7 @@ export const deleteSessionAtom = atomRuntime.fn(({ sessionId }: { sessionId: str
   Effect.gen(function* () {
     const tenantId = getTenantId() ?? 'default'
     yield* Effect.tryPromise({ catch: e => String(e), try: () => deleteSession(sessionId) })
-    yield* Reactivity.invalidate([`sessions:${tenantId}`, `turns:${tenantId}:${sessionId}`])
+    yield* Reactivity.invalidate([sessionsKey(tenantId), turnsKey(sessionId)])
     return { sessionId }
   }),
 )

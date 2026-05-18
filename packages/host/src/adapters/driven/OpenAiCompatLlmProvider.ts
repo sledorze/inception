@@ -10,6 +10,7 @@ import { Config, Context, DateTime, Effect, Layer, Option, Schema } from 'effect
 import { OpenAiClient, OpenAiLanguageModel } from '@effect/ai-openai-compat'
 import { FetchHttpClient } from 'effect/unstable/http'
 import { EventKind } from '../../domain/events.ts'
+import { untracedCorrelationId, untracedSessionId } from '../../domain/ids.ts'
 import { EventStore } from '../../ports/driven/EventStore.ts'
 import { Settings } from '../../ports/driven/Settings.ts'
 
@@ -146,12 +147,12 @@ export const OpenAiCompatLlmProvider = {
               yield* store
                 .append({
                   actor: 'host',
-                  correlationId: 'untraced',
+                  correlationId: untracedCorrelationId,
                   kind: EventKind.UnknownShapeObserved,
                   occurredAt: DateTime.formatIso(yield* DateTime.now),
                   payload: { message: msg },
                   schemaV: 1,
-                  sessionId: 'untraced',
+                  sessionId: untracedSessionId,
                   storyRef: 'untraced',
                   tenantId: 'default',
                 })

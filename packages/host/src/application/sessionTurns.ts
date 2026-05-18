@@ -1,4 +1,5 @@
 import { Effect, Schema } from 'effect'
+import { type CorrelationId } from '../domain/ids.ts'
 import {
   ClarifyAnsweredPayload,
   ClarifyRequestedPayload,
@@ -18,7 +19,7 @@ export interface ScriptEntry {
 }
 
 export interface SessionTurn {
-  readonly correlationId: string
+  readonly correlationId: CorrelationId
   readonly turnIndex: number
   readonly goal: string
   readonly reply?: string
@@ -37,7 +38,7 @@ export const projectSessionTurns = Effect.fn('application.projectSessionTurns')(
   const clarifyQuestions = new Map<string, string>()
   const clarifyAnswers = new Map<string, string>()
   const scriptsByCid = new Map<string, ScriptEntry[]>()
-  const order: string[] = []
+  const order: CorrelationId[] = []
 
   for (const e of events) {
     if (e.kind === EventKind.GoalSubmitted) {

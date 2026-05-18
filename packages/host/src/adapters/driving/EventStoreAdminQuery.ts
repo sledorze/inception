@@ -2,6 +2,7 @@ import { Effect, FileSystem, Layer } from 'effect'
 import type { LoopHealth, PainItem, TodoItem } from '../../domain/loopHealth.ts'
 import { parsePainArchiveMd, parsePainMd } from '../../domain/painParser.ts'
 import { parseTodoMd } from '../../domain/todoParser.ts'
+import { makeSessionId } from '../../domain/ids.ts'
 import { EventStore } from '../../ports/driven/EventStore.ts'
 import { AdminQuery, AdminQueryError } from '../../ports/driving/AdminQuery.ts'
 import type { ObservedEvent, TraceQuery } from '../../ports/driving/ObservabilityGateway.ts'
@@ -49,26 +50,32 @@ export const EventStoreAdminQuery = {
             readMd(paths.painMd).pipe(Effect.map(parsePainMd)),
 
           trace: (q: TraceQuery): Effect.Effect<readonly ObservedEvent[], AdminQueryError> =>
-            store.query(q).pipe(
-              Effect.map(events =>
-                events.map(
-                  (e): ObservedEvent => ({
-                    actor: e.actor,
-                    contentHash: e.contentHash,
-                    correlationId: e.correlationId,
-                    id: e.id,
-                    kind: e.kind,
-                    occurredAt: e.occurredAt,
-                    payload: e.payload,
-                    prevHash: e.prevHash,
-                    schemaV: e.schemaV,
-                    sessionId: e.sessionId,
-                    storyRef: e.storyRef,
-                  }),
+            store
+              .query({
+                ...(q.limit !== undefined ? { limit: q.limit } : {}),
+                ...(q.storyRef !== undefined ? { storyRef: q.storyRef } : {}),
+                ...(q.sessionId !== undefined ? { sessionId: makeSessionId(q.sessionId) } : {}),
+              })
+              .pipe(
+                Effect.map(events =>
+                  events.map(
+                    (e): ObservedEvent => ({
+                      actor: e.actor,
+                      contentHash: e.contentHash,
+                      correlationId: e.correlationId,
+                      id: e.id,
+                      kind: e.kind,
+                      occurredAt: e.occurredAt,
+                      payload: e.payload,
+                      prevHash: e.prevHash,
+                      schemaV: e.schemaV,
+                      sessionId: e.sessionId,
+                      storyRef: e.storyRef,
+                    }),
+                  ),
                 ),
+                Effect.mapError((cause): AdminQueryError => new AdminQueryError({ cause })),
               ),
-              Effect.mapError((cause): AdminQueryError => new AdminQueryError({ cause })),
-            ),
 
           work: (): Effect.Effect<readonly TodoItem[], AdminQueryError> =>
             readMd(paths.todoMd).pipe(Effect.map(parseTodoMd)),

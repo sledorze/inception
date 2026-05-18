@@ -8,7 +8,7 @@ import { Button } from '@app/design-system/button'
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@app/design-system/collapsible'
 import { Input } from '@app/design-system/input'
 import { Textarea } from '@app/design-system/textarea'
-import { currentTenantAtom, respondAtom, respondView, sendGoalAtom, sendGoalView, turnsView } from '../../atoms.ts'
+import { respondAtom, respondView, sendGoalAtom, sendGoalView, turnsView } from '../../atoms.ts'
 
 const mdComponents: Components = {
   code: ({ children }) => <code className="rounded bg-background px-1 py-0.5 font-mono text-xs">{children}</code>,
@@ -40,8 +40,7 @@ export function Conversation() {
   const { sessionId } = useParams()
   const navigate = useNavigate()
 
-  const currentTenantId = useAtomValue(currentTenantAtom)
-  const view = useAtomValue(turnsView(currentTenantId, sessionId ?? ''))
+  const view = useAtomValue(turnsView(sessionId ?? ''))
   const send = useAtomSet(sendGoalAtom)
   const sendState = useAtomValue(sendGoalView)
   const respond = useAtomSet(respondAtom)

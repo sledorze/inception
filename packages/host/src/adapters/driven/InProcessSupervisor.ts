@@ -11,6 +11,7 @@
  */
 import { DateTime, Effect, Layer } from 'effect'
 import { EventKind } from '../../domain/events.ts'
+import { makeCorrelationId } from '../../domain/ids.ts'
 import { CurrentTenantId } from '../../domain/tracing.ts'
 import { EventStore } from '../../ports/driven/EventStore.ts'
 import { Supervisor, SupervisorError } from '../../ports/driven/Supervisor.ts'
@@ -82,7 +83,7 @@ export const InProcessSupervisor = {
                 const now = DateTime.formatIso(yield* DateTime.now)
                 yield* store.append({
                   actor: 'supervisor',
-                  correlationId: `supervisor-${result.riskId}-${sessionId}`,
+                  correlationId: makeCorrelationId(`supervisor-${result.riskId}-${sessionId}`),
                   kind: EventKind.SupervisorTrip,
                   occurredAt: now,
                   payload: {
@@ -99,7 +100,7 @@ export const InProcessSupervisor = {
                 if (result.riskId === 'R5') {
                   yield* store.append({
                     actor: 'supervisor',
-                    correlationId: `supervisor-quarantine-${sessionId}`,
+                    correlationId: makeCorrelationId(`supervisor-quarantine-${sessionId}`),
                     kind: EventKind.SessionQuarantined,
                     occurredAt: now,
                     payload: { reason: 'R5: sandbox escape attempt detected' },
