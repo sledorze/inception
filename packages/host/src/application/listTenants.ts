@@ -5,6 +5,7 @@
  */
 import { Effect, Schema } from 'effect'
 import { TenantCreatedPayload, TenantRenamedPayload, EventKind } from '../domain/events.ts'
+import { makeSessionId } from '../domain/ids.ts'
 import { EventStore } from '../ports/driven/EventStore.ts'
 
 export interface Tenant {
@@ -14,7 +15,7 @@ export interface Tenant {
 
 export const listTenants = Effect.fn('listTenants')(function* () {
   const store = yield* EventStore
-  const events = yield* store.query({ sessionId: '__tenants__', tenantId: '__system__' })
+  const events = yield* store.query({ sessionId: makeSessionId('__tenants__'), tenantId: '__system__' })
 
   const tenants = new Map<string, Tenant>()
 

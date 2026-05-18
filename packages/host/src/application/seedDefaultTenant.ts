@@ -5,6 +5,7 @@
  */
 import { DateTime, Effect } from 'effect'
 import { EventKind } from '../domain/events.ts'
+import { makeCorrelationId, makeSessionId } from '../domain/ids.ts'
 import { EventStore } from '../ports/driven/EventStore.ts'
 
 export const seedDefaultTenant = Effect.fn('seedDefaultTenant')(function* () {
@@ -12,12 +13,12 @@ export const seedDefaultTenant = Effect.fn('seedDefaultTenant')(function* () {
   yield* store
     .append({
       actor: 'host',
-      correlationId: 'default',
+      correlationId: makeCorrelationId('default'),
       kind: EventKind.TenantCreated,
       occurredAt: DateTime.formatIso(yield* DateTime.now),
       payload: { name: 'Default', tenantId: 'default' },
       schemaV: 1,
-      sessionId: '__tenants__',
+      sessionId: makeSessionId('__tenants__'),
       storyRef: 'S12',
       tenantId: '__system__',
     })

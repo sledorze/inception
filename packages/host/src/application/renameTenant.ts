@@ -1,5 +1,6 @@
 import { DateTime, Effect } from 'effect'
 import { EventKind } from '../domain/events.ts'
+import { makeCorrelationId, makeSessionId } from '../domain/ids.ts'
 import { EventStore } from '../ports/driven/EventStore.ts'
 
 export const renameTenant = Effect.fn('renameTenant')(function* (tenantId: string, name: string) {
@@ -7,12 +8,12 @@ export const renameTenant = Effect.fn('renameTenant')(function* (tenantId: strin
   yield* store
     .append({
       actor: 'host',
-      correlationId: `tenant-renamed-${tenantId}-${name}`,
+      correlationId: makeCorrelationId(`tenant-renamed-${tenantId}-${name}`),
       kind: EventKind.TenantRenamed,
       occurredAt: DateTime.formatIso(yield* DateTime.now),
       payload: { name, tenantId },
       schemaV: 1,
-      sessionId: '__tenants__',
+      sessionId: makeSessionId('__tenants__'),
       storyRef: 'S12',
       tenantId: '__system__',
     })
