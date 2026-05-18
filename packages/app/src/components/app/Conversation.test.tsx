@@ -13,6 +13,7 @@ const respondToGoal = vi.fn<(s: string, c: string, a: string) => Promise<Respond
 vi.mock('../../hooks/chat.ts', () => ({
   getTurns: (s: string) => getTurns(s),
   listSessions: vi.fn(() => Promise.resolve([])),
+  listTenants: vi.fn(() => Promise.resolve([])),
   respondToGoal: (s: string, c: string, a: string) => respondToGoal(s, c, a),
   sendMessage: (s: string, g: string, h: string) => sendMessage(s, g, h),
 }))

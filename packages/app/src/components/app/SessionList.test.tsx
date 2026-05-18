@@ -16,6 +16,7 @@ const listSessions = vi.fn<() => Promise<readonly SessionSummary[]>>(() => Promi
 vi.mock('../../hooks/chat.ts', () => ({
   getTurns: vi.fn(() => Promise.resolve([])),
   listSessions: () => listSessions(),
+  listTenants: vi.fn(() => Promise.resolve([])),
   respondToGoal: vi.fn(),
   sendMessage: vi.fn(),
 }))

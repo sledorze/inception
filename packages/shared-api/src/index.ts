@@ -17,6 +17,11 @@ export const clearTenantId = (): void => {
   localStorage.removeItem(TENANT_KEY)
 }
 
+export const switchTenant = (tenantId: string): void => {
+  setTenantId(tenantId)
+  globalThis.dispatchEvent(new CustomEvent('tenant:changed'))
+}
+
 export const handleErr = (res: Response): Promise<Response> => {
   if (!res.ok) {
     if (res.status === 401) {
