@@ -82,6 +82,7 @@ import type { AdminQueryError } from './ports/driving/AdminQuery.ts'
 import { AdminQuery } from './ports/driving/AdminQuery.ts'
 import type { AuthGateway } from './ports/driving/AuthGateway.ts'
 import { InvalidCredentialsTag, SessionExpiredTag, SessionNotFoundTag } from './ports/driving/AuthGateway.ts'
+import { CurrentTenantId } from './domain/tracing.ts'
 import { GeorgesToolkit, fullLayer } from './runtime/bind.ts'
 import { UserGateway } from './ports/driving/UserGateway.ts'
 
@@ -113,6 +114,40 @@ const withRole =
               : HttpServerResponse.text('forbidden', { status: 403 }),
             ),
           onSuccess: () => handler,
+        }),
+      )
+    })
+
+/**
+ * Tenant guard — read `X-Tenant-Id` header, verify the authenticated principal is
+ * entitled to the tenant, bind `CurrentTenantId` for the handler fiber.
+ * Returns 400 if header absent, 401/403 on auth failure, 403 if not entitled.
+ * Implies authentication: the bearer token is verified (same as `withRole`).
+ */
+const withTenant =
+  (role: 'admin' | 'enduser') =>
+  <E, R>(
+    handler: Effect.Effect<HttpServerResponse.HttpServerResponse, E, R>,
+  ): Effect.Effect<HttpServerResponse.HttpServerResponse, E, R | HttpServerRequest.HttpServerRequest | AuthGateway> =>
+    Effect.gen(function* () {
+      const req = yield* HttpServerRequest.HttpServerRequest
+      const requestedTenantId = req.headers['x-tenant-id'] as string | undefined
+      if (!requestedTenantId) {
+        return HttpServerResponse.text('X-Tenant-Id header required', { status: 400 })
+      }
+      const token = yield* extractBearer
+      return yield* requireRole(token, role).pipe(
+        Effect.matchEffect({
+          onFailure: err =>
+            Effect.succeed(
+              err._tag === SessionNotFoundTag || err._tag === SessionExpiredTag ?
+                HttpServerResponse.text('unauthorized', { status: 401 })
+              : HttpServerResponse.text('forbidden', { status: 403 }),
+            ),
+          onSuccess: principal =>
+            principal.tenantIds.includes(requestedTenantId) ?
+              Effect.provideService(handler, CurrentTenantId, requestedTenantId)
+            : Effect.succeed(HttpServerResponse.text('forbidden', { status: 403 })),
         }),
       )
     })
@@ -406,7 +441,7 @@ const flagExchangeRoute = HttpRouter.add(
         schemaV: 1,
         sessionId: firstEvent.sessionId,
         storyRef: 'S8',
-        tenantId: 'default',
+        tenantId: yield* CurrentTenantId,
       })
       return HttpServerResponse.empty({ status: 204 })
     }),
@@ -513,7 +548,7 @@ const agentMdPatchRoute = HttpRouter.add(
         schemaV: 1,
         sessionId: 'admin',
         storyRef: 'S8',
-        tenantId: 'default',
+        tenantId: yield* CurrentTenantId,
       })
 
       return jsonOk({ newHash, prevHash })

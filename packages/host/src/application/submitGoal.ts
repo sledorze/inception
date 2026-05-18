@@ -2,7 +2,7 @@ import { Cause, DateTime, Effect, Option, Random } from 'effect'
 import { AiError, LanguageModel } from 'effect/unstable/ai'
 import type { LanguageModel as LanguageModelNS, Tool } from 'effect/unstable/ai'
 import { EventKind } from '../domain/events.ts'
-import { CurrentCorrelationId } from '../domain/tracing.ts'
+import { CurrentCorrelationId, CurrentTenantId } from '../domain/tracing.ts'
 import { DataHandleRegistry } from '../ports/driven/DataHandle.ts'
 import { canonicalJson, EventStore } from '../ports/driven/EventStore.ts'
 import { ToolRegistry } from '../ports/driven/ToolRegistry.ts'
@@ -203,6 +203,7 @@ export const makeSubmitGoal = <Tools extends Record<string, Tool.Any>>(
     const sessionId = s.sessionId ?? 'bootstrap'
     const correlationId = yield* Random.nextUUIDv4
     const store = yield* EventStore
+    const tenantId = yield* CurrentTenantId
 
     // Block deleted sessions before touching the LLM.
     yield* checkSessionDeleted(sessionId)
@@ -218,7 +219,7 @@ export const makeSubmitGoal = <Tools extends Record<string, Tool.Any>>(
       schemaV: 1,
       sessionId,
       storyRef: 'S1',
-      tenantId: 'default',
+      tenantId,
     })
 
     const agentMd = yield* readAgentMd({ path: AGENT_MD_PATH })
@@ -266,7 +267,7 @@ export const makeSubmitGoal = <Tools extends Record<string, Tool.Any>>(
               schemaV: 1,
               sessionId,
               storyRef: 'S1',
-              tenantId: 'default',
+              tenantId,
             }),
           ),
           Effect.orDie,
@@ -291,7 +292,7 @@ export const makeSubmitGoal = <Tools extends Record<string, Tool.Any>>(
         schemaV: 1,
         sessionId,
         storyRef: 'S1',
-        tenantId: 'default',
+        tenantId,
       })
     }
 

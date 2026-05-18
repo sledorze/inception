@@ -1,5 +1,6 @@
 import { DateTime, Effect, Random } from 'effect'
 import { EventKind } from '../domain/events.ts'
+import { CurrentTenantId } from '../domain/tracing.ts'
 import { AuthGateway } from '../ports/driving/AuthGateway.ts'
 import { EventStore } from '../ports/driven/EventStore.ts'
 
@@ -14,6 +15,7 @@ export const login = Effect.fn('login.login')(function* (username: string, passw
   // Emit trace-visible asymmetry disclosure (L0.3).
   const store = yield* EventStore
   const correlationId = yield* Random.nextUUIDv4
+  const tenantId = yield* CurrentTenantId
   yield* store.append({
     actor: 'host',
     correlationId,
@@ -23,7 +25,7 @@ export const login = Effect.fn('login.login')(function* (username: string, passw
     schemaV: 1,
     sessionId: 'auth',
     storyRef: 'L0.3',
-    tenantId: 'default',
+    tenantId,
   })
 
   return session

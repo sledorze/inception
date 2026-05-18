@@ -15,7 +15,7 @@ import { PolicyGate } from '../../ports/driven/PolicyGate.ts'
 import { ToolRegistry } from '../../ports/driven/ToolRegistry.ts'
 import { WorkspaceMount } from '../../ports/driven/WorkspaceMount.ts'
 import { EventKind } from '../../domain/events.ts'
-import { CurrentCorrelationId } from '../../domain/tracing.ts'
+import { CurrentCorrelationId, CurrentTenantId } from '../../domain/tracing.ts'
 import { runScriptInTempDir } from '../runScriptInTempDir.ts'
 
 class CapabilityRunError extends Schema.TaggedErrorClass<CapabilityRunError>()('@app/host/CapabilityRunError', {
@@ -153,6 +153,7 @@ export const GeorgesToolkitLive = GeorgesToolkit.toLayer(
     const emitCorroborator = (toolName: string, payload: Record<string, unknown>) =>
       Effect.gen(function* () {
         const correlationId = yield* CurrentCorrelationId
+        const tenantId = yield* CurrentTenantId
         yield* store
           .append({
             actor: 'host',
@@ -163,7 +164,7 @@ export const GeorgesToolkitLive = GeorgesToolkit.toLayer(
             schemaV: 1,
             sessionId: 'bootstrap',
             storyRef: 'S1',
-            tenantId: 'default',
+            tenantId,
           })
           .pipe(Effect.orDie)
       })
@@ -250,6 +251,7 @@ export const GeorgesToolkitLive = GeorgesToolkit.toLayer(
         ).pipe(Effect.mapError(e => ({ message: `manifest validation failed: ${String(e)}` })))
         // L2.6: record proposal — Georges proposes, Host witnesses, Claude promotes
         const correlationId = yield* CurrentCorrelationId
+        const tenantId = yield* CurrentTenantId
         const stored = yield* store
           .append({
             actor: 'georges',
@@ -267,7 +269,7 @@ export const GeorgesToolkitLive = GeorgesToolkit.toLayer(
             schemaV: 1,
             sessionId: 'bootstrap',
             storyRef: 'S2',
-            tenantId: 'default',
+            tenantId,
           })
           .pipe(Effect.orDie)
         yield* emitCorroborator('propose-capability', { role, scope: manifest.scope })
@@ -290,6 +292,7 @@ export const GeorgesToolkitLive = GeorgesToolkit.toLayer(
       }) {
         yield* checkPolicy('request-clarification')
         const correlationId = yield* CurrentCorrelationId
+        const tenantId = yield* CurrentTenantId
         yield* store
           .append({
             actor: 'georges',
@@ -300,7 +303,7 @@ export const GeorgesToolkitLive = GeorgesToolkit.toLayer(
             schemaV: 1,
             sessionId: 'bootstrap',
             storyRef: 'S8',
-            tenantId: 'default',
+            tenantId,
           })
           .pipe(Effect.orDie)
         yield* emitCorroborator('request-clarification', { question })
@@ -339,6 +342,7 @@ export const GeorgesToolkitLive = GeorgesToolkit.toLayer(
           }),
         )
         const correlationId = yield* CurrentCorrelationId
+        const tenantId = yield* CurrentTenantId
         yield* store
           .append({
             actor: 'host',
@@ -355,7 +359,7 @@ export const GeorgesToolkitLive = GeorgesToolkit.toLayer(
             schemaV: 1,
             sessionId: 'bootstrap',
             storyRef: 'S1',
-            tenantId: 'default',
+            tenantId,
           })
           .pipe(Effect.orDie)
         yield* emitCorroborator('run-script', { handleId, role })

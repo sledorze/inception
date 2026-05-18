@@ -11,6 +11,7 @@
  */
 import { DateTime, Effect } from 'effect'
 import { EventKind } from '../domain/events.ts'
+import { CurrentTenantId } from '../domain/tracing.ts'
 import { EventStore } from '../ports/driven/EventStore.ts'
 import type { SignalResult } from '../ports/driven/Supervisor.ts'
 
@@ -21,6 +22,7 @@ export const checkSupervisorDivergence = (
 ): Effect.Effect<readonly string[], never, EventStore> =>
   Effect.gen(function* () {
     const store = yield* EventStore
+    const tenantId = yield* CurrentTenantId
     const divergences: string[] = []
 
     for (const supervisorResult of supervisorResults) {
@@ -49,7 +51,7 @@ export const checkSupervisorDivergence = (
         schemaV: 1,
         sessionId,
         storyRef: 'supervision',
-        tenantId: 'default',
+        tenantId,
       })
     }
 

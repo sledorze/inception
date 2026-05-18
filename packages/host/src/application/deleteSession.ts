@@ -7,6 +7,7 @@
  */
 import { DateTime, Effect, Schema } from 'effect'
 import { EventKind } from '../domain/events.ts'
+import { CurrentTenantId } from '../domain/tracing.ts'
 import { EventStore } from '../ports/driven/EventStore.ts'
 
 export class SessionDeletedError extends Schema.TaggedErrorClass<SessionDeletedError>()(
@@ -29,6 +30,7 @@ export const checkSessionDeleted = Effect.fn('deleteSession.checkSessionDeleted'
 
 export const deleteSession = Effect.fn('application.deleteSession')(function* (sessionId: string) {
   const store = yield* EventStore
+  const tenantId = yield* CurrentTenantId
   yield* store
     .append({
       actor: 'user',
@@ -40,7 +42,7 @@ export const deleteSession = Effect.fn('application.deleteSession')(function* (s
       schemaV: 1,
       sessionId,
       storyRef: 'S8',
-      tenantId: 'default',
+      tenantId,
     })
     .pipe(Effect.orDie)
 })

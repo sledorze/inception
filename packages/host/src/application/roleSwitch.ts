@@ -8,6 +8,7 @@
  */
 import { DateTime, Effect } from 'effect'
 import { EventKind } from '../domain/events.ts'
+import { CurrentTenantId } from '../domain/tracing.ts'
 import { EventStore } from '../ports/driven/EventStore.ts'
 import type { EventStoreError } from '../ports/driven/EventStore.ts'
 import { RoleRegistry } from '../ports/driven/RoleRegistry.ts'
@@ -29,6 +30,7 @@ export const switchRole = (
     const next = yield* registry.getRole(toRole)
 
     const store = yield* EventStore
+    const tenantId = yield* CurrentTenantId
     yield* store.append({
       actor: 'host',
       correlationId: ctx.correlationId,
@@ -42,7 +44,7 @@ export const switchRole = (
       schemaV: 1,
       sessionId: ctx.sessionId,
       storyRef: ctx.storyRef,
-      tenantId: 'default',
+      tenantId,
     })
 
     return next
