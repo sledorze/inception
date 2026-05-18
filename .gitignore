@@ -22,6 +22,7 @@ npm-debug.log*
 *.db
 **/data/capability-registry.json
 **/data/sessions.json
+**/data/settings.json
 
 # Reference repositories (clone as needed)
 .repos/

@@ -10,6 +10,7 @@ import { Context, Schema } from 'effect'
 
 export const AppSettingsSchema = Schema.Struct({
   llmBaseUrl: Schema.String,
+  llmMaxConcurrency: Schema.Number,
   llmModel: Schema.String,
   sessionMaxTurns: Schema.Number,
 })
@@ -30,6 +31,7 @@ export class Settings extends Context.Service<
 
 export const DEFAULT_SETTINGS: AppSettings = {
   llmBaseUrl: 'http://172.15.8.149:1235/v1',
+  llmMaxConcurrency: 4, // boot-time: semaphore size fixed at layer build; restart required (cf. llmModel caveat / TODO P.5)
   llmModel: 'qwopus3.6-35b-a3b-v1@q4_k_s',
   sessionMaxTurns: 10,
 }
