@@ -232,6 +232,11 @@ export function Conversation() {
               className="flex-1"
               data-testid="conv-clarify-answer"
               onChange={e => setClarifyAnswer(e.target.value)}
+              onKeyDown={e => {
+                if (e.key === 'Enter' && e.ctrlKey) {
+                  handleClarifySubmit()
+                }
+              }}
               placeholder={`Answer: ${pendingClarify.question}`}
               rows={2}
               value={clarifyAnswer}
@@ -268,6 +273,11 @@ export function Conversation() {
               className="flex-1"
               data-testid="conv-goal"
               onChange={e => setGoal(e.target.value)}
+              onKeyDown={e => {
+                if (e.key === 'Enter' && e.ctrlKey) {
+                  handleSend()
+                }
+              }}
               placeholder="Ask Georges anything…"
               rows={2}
               value={goal}
