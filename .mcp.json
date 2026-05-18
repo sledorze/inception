@@ -6,7 +6,7 @@
       "type": "stdio"
     },
     "shadcn": {
-      "args": ["-y", "shadcn@latest", "mcp"],
+      "args": ["shadcn@latest", "mcp"],
       "command": "npx",
       "type": "stdio"
     },
