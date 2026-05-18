@@ -239,9 +239,6 @@ importers:
       '@effect/sql-sqlite-node':
         specifier: 4.0.0-beta.66
         version: 4.0.0-beta.66(effect@4.0.0-beta.66)
-      better-sqlite3:
-        specifier: ^12.10.0
-        version: 12.10.0
       effect:
         specifier: 4.0.0-beta.66
         version: 4.0.0-beta.66
@@ -252,9 +249,6 @@ importers:
       '@effect/vitest':
         specifier: 4.0.0-beta.66
         version: 4.0.0-beta.66(effect@4.0.0-beta.66)(vitest@4.0.18(@types/node@25.5.0)(happy-dom@20.8.4)(jiti@2.7.0)(lightningcss@1.31.1)(msw@2.12.13(@types/node@25.5.0)(typescript@5.9.3))(tsx@4.21.0)(yaml@2.9.0))
-      '@types/better-sqlite3':
-        specifier: ^7.6.13
-        version: 7.6.13
 
   packages/monitor:
     dependencies:
@@ -1734,9 +1728,6 @@ packages:
 
   '@types/babel__traverse@7.28.0':
     resolution: {integrity: sha512-8PvcXf70gTDZBgt9ptxJ8elBeBjcLOAcOtoO/mPJjtji1+CdGbHgm77om1GrsPxsiE+uXIpNSK64UYaIwQXd4Q==}
-
-  '@types/better-sqlite3@7.6.13':
-    resolution: {integrity: sha512-NMv9ASNARoKksWtsq/SHakpYAYnhBrQgGD8zkLYk/jaK8jUGn08CfEdTRgYhMypUQAfzSP8W6gNLe0q19/t4VA==}
 
   '@types/chai@5.2.3':
     resolution: {integrity: sha512-Mw558oeA9fFbv65/y4mHtXDs9bPnFMZAL/jxdPFUpOHHIXX91mcgEHbS5Lahr+pwZFR8A7GQleRWeI6cGFC2UA==}
@@ -5534,10 +5525,6 @@ snapshots:
   '@types/babel__traverse@7.28.0':
     dependencies:
       '@babel/types': 7.29.0
-
-  '@types/better-sqlite3@7.6.13':
-    dependencies:
-      '@types/node': 25.5.0
 
   '@types/chai@5.2.3':
     dependencies:

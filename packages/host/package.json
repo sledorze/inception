@@ -21,12 +21,10 @@
     "@effect/ai-openai-compat": "4.0.0-beta.66",
     "@effect/platform-node": "4.0.0-beta.66",
     "@effect/sql-sqlite-node": "4.0.0-beta.66",
-    "better-sqlite3": "^12.10.0",
     "effect": "4.0.0-beta.66",
     "yaml": "^2.9.0"
   },
   "devDependencies": {
-    "@effect/vitest": "4.0.0-beta.66",
-    "@types/better-sqlite3": "^7.6.13"
+    "@effect/vitest": "4.0.0-beta.66"
   }
 }

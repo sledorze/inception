@@ -34,7 +34,7 @@ const fetchAtom = <T>(fn: () => Promise<T>) => Atom.make(Effect.tryPromise({ cat
 export const currentTenantAtom = Atom.make(getTenantId() ?? 'default')
 
 // ── Tenants list ──────────────────────────────────────────────────────────────
-export const tenantsAtom = Atom.withReactivity(['tenants'])(fetchAtom(listTenants))
+const tenantsAtom = Atom.withReactivity(['tenants'])(fetchAtom(listTenants))
 export const tenantsView = Atom.map(tenantsAtom, toView)
 
 // Topic keys for the decoupled Reactivity key-bus. A session's turns live under
@@ -117,4 +117,3 @@ export const renameTenantAtom = atomRuntime.fn(({ id, name }: { id: string; name
     yield* Reactivity.invalidate(['tenants'])
   }),
 )
-export const renameTenantView = Atom.map(renameTenantAtom, toView)
