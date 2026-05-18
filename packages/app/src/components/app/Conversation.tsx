@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import Markdown from 'react-markdown'
 import type { Components } from 'react-markdown'
+import remarkGfm from 'remark-gfm'
 import { useNavigate, useParams } from 'react-router'
 import { useAtomSet, useAtomValue } from '@effect/atom-react'
 import { Button } from '@app/design-system/button'
@@ -21,6 +22,16 @@ const mdComponents: Components = {
     <pre className="mb-2 overflow-x-auto rounded bg-background p-2 font-mono text-xs">{children}</pre>
   ),
   strong: ({ children }) => <strong className="font-semibold">{children}</strong>,
+  table: ({ children }) => (
+    <div className="mb-2 overflow-x-auto">
+      <table className="w-full border-collapse text-xs">{children}</table>
+    </div>
+  ),
+  tbody: ({ children }) => <tbody>{children}</tbody>,
+  td: ({ children }) => <td className="px-2 py-1 align-top text-foreground">{children}</td>,
+  th: ({ children }) => <th className="px-2 py-1 text-left font-semibold text-foreground">{children}</th>,
+  thead: ({ children }) => <thead className="border-b border-border">{children}</thead>,
+  tr: ({ children }) => <tr className="border-b border-border last:border-0">{children}</tr>,
   ul: ({ children }) => <ul className="mb-2 list-disc pl-4">{children}</ul>,
 }
 
@@ -157,7 +168,9 @@ export function Conversation() {
                 className="mr-auto max-w-[80%] rounded-lg bg-muted px-3 py-2 text-sm text-foreground"
                 data-testid={`conv-reply-${i}`}
               >
-                <Markdown components={mdComponents}>{t.reply}</Markdown>
+                <Markdown components={mdComponents} remarkPlugins={[remarkGfm]}>
+                  {t.reply}
+                </Markdown>
               </div>
             )}
             {t.clarifyQuestion !== undefined && t.reply === undefined && (
