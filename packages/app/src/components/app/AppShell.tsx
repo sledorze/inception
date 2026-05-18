@@ -4,6 +4,7 @@ import { cn, navLinkClass } from '@app/design-system/utils'
 import { Conversation } from './Conversation.tsx'
 import { ConversationEmpty } from './ConversationEmpty.tsx'
 import { SessionList } from './SessionList.tsx'
+import { TenantSwitcher } from './TenantSwitcher.tsx'
 
 const NAV = [{ label: 'Conversations', to: '/' }] as const
 
@@ -19,9 +20,12 @@ export function Shell({ onLogout }: { onLogout: () => void }) {
       </a>
       <header className="flex shrink-0 items-center justify-between border-b border-border px-4 py-3 sm:px-6">
         <h1 className="text-lg font-semibold">Georges</h1>
-        <Button data-testid="logout" onClick={onLogout} size="sm" type="button" variant="ghost">
-          Sign out
-        </Button>
+        <div className="flex items-center gap-2">
+          <TenantSwitcher />
+          <Button data-testid="logout" onClick={onLogout} size="sm" type="button" variant="ghost">
+            Sign out
+          </Button>
+        </div>
       </header>
       <div className="flex min-h-0 flex-1 flex-col sm:flex-row">
         <nav

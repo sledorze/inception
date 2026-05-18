@@ -5,7 +5,16 @@ import * as AsyncResult from 'effect/unstable/reactivity/AsyncResult'
 import * as Atom from 'effect/unstable/reactivity/Atom'
 import * as Reactivity from 'effect/unstable/reactivity/Reactivity'
 import { getTenantId } from './api/auth.ts'
-import { deleteSession, getTurns, listSessions, listTenants, respondToGoal, sendMessage } from './hooks/chat.ts'
+import {
+  createTenant,
+  deleteSession,
+  getTurns,
+  listSessions,
+  listTenants,
+  renameTenant,
+  respondToGoal,
+  sendMessage,
+} from './hooks/chat.ts'
 
 export type AsyncView<T> =
   | { readonly _tag: 'Loading'; readonly waiting: boolean }
@@ -87,3 +96,19 @@ export const deleteSessionAtom = atomRuntime.fn(({ sessionId }: { sessionId: str
   }),
 )
 export const deleteSessionView = Atom.map(deleteSessionAtom, toView)
+
+export const createTenantAtom = atomRuntime.fn(({ id, name }: { id: string; name: string }) =>
+  Effect.gen(function* () {
+    yield* Effect.tryPromise({ catch: e => String(e), try: () => createTenant(id, name) })
+    yield* Reactivity.invalidate(['tenants'])
+  }),
+)
+export const createTenantView = Atom.map(createTenantAtom, toView)
+
+export const renameTenantAtom = atomRuntime.fn(({ id, name }: { id: string; name: string }) =>
+  Effect.gen(function* () {
+    yield* Effect.tryPromise({ catch: e => String(e), try: () => renameTenant(id, name) })
+    yield* Reactivity.invalidate(['tenants'])
+  }),
+)
+export const renameTenantView = Atom.map(renameTenantAtom, toView)
