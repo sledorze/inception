@@ -89,7 +89,14 @@ module.exports = {
         'Layer composition (runtime wiring) lives in runtime/bind.ts (SPEC §2.14).',
       from: {
         path: String.raw`^packages/host/src/(?!adapters/)`,
-        pathNot: [String.raw`^packages/host/src/runtime/`, String.raw`^packages/host/src/adapters/`],
+        // runtime/bind.ts and main.ts are the two composition-root entry points
+        // that wire adapters into the application.  All other non-adapter code must
+        // not import from adapters directly (P75: guards extracted to adapters/driving/http/).
+        pathNot: [
+          String.raw`^packages/host/src/runtime/`,
+          String.raw`^packages/host/src/adapters/`,
+          String.raw`^packages/host/src/main\.ts$`,
+        ],
       },
       name: 'host-no-adapter-import',
       severity: 'error',

@@ -36,6 +36,10 @@ const loader = SqliteMigrator.fromRecord({
 
   '2_tenant_isolation': Effect.gen(function* () {
     const sql = yield* SqlClient.SqlClient
+    // Backward-compat: databases where migration 1 ran before tenant_id was added
+    // to the schema require ALTER TABLE. On fresh databases (migration 1 already
+    // includes tenant_id) the PRAGMA finds the column and the ALTER TABLE branch is
+    // skipped. The IF NOT EXISTS index creation is always safe.
     const cols = yield* sql<{ name: string }>`PRAGMA table_info(events)`
     if (!cols.some(c => c.name === 'tenant_id')) {
       yield* sql`ALTER TABLE events ADD COLUMN tenant_id TEXT NOT NULL DEFAULT 'default'`

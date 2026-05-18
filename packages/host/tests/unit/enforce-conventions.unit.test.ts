@@ -187,3 +187,29 @@ describe('Frontend presentation components must not interpret async state (P41)'
     expect(violations, 'promise chaining in component files — use atom + useAtomRefresh').toEqual([])
   })
 })
+
+// ── P75 green-step acceptance test ───────────────────────────────────────────
+// Auth middleware extracted to adapters/driving/http/guards.ts; main.ts is guards-free.
+
+describe('P75 — HTTP guards extracted from main.ts (guards.ts)', () => {
+  it('no withPrincipal defined in main.ts (P75)', () => {
+    const content = readFileSync(join(REPO_ROOT, 'packages', 'host', 'src', 'main.ts'), 'utf8')
+    expect(content).not.toMatch(/const withPrincipal\s*=/)
+  })
+
+  it('no withTenant defined in main.ts (P75)', () => {
+    const content = readFileSync(join(REPO_ROOT, 'packages', 'host', 'src', 'main.ts'), 'utf8')
+    expect(content).not.toMatch(/const withTenant\s*=/)
+  })
+
+  it('no withRole defined in main.ts (P75)', () => {
+    const content = readFileSync(join(REPO_ROOT, 'packages', 'host', 'src', 'main.ts'), 'utf8')
+    expect(content).not.toMatch(/const withRole\s*=/)
+  })
+
+  it('guards.ts exists at adapters/driving/http/guards.ts', () => {
+    expect(existsSync(join(REPO_ROOT, 'packages', 'host', 'src', 'adapters', 'driving', 'http', 'guards.ts'))).toBe(
+      true,
+    )
+  })
+})

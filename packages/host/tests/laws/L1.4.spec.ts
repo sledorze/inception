@@ -10,10 +10,17 @@ import { randomUUID } from 'node:crypto'
 import { DateTime, Effect, Layer } from 'effect'
 import { describe, expect, it } from '@effect/vitest'
 import { InMemoryEventStore } from '../../src/adapters/driven/InMemoryEventStore.ts'
+import { grantTenant } from '../../src/application/grantTenant.ts'
 import { deleteSession } from '../../src/application/deleteSession.ts'
-import { computeContentHash, EventStore } from '../../src/ports/driven/EventStore.ts'
+import {
+  computeContentHash,
+  EventStore,
+  EventStoreError,
+  EventStoreErrorTag,
+} from '../../src/ports/driven/EventStore.ts'
 import type { NewEvent, StoredEvent } from '../../src/ports/driven/EventStore.ts'
 import { EventKind } from '../../src/domain/events.ts'
+import { createTenant } from '../../src/application/createTenant.ts'
 
 const baseEvent = (sessionId: string): NewEvent => ({
   actor: 'user' as const,
@@ -127,4 +134,56 @@ describe('L1.4 — tamper-evident hash chain', () => {
         ),
       ),
   )
+
+  it.effect('grantTenant emits a TenantGranted event — L1.4 traceability (P59 red→green)', () =>
+    Effect.provide(
+      Effect.gen(function* () {
+        // Create the tenant so the existence guard passes.
+        yield* createTenant('acme', 'Acme Corp')
+        yield* grantTenant('alice', 'acme')
+        const store = yield* EventStore
+        const events = yield* store.query({})
+        expect(events.some(e => e.kind === EventKind.TenantGranted)).toBe(true)
+        const granted = events.find(e => e.kind === EventKind.TenantGranted)
+        expect(granted?.payload).toMatchObject({ subject: 'alice', tenantId: 'acme' })
+      }),
+      InMemoryEventStore.layer.pipe(
+        Layer.provideMerge(DateTime.layerCurrentZoneLocal as Layer.Layer<DateTime.CurrentTimeZone>),
+      ),
+    ),
+  )
+
+  it.effect('grantTenant is idempotent — double-grant does not duplicate TenantGranted events', () =>
+    Effect.provide(
+      Effect.gen(function* () {
+        yield* createTenant('acme', 'Acme Corp')
+        yield* grantTenant('alice', 'acme')
+        yield* grantTenant('alice', 'acme')
+        const store = yield* EventStore
+        const events = yield* store.query({})
+        const grants = events.filter(
+          e => e.kind === EventKind.TenantGranted && (e.payload as { subject: string }).subject === 'alice',
+        )
+        expect(grants).toHaveLength(1)
+      }),
+      InMemoryEventStore.layer.pipe(
+        Layer.provideMerge(DateTime.layerCurrentZoneLocal as Layer.Layer<DateTime.CurrentTimeZone>),
+      ),
+    ),
+  )
+
+  it.effect('EventStoreError propagates as typed failure — not a Defect (P73 green)', () => {
+    const failingStore = EventStore.of({
+      append: () => Effect.fail(new EventStoreError({ cause: new Error('disk full') })),
+      query: () => Effect.fail(new EventStoreError({ cause: new Error('disk full') })),
+      replay: () => Effect.fail(new EventStoreError({ cause: new Error('disk full') })),
+    })
+    return Effect.provide(
+      Effect.gen(function* () {
+        const err = yield* Effect.flip(grantTenant('alice', 'acme'))
+        expect(err._tag).toBe(EventStoreErrorTag)
+      }),
+      Layer.succeed(EventStore, failingStore),
+    )
+  })
 })

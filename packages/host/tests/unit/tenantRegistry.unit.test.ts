@@ -9,11 +9,17 @@ import { createTenant } from '../../src/application/createTenant.ts'
 import { listTenants } from '../../src/application/listTenants.ts'
 import { renameTenant } from '../../src/application/renameTenant.ts'
 import { seedDefaultTenant } from '../../src/application/seedDefaultTenant.ts'
+import { SYSTEM_TENANT_ID, TENANTS_SESSION_ID } from '../../src/domain/tenantRegistry.ts'
 import type { EventStore } from '../../src/ports/driven/EventStore.ts'
 
 const withStore = <A>(eff: Effect.Effect<A, unknown, EventStore>) => Effect.provide(eff, InMemoryEventStore.layer)
 
 describe('tenant registry', () => {
+  it('SYSTEM_TENANT_ID and TENANTS_SESSION_ID are stable constants (P65 guard)', () => {
+    expect(SYSTEM_TENANT_ID).toBe('__system__')
+    expect(String(TENANTS_SESSION_ID)).toContain('__tenants__')
+  })
+
   it.effect('listTenants returns empty array when no tenants exist', () =>
     withStore(
       Effect.gen(function* () {

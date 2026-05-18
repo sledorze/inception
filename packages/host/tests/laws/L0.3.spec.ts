@@ -20,13 +20,10 @@ import { AuthGateway, ForbiddenTag, SessionNotFoundTag } from '../../src/ports/d
 import { EventStore } from '../../src/ports/driven/EventStore.ts'
 
 const makeLayer = () =>
-  Layer.mergeAll(
-    FakeAuthGateway.layer([
-      { password: 'adminpass', role: 'admin', username: 'admin' },
-      { password: 'userpass', role: 'enduser', username: 'enduser' },
-    ]),
-    InMemoryEventStore.layer,
-  )
+  FakeAuthGateway.layer([
+    { password: 'adminpass', role: 'admin', username: 'admin' },
+    { password: 'userpass', role: 'enduser', username: 'enduser' },
+  ]).pipe(Layer.provideMerge(InMemoryEventStore.layer))
 
 describe('L0.3 — Asymmetry Disclosure', () => {
   it.effect('enduser token on admin-required call is rejected with Forbidden', () =>
@@ -35,14 +32,26 @@ describe('L0.3 — Asymmetry Disclosure', () => {
       const session = yield* auth.login('enduser', 'userpass')
       const err = yield* Effect.flip(requireRole(session.token, 'admin'))
       expect(err._tag).toBe(ForbiddenTag)
-    }).pipe(Effect.provide(FakeAuthGateway.layer([{ password: 'userpass', role: 'enduser', username: 'enduser' }]))),
+    }).pipe(
+      Effect.provide(
+        FakeAuthGateway.layer([{ password: 'userpass', role: 'enduser', username: 'enduser' }]).pipe(
+          Layer.provide(InMemoryEventStore.layer),
+        ),
+      ),
+    ),
   )
 
   it.effect('missing token on admin-required call is rejected with SessionNotFound', () =>
     Effect.gen(function* () {
       const err = yield* Effect.flip(requireRole(undefined, 'admin'))
       expect(err._tag).toBe(SessionNotFoundTag)
-    }).pipe(Effect.provide(FakeAuthGateway.layer([{ password: 'adminpass', role: 'admin', username: 'admin' }]))),
+    }).pipe(
+      Effect.provide(
+        FakeAuthGateway.layer([{ password: 'adminpass', role: 'admin', username: 'admin' }]).pipe(
+          Layer.provide(InMemoryEventStore.layer),
+        ),
+      ),
+    ),
   )
 
   it.effect('successful login emits exactly one Authenticated event with no secret material', () =>
@@ -80,6 +89,12 @@ describe('L0.3 — Asymmetry Disclosure', () => {
       const principal = yield* requireRole(session.token, 'admin')
       expect(principal.role).toBe('admin')
       expect(principal.subject).toBe('admin')
-    }).pipe(Effect.provide(FakeAuthGateway.layer([{ password: 'adminpass', role: 'admin', username: 'admin' }]))),
+    }).pipe(
+      Effect.provide(
+        FakeAuthGateway.layer([{ password: 'adminpass', role: 'admin', username: 'admin' }]).pipe(
+          Layer.provide(InMemoryEventStore.layer),
+        ),
+      ),
+    ),
   )
 })
