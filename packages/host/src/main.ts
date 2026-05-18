@@ -160,7 +160,7 @@ const withTenant =
     Effect.gen(function* () {
       const req = yield* HttpServerRequest.HttpServerRequest
       const requestedTenantId = req.headers['x-tenant-id'] as string | undefined
-      if (!requestedTenantId) {
+      if (requestedTenantId === undefined || requestedTenantId === '') {
         return HttpServerResponse.text('X-Tenant-Id header required', { status: 400 })
       }
       return yield* withPrincipal(role)(principal =>
