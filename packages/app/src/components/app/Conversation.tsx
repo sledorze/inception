@@ -106,9 +106,16 @@ export function Conversation() {
   }
 
   return (
-    <div className="mx-auto flex min-h-0 w-full max-w-2xl flex-1 flex-col">
+    <div className="mx-auto flex min-h-0 w-full max-w-3xl flex-1 flex-col">
       <div className="flex shrink-0 items-center gap-3 border-b border-border px-4 py-2">
-        <Button data-testid="conv-back" onClick={() => navigate('/')} size="sm" type="button" variant="ghost">
+        <Button
+          className="sm:hidden"
+          data-testid="conv-back"
+          onClick={() => navigate('/')}
+          size="sm"
+          type="button"
+          variant="ghost"
+        >
           ← Conversations
         </Button>
         <div className="min-w-0">
