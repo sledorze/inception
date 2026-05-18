@@ -87,8 +87,8 @@ export const createTenant = (id: string, name: string): Promise<void> =>
     .then(() => undefined)
 
 export const renameTenant = (id: string, name: string): Promise<void> =>
-  authedFetch('/api/tenants', {
-    body: JSON.stringify({ id, name }),
+  authedFetch(`/api/tenants/${encodeURIComponent(id)}`, {
+    body: JSON.stringify({ name }),
     method: 'PATCH',
   })
     .then(handleErr)
