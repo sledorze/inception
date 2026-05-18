@@ -9,9 +9,9 @@
   "reporters": ["html", "clear-text", "progress"],
   "testRunner": "vitest",
   "thresholds": {
-    "break": 10,
-    "high": 30,
-    "low": 15
+    "break": 15,
+    "high": 60,
+    "low": 25
   },
   "vitest": {
     "configFile": "vitest.stryker-laws.config.ts"

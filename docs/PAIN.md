@@ -105,9 +105,3 @@ Candidates:
 
 Stopped because: 3 candidates surfaced and landed.
 -->
-
-**P53** — severity: slows | Law tests cover only 15% of application+domain mutants
-
-- **Symptom:** `stryker.laws.config.json` `break` threshold set to 10 (baseline calibrated 2026-05-17 at 15.49%). Law tests run against `application/` + `domain/` source — 404/568 mutants have no coverage at all (law tests don't exercise most code paths; they test architectural contracts, not data transforms).
-- **Candidate fix:** Add behavioural assertions to law specs where laws mandate specific runtime outcomes (L1.4 tamper chain, L3.7 risk supervision). Ratchet `break` up by 5 points once covered-mutant kill rate is ≥ 60%. Acceptance test: CI `law mutation (scoped Stryker)` job.
-- **Acceptance test:** CI `law mutation (scoped Stryker)` job — red when score < `break`, green when ≥ `break`. Threshold ratcheted in PAIN closure commits.
