@@ -8,7 +8,7 @@ import { Button } from '@app/design-system/button'
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@app/design-system/collapsible'
 import { Input } from '@app/design-system/input'
 import { Textarea } from '@app/design-system/textarea'
-import { respondAtom, respondView, sendGoalAtom, sendGoalView, turnsView } from '../../atoms.ts'
+import { copyLinkAtom, respondAtom, respondView, sendGoalAtom, sendGoalView, turnsView } from '../../atoms.ts'
 
 const mdComponents: Components = {
   code: ({ children }) => <code className="rounded bg-background px-1 py-0.5 font-mono text-xs">{children}</code>,
@@ -45,6 +45,7 @@ export function Conversation() {
   const sendState = useAtomValue(sendGoalView)
   const respond = useAtomSet(respondAtom)
   const respondState = useAtomValue(respondView)
+  const copyLink = useAtomSet(copyLinkAtom)
 
   const [goal, setGoal] = useState('')
   const [handleId, setHandleId] = useState('synthetic-001')
@@ -147,6 +148,26 @@ export function Conversation() {
             Session: {sessionId}
           </p>
         </div>
+        <Button
+          aria-label="Copy conversation link"
+          className="ml-auto"
+          data-testid="conv-copy-link"
+          onClick={() => {
+            copyLink()
+          }}
+          size="icon"
+          title="Copy conversation link"
+          type="button"
+          variant="ghost"
+        >
+          <svg aria-hidden="true" fill="none" stroke="currentColor" strokeWidth={1.5} viewBox="0 0 24 24">
+            <path
+              d="M13.19 8.688a4.5 4.5 0 0 1 1.242 7.244l-4.5 4.5a4.5 4.5 0 0 1-6.364-6.364l1.757-1.757m13.35-.622 1.757-1.757a4.5 4.5 0 0 0-6.364-6.364l-4.5 4.5a4.5 4.5 0 0 0 1.242 7.244"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+            />
+          </svg>
+        </Button>
       </div>
 
       <div

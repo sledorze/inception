@@ -9,6 +9,12 @@ import type { RespondResult, SendResult, Turn } from '../../hooks/chat.ts'
 const getTurns = vi.fn<(s: string) => Promise<readonly Turn[]>>()
 const sendMessage = vi.fn<(s: string, g: string, h: string) => Promise<SendResult>>()
 const respondToGoal = vi.fn<(s: string, c: string, a: string) => Promise<RespondResult>>()
+const writeText = vi.fn<(text: string) => Promise<void>>()
+
+vi.mock('@app/shared-api', async importOriginal => {
+  const actual = await importOriginal<Record<string, unknown>>()
+  return { ...actual, copyConversationLink: () => writeText(globalThis.location.href) }
+})
 
 vi.mock('../../hooks/chat.ts', () => ({
   getTurns: (s: string) => getTurns(s),
@@ -36,7 +42,9 @@ describe('Conversation', () => {
     getTurns.mockReset()
     sendMessage.mockReset()
     respondToGoal.mockReset()
+    writeText.mockReset()
     getTurns.mockResolvedValue([])
+    writeText.mockResolvedValue(undefined)
   })
 
   it('hydrates the transcript for the routed :sessionId from the server', async () => {
@@ -81,5 +89,13 @@ describe('Conversation', () => {
     await userEvent.type(screen.getByTestId('conv-clarify-answer'), 'synthetic-001')
     await userEvent.click(screen.getByTestId('conv-clarify-submit'))
     await waitFor(() => expect(respondToGoal).toHaveBeenCalledWith('sess-2', 'c2', 'synthetic-001'))
+  })
+
+  it('copies the conversation link when the copy link icon button is clicked', async () => {
+    renderAt('sess-copy')
+    const btn = await screen.findByTestId('conv-copy-link')
+    expect(btn).toHaveAttribute('aria-label', 'Copy conversation link')
+    await userEvent.click(btn)
+    await waitFor(() => expect(writeText).toHaveBeenCalledTimes(1))
   })
 })

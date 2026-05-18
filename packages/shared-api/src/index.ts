@@ -22,6 +22,10 @@ export const switchTenant = (tenantId: string): void => {
   globalThis.dispatchEvent(new CustomEvent('tenant:changed'))
 }
 
+export const copyConversationLink = async (): Promise<void> => {
+  await globalThis.navigator.clipboard.writeText(globalThis.location.href)
+}
+
 export const handleErr = (res: Response): Promise<Response> => {
   if (!res.ok) {
     if (res.status === 401) {
