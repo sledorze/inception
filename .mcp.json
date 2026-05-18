@@ -6,8 +6,8 @@
       "type": "stdio"
     },
     "shadcn": {
-      "args": ["shadcn@latest", "mcp"],
-      "command": "npx",
+      "args": ["mcp"],
+      "command": "node_modules/.bin/shadcn",
       "type": "stdio"
     },
     "ts-refactor": {
