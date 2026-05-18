@@ -1,7 +1,11 @@
 import { randomBytes } from 'node:crypto'
-import { Clock, Effect, Layer } from 'effect'
+import { Clock, Effect, Layer, Option, Schema } from 'effect'
 import type { AuthSession, Role } from '../../ports/driving/AuthGateway.ts'
 import { AuthGateway, InvalidCredentials, SessionExpired, SessionNotFound } from '../../ports/driving/AuthGateway.ts'
+import { EventKind, TenantGrantedPayload } from '../../domain/events.ts'
+import { TENANTS_SESSION_ID } from '../../domain/tenantRegistry.ts'
+import type { EventStoreError } from '../../ports/driven/EventStore.ts'
+import { EventStore } from '../../ports/driven/EventStore.ts'
 
 // Session TTL: 7 days in milliseconds (matches ScryptAuthGateway; sliding renewal in verify).
 const SESSION_TTL_MS = 7 * 24 * 60 * 60 * 1_000
@@ -17,44 +21,43 @@ export const FakeAuthGateway = {
   layer: (creds: readonly FakeCred[]) =>
     Layer.effect(
       AuthGateway,
-      Effect.sync(() => {
+      Effect.gen(function* () {
+        const store = yield* EventStore
         const sessions = new Map<string, AuthSession>()
-        const mutableCreds: FakeCred[] = [...creds]
+
+        // Resolves effective tenantIds: static cred tenantIds + TenantGranted events in EventStore.
+        // Uses the store captured at layer build time — no EventStore requirement at call site.
+        const getTenantIds = (subject: string): Effect.Effect<readonly string[], EventStoreError> =>
+          Effect.gen(function* () {
+            const cred = creds.find(c => c.username === subject)
+            const baseTenantIds = [...(cred?.tenantIds ?? ['default'])]
+            const events = yield* store.query({ sessionId: TENANTS_SESSION_ID })
+            const grantedIds = events
+              .filter(e => e.kind === EventKind.TenantGranted)
+              .flatMap(e => {
+                const p = Schema.decodeUnknownOption(TenantGrantedPayload)(e.payload)
+                return Option.isSome(p) && p.value.subject === subject ? [p.value.tenantId] : []
+              })
+            return [...new Set([...baseTenantIds, ...grantedIds])] as readonly string[]
+          })
 
         return AuthGateway.of({
-          grantTenant: (subject, tenantId) =>
-            Effect.sync(() => {
-              const idx = mutableCreds.findIndex(c => c.username === subject)
-              if (idx === -1) {
-                return
-              }
-              const cred = mutableCreds[idx]!
-              const ids = cred.tenantIds ?? ['default']
-              if (ids.includes(tenantId)) {
-                return
-              }
-              mutableCreds[idx] = { ...cred, tenantIds: [...ids, tenantId] }
-              for (const [token, session] of sessions) {
-                if (session.subject === subject) {
-                  sessions.set(token, { ...session, tenantIds: [...session.tenantIds, tenantId] })
-                }
-              }
-            }),
-
           login: (username, password) =>
             Effect.gen(function* () {
-              const cred = mutableCreds.find(c => c.username === username && c.password === password)
+              const cred = creds.find(c => c.username === username && c.password === password)
               if (cred === undefined) {
                 return yield* new InvalidCredentials({ subject: username })
               }
               const now = yield* Clock.currentTimeMillis
               const token = randomBytes(32).toString('hex')
+              // EventStoreError → die: EventStore is always present inside this layer.
+              const tenantIds = yield* getTenantIds(username).pipe(Effect.orDie)
               const session: AuthSession = {
                 expiresAtMs: now + SESSION_TTL_MS,
                 issuedAtMs: now,
                 role: cred.role,
                 subject: username,
-                tenantIds: cred.tenantIds ?? ['default'],
+                tenantIds: [...tenantIds],
                 token,
               }
               sessions.set(token, session)
@@ -76,7 +79,9 @@ export const FakeAuthGateway = {
               if (now > session.expiresAtMs) {
                 return yield* new SessionExpired()
               }
-              return { role: session.role, subject: session.subject, tenantIds: [...session.tenantIds] }
+              // EventStoreError → die: EventStore is always present inside this layer.
+              const tenantIds = yield* getTenantIds(session.subject).pipe(Effect.orDie)
+              return { role: session.role, subject: session.subject, tenantIds: [...tenantIds] }
             }),
         })
       }),

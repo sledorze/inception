@@ -1,5 +1,5 @@
 import { randomBytes, scryptSync, timingSafeEqual } from 'node:crypto'
-import { Clock, Effect, FileSystem, Layer, Schema } from 'effect'
+import { Clock, Effect, FileSystem, Layer, Option, Schema } from 'effect'
 import type { AuthSession, Role } from '../../ports/driving/AuthGateway.ts'
 import {
   AuthGateway,
@@ -8,6 +8,10 @@ import {
   SessionExpired,
   SessionNotFound,
 } from '../../ports/driving/AuthGateway.ts'
+import { EventKind, TenantGrantedPayload } from '../../domain/events.ts'
+import { TENANTS_SESSION_ID } from '../../domain/tenantRegistry.ts'
+import type { EventStoreError, EventStoreQuery, StoredEvent } from '../../ports/driven/EventStore.ts'
+import { EventStore } from '../../ports/driven/EventStore.ts'
 
 // Session TTL: 7 days in milliseconds (sliding — renewed on every successful verify).
 const SESSION_TTL_MS = 7 * 24 * 60 * 60 * 1_000
@@ -26,38 +30,25 @@ export const hashPassword = (password: string, salt: string): string => scryptSy
 /** Generate a random salt suitable for scrypt. */
 export const generateSalt = (): string => randomBytes(16).toString('hex')
 
-// Grants schema: { subject → [tenantId, ...] } — persisted separately from credentials.
-const JsonGrants = Schema.fromJsonString(Schema.Record(Schema.String, Schema.Array(Schema.String)))
-
-// Shared grant-tenant logic: updates effective in-memory creds + runtime grants map + active sessions.
-// Only grants (not credentials) are persisted so credentials.json stays read-only.
-const buildGrantTenant =
+// Build a resolver that queries the captured store directly (no Effect context requirement at call site).
+// EventStoreError is in the error channel — callers pipe through Effect.orDie since the store is always present.
+const makeResolver =
   (
-    mutableCreds: CredentialEntry[],
-    sessions: Map<string, AuthSession>,
-    grants: Map<string, string[]>,
-    persistFn: (grants: Map<string, string[]>) => Effect.Effect<void>,
+    credentials: readonly CredentialEntry[],
+    queryFn: (filter: EventStoreQuery) => Effect.Effect<readonly StoredEvent[], EventStoreError>,
   ) =>
-  (subject: string, tenantId: string): Effect.Effect<void> =>
+  (subject: string): Effect.Effect<readonly string[], EventStoreError> =>
     Effect.gen(function* () {
-      const idx = mutableCreds.findIndex(c => c.subject === subject)
-      if (idx === -1) {
-        return
-      }
-      const cred = mutableCreds[idx]!
-      const ids = cred.tenantIds ?? ['default']
-      if (ids.includes(tenantId)) {
-        return
-      }
-      mutableCreds[idx] = { ...cred, tenantIds: [...ids, tenantId] }
-      const runtimeGrants = grants.get(subject) ?? []
-      grants.set(subject, [...runtimeGrants, tenantId])
-      for (const [token, session] of sessions) {
-        if (session.subject === subject) {
-          sessions.set(token, { ...session, tenantIds: [...session.tenantIds, tenantId] })
-        }
-      }
-      yield* persistFn(grants)
+      const cred = credentials.find(c => c.subject === subject)
+      const baseTenantIds = [...(cred?.tenantIds ?? ['default'])]
+      const events = yield* queryFn({ sessionId: TENANTS_SESSION_ID })
+      const grantedIds = events
+        .filter(e => e.kind === EventKind.TenantGranted)
+        .flatMap(e => {
+          const p = Schema.decodeUnknownOption(TenantGrantedPayload)(e.payload)
+          return Option.isSome(p) && p.value.subject === subject ? [p.value.tenantId] : []
+        })
+      return [...new Set([...baseTenantIds, ...grantedIds])] as readonly string[]
     })
 
 // Shared session logic between the in-memory and file-backed layers.
@@ -66,6 +57,7 @@ const buildLogin =
     credentials: readonly CredentialEntry[],
     sessions: Map<string, AuthSession>,
     persist: (m: Map<string, AuthSession>) => Effect.Effect<void>,
+    getTenantIds: (subject: string) => Effect.Effect<readonly string[], EventStoreError>,
   ) =>
   (username: string, password: string) =>
     Effect.gen(function* () {
@@ -86,12 +78,14 @@ const buildLogin =
       }
       const now = yield* Clock.currentTimeMillis
       const token = randomBytes(32).toString('hex')
+      // EventStoreError → die: EventStore is always present inside this layer.
+      const tenantIds = yield* getTenantIds(username).pipe(Effect.orDie)
       const session: AuthSession = {
         expiresAtMs: now + SESSION_TTL_MS,
         issuedAtMs: now,
         role: cred.role,
         subject: username,
-        tenantIds: cred.tenantIds ?? ['default'],
+        tenantIds: [...tenantIds],
         token,
       }
       sessions.set(token, session)
@@ -108,7 +102,12 @@ const buildLogout =
     })
 
 const buildVerify =
-  (sessions: Map<string, AuthSession>, persist: (m: Map<string, AuthSession>) => Effect.Effect<void>) =>
+  (
+    credentials: readonly CredentialEntry[],
+    sessions: Map<string, AuthSession>,
+    persist: (m: Map<string, AuthSession>) => Effect.Effect<void>,
+    getTenantIds: (subject: string) => Effect.Effect<readonly string[], EventStoreError>,
+  ) =>
   (token: string) =>
     Effect.gen(function* () {
       const session = sessions.get(token)
@@ -123,7 +122,9 @@ const buildVerify =
       const renewed: AuthSession = { ...session, expiresAtMs: now + SESSION_TTL_MS }
       sessions.set(token, renewed)
       yield* persist(sessions)
-      return { role: renewed.role, subject: renewed.subject, tenantIds: [...renewed.tenantIds] }
+      // EventStoreError → die: EventStore is always present inside this layer.
+      const tenantIds = yield* getTenantIds(renewed.subject).pipe(Effect.orDie)
+      return { role: renewed.role, subject: renewed.subject, tenantIds: [...tenantIds] }
     })
 
 const noPersist = (_: Map<string, AuthSession>): Effect.Effect<void> => Effect.void
@@ -144,15 +145,15 @@ export const ScryptAuthGateway = {
    * login/logout/verify-renew. Expired sessions are filtered out on load.
    * Persist is best-effort: a write failure does not propagate to callers.
    *
-   * grantsPath: when provided, grantTenant writes runtime-granted tenantIds to a
-   * separate grants file (gitignored) so credentials.json stays read-only.
-   * On startup, grants are merged with the static tenantIds from credentials.
+   * tenantIds for a subject are resolved dynamically at login/verify time by combining
+   * static credentials.json tenantIds with TenantGranted events from EventStore (P63).
    */
-  fileBackedLayer: (credentials: readonly CredentialEntry[], sessionsPath: string, grantsPath?: string) =>
+  fileBackedLayer: (credentials: readonly CredentialEntry[], sessionsPath: string) =>
     Layer.effect(
       AuthGateway,
       Effect.gen(function* () {
         const fs = yield* FileSystem.FileSystem
+        const store = yield* EventStore
         const now = yield* Clock.currentTimeMillis
 
         const raw = yield* fs.readFileString(sessionsPath).pipe(Effect.orElseSucceed(() => '[]'))
@@ -162,55 +163,32 @@ export const ScryptAuthGateway = {
         const valid = loaded.filter(s => s.expiresAtMs > now)
         const sessions = new Map<string, AuthSession>(valid.map(s => [s.token, s]))
 
-        // Load runtime grants (written by grantTenant at runtime, never by credentials.json).
-        const grantsRaw =
-          grantsPath !== undefined ? yield* fs.readFileString(grantsPath).pipe(Effect.orElseSucceed(() => '{}')) : '{}'
-        const grantsRecord = yield* Schema.decodeUnknownEffect(JsonGrants)(grantsRaw).pipe(
-          Effect.orElseSucceed(() => ({}) as Record<string, readonly string[]>),
-        )
-        const grants = new Map<string, string[]>(
-          Object.entries(grantsRecord).map(([k, v]): [string, string[]] => [k, [...v]]),
-        )
-
-        // Merge static credentials with runtime grants into the effective in-memory state.
-        const mutableCreds: CredentialEntry[] = credentials.map(cred => {
-          const base = cred.tenantIds ?? ['default']
-          const extra = grants.get(cred.subject) ?? []
-          return { ...cred, tenantIds: [...new Set([...base, ...extra])] }
-        })
-
         const persist = filePersist(fs, sessionsPath)
-        const grantsPersist =
-          grantsPath !== undefined ?
-            (g: Map<string, string[]>) =>
-              fs.writeFileString(grantsPath, JSON.stringify(Object.fromEntries(g), null, 2)).pipe(Effect.ignore)
-          : (_: Map<string, string[]>) => Effect.void
+        const getTenantIds = makeResolver(credentials, filter => store.query(filter))
 
         return AuthGateway.of({
-          grantTenant: buildGrantTenant(mutableCreds, sessions, grants, grantsPersist),
-          login: buildLogin(mutableCreds, sessions, persist),
+          login: buildLogin(credentials, sessions, persist, getTenantIds),
           logout: buildLogout(sessions, persist),
-          verify: buildVerify(sessions, persist),
+          verify: buildVerify(credentials, sessions, persist, getTenantIds),
         })
       }),
     ),
 
   /**
-   * In-memory layer — sessions are lost on restart. Used by the protocol test suite
-   * (no FileSystem dependency required).
+   * In-memory layer — sessions are lost on restart. Used by the protocol test suite.
+   * Requires EventStore for dynamic tenantId resolution (P63).
    */
   layer: (credentials: readonly CredentialEntry[]) =>
     Layer.effect(
       AuthGateway,
-      Effect.sync(() => {
+      Effect.gen(function* () {
+        const store = yield* EventStore
         const sessions = new Map<string, AuthSession>()
-        const grants = new Map<string, string[]>()
-        const mutableCreds: CredentialEntry[] = [...credentials]
+        const getTenantIds = makeResolver(credentials, filter => store.query(filter))
         return AuthGateway.of({
-          grantTenant: buildGrantTenant(mutableCreds, sessions, grants, () => Effect.void),
-          login: buildLogin(mutableCreds, sessions, noPersist),
+          login: buildLogin(credentials, sessions, noPersist, getTenantIds),
           logout: buildLogout(sessions, noPersist),
-          verify: buildVerify(sessions, noPersist),
+          verify: buildVerify(credentials, sessions, noPersist, getTenantIds),
         })
       }),
     ),

@@ -16,6 +16,7 @@ import * as NodeFileSystem from '@effect/platform-node/NodeFileSystem'
 import { describe, expect, it } from '@effect/vitest'
 import type { CredentialEntry } from '../../src/adapters/driving/ScryptAuthGateway.ts'
 import { ScryptAuthGateway, generateSalt, hashPassword } from '../../src/adapters/driving/ScryptAuthGateway.ts'
+import { InMemoryEventStore } from '../../src/adapters/driven/InMemoryEventStore.ts'
 import { AuthGateway } from '../../src/ports/driving/AuthGateway.ts'
 
 const salt = generateSalt()
@@ -23,8 +24,12 @@ const creds: readonly CredentialEntry[] = [
   { role: 'admin', salt, scryptHash: hashPassword('secret', salt), subject: 'alice', tenantIds: ['default'] },
 ]
 
+// ScryptAuthGateway requires EventStore (P63: tenantId resolution from TenantGranted events).
 const makeAuthLayer = (sessionsPath: string): Layer.Layer<AuthGateway> =>
-  ScryptAuthGateway.fileBackedLayer(creds, sessionsPath).pipe(Layer.provide(NodeFileSystem.layer))
+  ScryptAuthGateway.fileBackedLayer(creds, sessionsPath).pipe(
+    Layer.provide(InMemoryEventStore.layer),
+    Layer.provide(NodeFileSystem.layer),
+  )
 
 // ─── (a) token survives layer rebuild ────────────────────────────────────────
 

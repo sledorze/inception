@@ -9,7 +9,6 @@
 import { randomUUID } from 'node:crypto'
 import { DateTime, Effect, Layer } from 'effect'
 import { describe, expect, it } from '@effect/vitest'
-import { FakeAuthGateway } from '../../src/adapters/driving/FakeAuthGateway.ts'
 import { InMemoryEventStore } from '../../src/adapters/driven/InMemoryEventStore.ts'
 import { grantTenant } from '../../src/application/grantTenant.ts'
 import { deleteSession } from '../../src/application/deleteSession.ts'
@@ -145,7 +144,6 @@ describe('L1.4 — tamper-evident hash chain', () => {
       }),
       InMemoryEventStore.layer.pipe(
         Layer.provideMerge(DateTime.layerCurrentZoneLocal as Layer.Layer<DateTime.CurrentTimeZone>),
-        Layer.provideMerge(FakeAuthGateway.layer([{ password: 'x', role: 'enduser', username: 'alice' }])),
       ),
     ),
   )

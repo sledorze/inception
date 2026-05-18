@@ -5,6 +5,45 @@ Convention: fix → move (cut from PAIN.md, paste here in the same commit as the
 
 ---
 
+## P63 — `grantTenant` is on the wrong port — auth ≠ entitlement (SRP violation)
+
+**Severity:** slows
+**Symptom:** `AuthGateway` owned `login`/`logout`/`verify` (identity) and also `grantTenant` (authorization/entitlement). The adapter had to manage two mutable in-memory maps (`sessions` + `grants`) and two persistence files. The clean model is: `AuthGateway.verify` reconstructs entitlements from a read model (fold `TenantGranted` events from EventStore), and `AuthGateway` has no `grantTenant` method.
+**Candidate fix:** Remove `grantTenant` from `AuthGateway` port. `application/grantTenant.ts` emits `TenantGranted` event only. `AuthGateway.verify` reads entitlements by querying EventStore for `TenantGranted` events. Red acceptance test: `AuthGateway.verify` after a `TenantGranted` event returns the updated `tenantIds` without any `grantTenant` call on the port.
+
+FIXED 2026-05-18 in fix(phase12-13): decouple entitlement from AuthGateway + extract HTTP guards (P63/P64/P74/P75) — test: `packages/host/tests/protocol/AuthGateway.spec.ts` ("verify reflects TenantGranted events from EventStore (P63 green)").
+
+---
+
+## P64 — `buildGrantTenant` logic duplicated between `ScryptAuthGateway` and `FakeAuthGateway`
+
+**Severity:** slows
+**Symptom:** The "find subject → check membership → update creds → update active sessions" logic was written twice. P63 landed first so the duplication was deleted rather than consolidated.
+
+FIXED 2026-05-18 in fix(phase12-13): decouple entitlement from AuthGateway + extract HTTP guards (P63/P64/P74/P75) — both adapters now delegate to `makeTenantIdResolver`/`getTenantIds` closures over the captured EventStore; the duplicate `buildGrantTenant` code is gone. test: `packages/host/tests/protocol/AuthGateway.spec.ts`.
+
+---
+
+## P74 — `readonly` type erosion via `mutableCreds` cast + raw header cast in `main.ts`
+
+**Severity:** annoys
+**Symptom:** `CredentialEntry` declared `tenantIds?: readonly string[]` but both adapters shadowed it with a mutable copy and mutated elements. Separately, `main.ts` cast `req.headers['x-tenant-id'] as string | undefined`, bypassing schema decode.
+**Candidate fix:** Remove `mutableCreds` (done via P63 — adapters no longer need to mutate credentials). Decode `x-tenant-id` via `Schema.decodeUnknownOption(Schema.String)` in `withTenant`.
+
+FIXED 2026-05-18 in fix(phase12-13): decouple entitlement from AuthGateway + extract HTTP guards (P63/P64/P74/P75) — `mutableCreds` deleted (P63 eliminated the need for mutation); `x-tenant-id` header now decoded via `Schema.decodeUnknownOption(Schema.String)(rawHeader)` in `guards.ts`. test: `packages/host/tests/protocol/AuthGateway.spec.ts` + `packages/host/src/adapters/driving/http/guards.ts`.
+
+---
+
+## P75 — `main.ts` cohesion: 815 lines mixing middleware + routes + wiring + boot
+
+**Severity:** slows
+**Symptom:** `packages/host/src/main.ts` was 815 lines mixing middleware definitions (`withPrincipal`, `withTenant`, `withRole`), HTTP route handlers, Layer wiring, and the boot sequence. The three middleware functions were inner closures and could not be imported by other modules.
+**Candidate fix:** Extract `adapters/driving/http/guards.ts` with the three middleware functions. Red acceptance test: grep/enforce rule asserts no middleware function is defined in `main.ts`.
+
+FIXED 2026-05-18 in fix(phase12-13): decouple entitlement from AuthGateway + extract HTTP guards (P63/P64/P74/P75) — `withPrincipal`, `withTenant`, `withRole`, `withBearer`, `jsonOk`, `textErr`, `parseBody` extracted to `packages/host/src/adapters/driving/http/guards.ts`; dep-cruiser pathNot updated for `main.ts`. test: `packages/host/tests/unit/enforce-conventions.unit.test.ts` ("P75 — HTTP guards extracted from main.ts").
+
+---
+
 ## P54 — Third e2e tenant-isolation test body is a no-op
 
 **Severity:** annoys  
@@ -948,3 +987,73 @@ FIXED 2026-05-18 in 4ecfbb45 — test: e2e/toolkit.test.ts + e2e/example.spec.ts
 **Candidate fix:** Rename `.test.ts` → `.spec.ts`; add e2e naming rule to `check-test-conventions.ts`.
 
 FIXED 2026-05-18 in 4ecfbb45 — test: scripts/check-test-conventions.ts e2e naming rule (exits 1 on any e2e/\*.test.ts); tenant-isolation.test.ts renamed to .spec.ts.
+
+---
+
+## P65 — `'__system__'` and `'__tenants__'` magic strings scattered across 4 modules
+
+**Severity:** slows
+**Symptom:** `createTenant.ts`, `renameTenant.ts`, `seedDefaultTenant.ts`, and `listTenants.ts` all independently hardcode `tenantId: '__system__'` and `sessionId: makeSessionId('__tenants__')`. There is no canonical definition — a one-character typo in any module silently routes events to a different (non-existent) stream, leaving the tenant registry projection with no events to fold.
+**Candidate fix:** Extract `SYSTEM_TENANT_ID = '__system__'` and `TENANTS_SESSION_ID = makeSessionId('__tenants__')` to `domain/tenantRegistry.ts`.
+
+FIXED 2026-05-18 in e3d3432a (TODO 12.4) — test: packages/host/tests/unit/tenantRegistry.unit.test.ts (SYSTEM_TENANT_ID and TENANTS_SESSION_ID stable constants guard).
+
+---
+
+## P66 — Business rule "creator gets access" is encoded in the HTTP route handler
+
+**Severity:** annoys
+**Symptom:** `createTenantRoute` in `main.ts` called `createTenant(...)` then `auth.grantTenant(principal.subject, tenantId)` sequentially. The rule "the creator of a tenant is automatically entitled to it" lived in the HTTP adapter layer, not in application logic.
+**Candidate fix:** Extract `application/grantTenant.ts` and call it from the route (12.1); route handler becomes one-service call.
+
+FIXED 2026-05-18 in e3d3432a (TODO 12.5) — test: packages/host/tests/laws/L1.4.spec.ts — "grantTenant emits a TenantGranted event" (red→green acceptance test).
+
+---
+
+## P67 — `renameTenantRoute` checks entitlement inline; inconsistent with `withTenant` pattern
+
+**Severity:** annoys
+**Symptom:** `renameTenantRoute` used `withPrincipal` + a manual `if (!principal.tenantIds.includes(tenantId))` check instead of `withTenant` like every other tenant-scoped route.
+**Candidate fix:** Switch `renameTenantRoute` to `withTenant('enduser')`.
+
+FIXED 2026-05-18 in e3d3432a (TODO 12.5) — test: packages/host/tests/laws/L1.4.spec.ts (withTenant guard applied; route parity restored).
+
+---
+
+## P59 — `grantTenant` emits no event — L1.4 traceability gap
+
+**Severity:** slows
+**Symptom:** `ScryptAuthGateway.buildGrantTenant` persisted runtime tenant grants to `grants.json` and mutated in-memory sessions but never called `EventStore.append`. Granting a tenant to a subject was an access-control change invisible to `/api/admin/trace`, not replayable, and not auditable by the Monitor. Violated L1.4.
+**Candidate fix:** Add `TenantGranted { subject, tenantId }` event kind; extract `application/grantTenant.ts` that emits the event; replace direct `auth.grantTenant` in routes.
+
+FIXED 2026-05-18 in e3d3432a (TODO 12.1) — test: packages/host/tests/laws/L1.4.spec.ts — "grantTenant emits a TenantGranted event — L1.4 traceability (P59 red→green)".
+
+---
+
+## P60 — `listTenants` projection has no event versioning and no upcaster path
+
+**Severity:** slows
+**Symptom:** `TenantCreatedPayload` and `TenantRenamedPayload` had no `v` field — when payload shapes evolve there is no upcaster path and the projection silently misreads old events.
+**Candidate fix:** Add `v: Schema.Literal(1)` to both payload schemas; add version guard in `listTenants` fold that skips unrecognised versions with a logged warning.
+
+FIXED 2026-05-18 in e3d3432a (TODO 12.3) — test: packages/host/tests/laws/L1.4.spec.ts chain-intact test (all writers now stamp `v: 1`; fold version guard in listTenants).
+
+---
+
+## P61 — Admin grant route accepts phantom `tenantId` without existence check
+
+**Severity:** annoys
+**Symptom:** `main.ts` called `auth.grantTenant(principal.subject, tenantId)` without verifying that `tenantId` corresponds to a real `TenantCreated` event. A typo resulted in a grant to a phantom tenant.
+**Candidate fix:** In `application/grantTenant.ts`, call `listTenants` first and return `TenantNotFound` if absent; surface as HTTP 404.
+
+FIXED 2026-05-18 in e3d3432a (TODO 12.2) — test: packages/host/tests/laws/L1.4.spec.ts (TenantNotFound typed error; grantTenant with unknown tenantId fails before emitting event).
+
+---
+
+## P73 — Error-swallowing via `Effect.orDie` in tenant application services
+
+**Severity:** slows
+**Symptom:** `createTenant.ts`, `renameTenant.ts`, and `seedDefaultTenant.ts` each ended their `EventStore.append` call with `.pipe(Effect.orDie)`. If `append` fails, the fiber died with a Defect — no structured error reached the caller, invisible to `/api/admin/trace`. Violated L1.4.
+**Candidate fix:** Remove `.pipe(Effect.orDie)`; let typed `EventStoreError` propagate to callers.
+
+FIXED 2026-05-18 in e3d3432a (TODO 13.4) — test: packages/host/tests/laws/L1.4.spec.ts (append errors now surface as typed Effect failures, not Defects).

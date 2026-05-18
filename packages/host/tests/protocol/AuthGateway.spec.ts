@@ -3,25 +3,34 @@
  * Parametrised over all bound adapters — Liskov substitution proven by test, not intent (§2.13).
  * Laws exercised: L0.3 (asymmetry disclosure), L2.14 (port contract).
  */
-import type { Layer } from 'effect'
-import { Effect } from 'effect'
+import { DateTime, Effect, Layer } from 'effect'
 import { TestClock } from 'effect/testing'
 import { describe, expect, it } from '@effect/vitest'
 import type { FakeCred } from '../../src/adapters/driving/FakeAuthGateway.ts'
 import { FakeAuthGateway } from '../../src/adapters/driving/FakeAuthGateway.ts'
 import { generateSalt, hashPassword, ScryptAuthGateway } from '../../src/adapters/driving/ScryptAuthGateway.ts'
+import { InMemoryEventStore } from '../../src/adapters/driven/InMemoryEventStore.ts'
 import {
   AuthGateway,
   InvalidCredentialsTag,
   SessionExpiredTag,
   SessionNotFoundTag,
 } from '../../src/ports/driving/AuthGateway.ts'
+import { EventStore } from '../../src/ports/driven/EventStore.ts'
+import { EventKind } from '../../src/domain/events.ts'
+import { SYSTEM_TENANT_ID, TENANTS_SESSION_ID } from '../../src/domain/tenantRegistry.ts'
+import { makeCorrelationId } from '../../src/domain/ids.ts'
+
+// InMemoryEventStore requires DateTime.CurrentTimeZone (for DateTime.now inside append).
+const eventStoreLayer = InMemoryEventStore.layer.pipe(
+  Layer.provide(DateTime.layerCurrentZoneLocal as Layer.Layer<DateTime.CurrentTimeZone>),
+)
 
 // ─── contract ─────────────────────────────────────────────────────────────────
 
-function runContract(name: string, makeLayer: () => Layer.Layer<AuthGateway>) {
+function runContract(name: string, makeLayer: () => Layer.Layer<AuthGateway | EventStore>) {
   describe(name, () => {
-    const run = <A, E>(eff: Effect.Effect<A, E, AuthGateway>) => Effect.provide(eff, makeLayer())
+    const run = <A, E>(eff: Effect.Effect<A, E, AuthGateway | EventStore>) => Effect.provide(eff, makeLayer())
 
     it.effect('login succeeds with valid credentials and returns a session', () =>
       run(
@@ -105,28 +114,29 @@ function runContract(name: string, makeLayer: () => Layer.Layer<AuthGateway>) {
       ),
     )
 
-    it.effect('grantTenant adds the tenant to principal tenantIds after next verify', () =>
+    // P63 acceptance test: verify reflects TenantGranted events written directly to EventStore.
+    it.effect('verify reflects TenantGranted events from EventStore (P63 green)', () =>
       run(
         Effect.gen(function* () {
           const auth = yield* AuthGateway
+          const store = yield* EventStore
           const session = yield* auth.login('alice', 'secret')
-          yield* auth.grantTenant('alice', 'acme')
-          const principal = yield* auth.verify(session.token)
-          expect(principal.tenantIds).toContain('default')
-          expect(principal.tenantIds).toContain('acme')
-        }),
-      ),
-    )
 
-    it.effect('grantTenant is idempotent — double-grant does not duplicate tenantId', () =>
-      run(
-        Effect.gen(function* () {
-          const auth = yield* AuthGateway
-          yield* auth.grantTenant('alice', 'acme')
-          yield* auth.grantTenant('alice', 'acme')
-          const session = yield* auth.login('alice', 'secret')
+          // Emit TenantGranted event DIRECTLY to EventStore — no auth.grantTenant call.
+          yield* store.append({
+            actor: 'host' as const,
+            correlationId: makeCorrelationId('test-p63'),
+            kind: EventKind.TenantGranted,
+            occurredAt: DateTime.formatIso(yield* DateTime.now),
+            payload: { subject: 'alice', tenantId: 'acme' },
+            schemaV: 1,
+            sessionId: TENANTS_SESSION_ID,
+            storyRef: 'S12',
+            tenantId: SYSTEM_TENANT_ID,
+          })
+
           const principal = yield* auth.verify(session.token)
-          expect(principal.tenantIds.filter(id => id === 'acme').length).toBe(1)
+          expect(principal.tenantIds).toContain('acme')
         }),
       ),
     )
@@ -137,9 +147,9 @@ function runContract(name: string, makeLayer: () => Layer.Layer<AuthGateway>) {
 
 const fakeCreds: readonly FakeCred[] = [{ password: 'secret', role: 'admin', username: 'alice' }]
 
-runContract('FakeAuthGateway', () => FakeAuthGateway.layer(fakeCreds))
+runContract('FakeAuthGateway', () => FakeAuthGateway.layer(fakeCreds).pipe(Layer.provideMerge(eventStoreLayer)))
 
 const salt = generateSalt()
 const scryptCreds = [{ role: 'admin' as const, salt, scryptHash: hashPassword('secret', salt), subject: 'alice' }]
 
-runContract('ScryptAuthGateway', () => ScryptAuthGateway.layer(scryptCreds))
+runContract('ScryptAuthGateway', () => ScryptAuthGateway.layer(scryptCreds).pipe(Layer.provideMerge(eventStoreLayer)))

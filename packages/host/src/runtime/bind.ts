@@ -30,7 +30,6 @@ const FIXTURE_PATH = new URL('../bootstrap/fixtures/synthetic-001.csv', import.m
 const REGISTRY_PATH = new URL('../../data/capability-registry.json', import.meta.url).pathname
 const DATA_DIR = new URL('../../data/', import.meta.url).pathname
 const CREDENTIALS_PATH = new URL('../../data/credentials.json', import.meta.url).pathname
-const GRANTS_PATH = new URL('../../data/grants.json', import.meta.url).pathname
 const SESSIONS_PATH = new URL('../../data/sessions.json', import.meta.url).pathname
 const SETTINGS_PATH = new URL('../../data/settings.json', import.meta.url).pathname
 
@@ -42,20 +41,28 @@ const CredentialEntrySchema = Schema.Struct({
   tenantIds: Schema.Array(Schema.String).pipe(Schema.withDecodingDefaultKey(Effect.succeed(['default']))),
 })
 
-const authGatewayLayer: Layer.Layer<
-  import('../ports/driving/AuthGateway.ts').AuthGateway,
-  never,
-  FileSystem.FileSystem
-> = Layer.unwrap(
+const eventStoreLayer = Layer.unwrap(
+  Effect.gen(function* () {
+    const dbPath = yield* Config.string('EVENT_STORE_PATH').pipe(
+      Config.withDefault(new URL('../../data/events.db', import.meta.url).pathname),
+    )
+    const fs = yield* FileSystem.FileSystem
+    yield* fs.makeDirectory(DATA_DIR, { recursive: true }).pipe(Effect.orDie)
+    return SqliteEventStore.layer(dbPath)
+  }),
+)
+
+// authGatewayLayer requires EventStore (for dynamic tenantId resolution — P63).
+const authGatewayLayer = Layer.unwrap(
   Effect.gen(function* () {
     const fs = yield* FileSystem.FileSystem
     const raw = yield* fs.readFileString(CREDENTIALS_PATH).pipe(Effect.orElseSucceed(() => '[]'))
     const parsed = yield* Schema.decodeUnknownEffect(Schema.fromJsonString(Schema.Array(CredentialEntrySchema)))(
       raw,
     ).pipe(Effect.orElseSucceed(() => [] as readonly CredentialEntry[]))
-    return ScryptAuthGateway.fileBackedLayer(parsed, SESSIONS_PATH, GRANTS_PATH)
+    return ScryptAuthGateway.fileBackedLayer(parsed, SESSIONS_PATH)
   }),
-)
+).pipe(Layer.provide(eventStoreLayer))
 
 // 2.8: seed agent.md into the workspace at boot so Georges can `read-workspace agent.md`
 const workspaceMountLayer = Layer.unwrap(
@@ -93,17 +100,6 @@ const BOOTSTRAP_TOOLS = [
   'run-script',
   'write-workspace',
 ]
-
-const eventStoreLayer = Layer.unwrap(
-  Effect.gen(function* () {
-    const dbPath = yield* Config.string('EVENT_STORE_PATH').pipe(
-      Config.withDefault(new URL('../../data/events.db', import.meta.url).pathname),
-    )
-    const fs = yield* FileSystem.FileSystem
-    yield* fs.makeDirectory(DATA_DIR, { recursive: true }).pipe(Effect.orDie)
-    return SqliteEventStore.layer(dbPath)
-  }),
-)
 
 // FileBackedCapabilityRegistry persists promoted capabilities across restarts.
 // CapabilityAwareToolRegistry merges YAML seed tools + promoted capabilities.

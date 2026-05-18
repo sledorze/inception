@@ -3,7 +3,6 @@ import { EventKind } from '../domain/events.ts'
 import { SYSTEM_TENANT_ID, TENANTS_SESSION_ID } from '../domain/tenantRegistry.ts'
 import { CurrentCorrelationId } from '../domain/tracing.ts'
 import { EventStore } from '../ports/driven/EventStore.ts'
-import { AuthGateway } from '../ports/driving/AuthGateway.ts'
 import { listTenants } from './listTenants.ts'
 
 export const TenantNotFoundTag = '@app/host/TenantNotFound' as const
@@ -17,9 +16,6 @@ export const grantTenant = Effect.fn('grantTenant')(function* (subject: string, 
   if (!tenants.some(t => t.id === tenantId)) {
     return yield* new TenantNotFound({ tenantId })
   }
-
-  const auth = yield* AuthGateway
-  yield* auth.grantTenant(subject, tenantId)
 
   const store = yield* EventStore
   const correlationId = yield* CurrentCorrelationId

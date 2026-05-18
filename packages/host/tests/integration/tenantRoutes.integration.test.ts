@@ -15,15 +15,17 @@ import { InMemoryEventStore } from '../../src/adapters/driven/InMemoryEventStore
 import { AuthGateway } from '../../src/ports/driving/AuthGateway.ts'
 import { listTenants } from '../../src/application/listTenants.ts'
 import { createTenant } from '../../src/application/createTenant.ts'
+import { grantTenant } from '../../src/application/grantTenant.ts'
 import { renameTenant } from '../../src/application/renameTenant.ts'
 import { seedDefaultTenant } from '../../src/application/seedDefaultTenant.ts'
 
-const authLayer = FakeAuthGateway.layer([
+// FakeAuthGateway requires EventStore (P63: tenantId resolution from TenantGranted events).
+// Layer.provideMerge ensures EventStore is available to FakeAuthGateway during layer build,
+// and also exposes EventStore to test effects via the merged result.
+const testLayer = FakeAuthGateway.layer([
   { password: 'secret', role: 'enduser', tenantIds: ['default'], username: 'alice' },
   { password: 'secret', role: 'enduser', tenantIds: ['default'], username: 'bob' },
-])
-
-const testLayer = Layer.mergeAll(authLayer, InMemoryEventStore.layer)
+]).pipe(Layer.provideMerge(InMemoryEventStore.layer))
 
 layer(testLayer)('Slice 11.6 — tenant CRUD application services', it => {
   it.effect('seedDefaultTenant creates the default tenant (idempotent)', () =>
@@ -59,7 +61,8 @@ layer(testLayer)('Slice 11.6 — tenant CRUD application services', it => {
     Effect.gen(function* () {
       const auth = yield* AuthGateway
       yield* createTenant('newco', 'New Co')
-      yield* auth.grantTenant('alice', 'newco')
+      // P63: grantTenant writes a TenantGranted event; verify reads it dynamically.
+      yield* grantTenant('alice', 'newco')
       const session = yield* auth.login('alice', 'secret')
       const principal = yield* auth.verify(session.token)
       expect(principal.tenantIds).toContain('newco')
@@ -71,7 +74,8 @@ layer(testLayer)('Slice 11.6 — tenant CRUD application services', it => {
       const auth = yield* AuthGateway
       // alice gets 'corp' tenant, bob does not
       yield* createTenant('corp', 'Corp')
-      yield* auth.grantTenant('alice', 'corp')
+      // P63: grantTenant writes a TenantGranted event; verify reads it dynamically.
+      yield* grantTenant('alice', 'corp')
       const aliceSession = yield* auth.login('alice', 'secret')
       const alicePrincipal = yield* auth.verify(aliceSession.token)
       const bobSession = yield* auth.login('bob', 'secret')

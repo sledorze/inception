@@ -80,7 +80,6 @@ import { registerCapability } from './application/registerCapability.ts'
 import { listPendingProposals, promoteProposal } from './application/reviewProposals.ts'
 import { login } from './application/login.ts'
 import { makeLoginRateLimiter } from './application/loginRateLimiter.ts'
-import { requireRole } from './application/authorize.ts'
 import { AGENT_MD_PATH } from './application/session.ts'
 import { listTenants } from './application/listTenants.ts'
 import { createTenant } from './application/createTenant.ts'
@@ -93,96 +92,14 @@ import type { AppSettings } from './ports/driven/Settings.ts'
 import { AppSettingsSchema, Settings } from './ports/driven/Settings.ts'
 import type { AdminQueryError } from './ports/driving/AdminQuery.ts'
 import { AdminQuery } from './ports/driving/AdminQuery.ts'
-import type { AuthGateway } from './ports/driving/AuthGateway.ts'
-import {
-  type Principal,
-  InvalidCredentialsTag,
-  SessionExpiredTag,
-  SessionNotFoundTag,
-} from './ports/driving/AuthGateway.ts'
+import { InvalidCredentialsTag } from './ports/driving/AuthGateway.ts'
 import { CurrentTenantId } from './domain/tracing.ts'
 import { GeorgesToolkit, fullLayer } from './runtime/bind.ts'
 import { UserGateway } from './ports/driving/UserGateway.ts'
+import { jsonOk, parseBody, textErr, withPrincipal, withRole, withTenant } from './adapters/driving/http/guards.ts'
 
 // URL-based path avoids node:path import (P24).
 const DIST = new URL('../../app/dist', import.meta.url).pathname
-
-// ─── RBAC guard ───────────────────────────────────────────────────────────────
-
-const extractBearer = Effect.gen(function* () {
-  const req = yield* HttpServerRequest.HttpServerRequest
-  const auth = (req.headers['authorization'] as string | undefined) ?? ''
-  return auth.startsWith('Bearer ') ? auth.slice(7) : undefined
-})
-
-/**
- * Shared auth helper — verify token, yield the Principal to the handler.
- * Returns 401/403 when auth fails. Used by withRole, withTenant, and tenant CRUD routes.
- */
-const withPrincipal =
-  (role: 'admin' | 'enduser') =>
-  <E, R>(
-    handler: (principal: Principal) => Effect.Effect<HttpServerResponse.HttpServerResponse, E, R>,
-  ): Effect.Effect<HttpServerResponse.HttpServerResponse, E, R | HttpServerRequest.HttpServerRequest | AuthGateway> =>
-    Effect.gen(function* () {
-      const token = yield* extractBearer
-      return yield* requireRole(token, role).pipe(
-        Effect.matchEffect({
-          onFailure: err =>
-            Effect.succeed(
-              err._tag === SessionNotFoundTag || err._tag === SessionExpiredTag ?
-                HttpServerResponse.text('unauthorized', { status: 401 })
-              : HttpServerResponse.text('forbidden', { status: 403 }),
-            ),
-          onSuccess: principal => handler(principal),
-        }),
-      )
-    })
-
-/** Returns 401/403 when auth fails; otherwise runs the handler. */
-const withRole =
-  (role: 'admin' | 'enduser') =>
-  <E, R>(
-    handler: Effect.Effect<HttpServerResponse.HttpServerResponse, E, R>,
-  ): Effect.Effect<HttpServerResponse.HttpServerResponse, E, R | HttpServerRequest.HttpServerRequest | AuthGateway> =>
-    withPrincipal(role)(() => handler)
-
-/**
- * Tenant guard — read `X-Tenant-Id` header, verify the authenticated principal is
- * entitled to the tenant, bind `CurrentTenantId` for the handler fiber.
- * Returns 400 if header absent, 401/403 on auth failure, 403 if not entitled.
- * Implies authentication: the bearer token is verified (same as `withRole`).
- */
-const withTenant =
-  (role: 'admin' | 'enduser') =>
-  <E, R>(
-    handler: Effect.Effect<HttpServerResponse.HttpServerResponse, E, R>,
-  ): Effect.Effect<HttpServerResponse.HttpServerResponse, E, R | HttpServerRequest.HttpServerRequest | AuthGateway> =>
-    Effect.gen(function* () {
-      const req = yield* HttpServerRequest.HttpServerRequest
-      const requestedTenantId = req.headers['x-tenant-id'] as string | undefined
-      if (requestedTenantId === undefined || requestedTenantId === '') {
-        return HttpServerResponse.text('X-Tenant-Id header required', { status: 400 })
-      }
-      return yield* withPrincipal(role)(principal =>
-        principal.tenantIds.includes(requestedTenantId) ?
-          Effect.provideService(handler, CurrentTenantId, requestedTenantId)
-        : Effect.succeed(HttpServerResponse.text('forbidden', { status: 403 })),
-      )
-    })
-
-// ─── Route helpers ────────────────────────────────────────────────────────────
-
-const jsonOk = (data: unknown): HttpServerResponse.HttpServerResponse => HttpServerResponse.jsonUnsafe(data)
-
-const textErr = (msg: string, status: number): HttpServerResponse.HttpServerResponse =>
-  HttpServerResponse.text(msg, { status })
-
-// Parse the request JSON body against a schema; returns null on parse failure.
-const parseBody = <A, I, RD, RE>(
-  schema: Schema.Codec<A, I, RD, RE>,
-): Effect.Effect<A | null, never, HttpServerRequest.HttpServerRequest | RD> =>
-  HttpServerRequest.schemaBodyJson(schema).pipe(Effect.orElseSucceed(() => null))
 
 // ─── Routes ───────────────────────────────────────────────────────────────────
 
