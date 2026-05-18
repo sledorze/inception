@@ -34,7 +34,7 @@ const fetchAtom = <T>(fn: () => Promise<T>) => Atom.make(Effect.tryPromise({ cat
 export const currentTenantAtom = Atom.make(getTenantId() ?? 'default')
 
 // ── Tenants list ──────────────────────────────────────────────────────────────
-const tenantsAtom = Atom.withReactivity(['tenants'])(fetchAtom(listTenants))
+export const tenantsAtom = Atom.withReactivity(['tenants'])(fetchAtom(listTenants))
 export const tenantsView = Atom.map(tenantsAtom, toView)
 
 // Topic keys for the decoupled Reactivity key-bus. A session's turns live under
@@ -43,12 +43,11 @@ const turnsKey = (sessionId: string) => `turns:${sessionId}`
 const sessionsKey = (tenantId: string) => `sessions:${tenantId}`
 
 // ── Sessions list — family keyed by tenantId; key bus is "sessions:<tenantId>" ─
-const sessionsAtomFamily = Atom.family((tenantId: string) =>
+export const sessionsAtomFamily = Atom.family((tenantId: string) =>
   Atom.withReactivity([sessionsKey(tenantId)])(fetchAtom(() => listSessions())),
 )
 const sessionsViewFamily = Atom.family((tenantId: string) => Atom.map(sessionsAtomFamily(tenantId), toView))
 
-export const sessionsAtom = sessionsAtomFamily
 export const sessionsView = sessionsViewFamily
 
 // ── Per-session transcript — Atom.family keyed by sessionId, each subscribed ──

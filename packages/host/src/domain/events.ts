@@ -106,6 +106,7 @@ export const SessionDeletedPayload = Schema.Struct({
   sessionId: SessionId,
 })
 
+// "Project" in the UI (see SPEC Appendix A).
 export const TenantCreatedPayload = Schema.Struct({
   name: Schema.String,
   tenantId: Schema.String,

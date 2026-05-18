@@ -23,7 +23,13 @@ export function Login({ onSuccess }: LoginProps) {
     try {
       const session = await login(username, password)
       setToken(session.token)
-      switchTenant(session.tenantIds[0] ?? 'default')
+      const firstTenant = session.tenantIds[0]
+      if (firstTenant === undefined) {
+        setError('No projects available — contact your administrator.')
+        setBusy(false)
+        return
+      }
+      switchTenant(firstTenant)
       onSuccess()
     } catch (err: unknown) {
       setError(String(err))

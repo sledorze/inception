@@ -947,6 +947,7 @@ The ubiquitous language (Evans) for this SPEC. Alphabetical. Linked from §0; th
 - **Outer MCP.** The `ObservabilityGateway` Claude attaches to (§10.1 Q4). Read-mostly; promote/rollback wired in Phase 4.
 - **Pareto dominance.** Variant A dominates B iff A ≥ B on every fitness dimension and A > B on at least one. Selection prefers the Pareto frontier (§4.5).
 - **Port.** Typed interface between Host code and the outside (L2.14). Driving or driven. Lives under `packages/host/src/ports/`.
+- **Project.** External display name for Tenant used in user-facing UI (e.g., the tenant switcher shows "Projects"). The domain, API paths (`/api/tenants`), and events (`TenantCreated`) use `tenantId`/Tenant; the frontend uses "Project" as the user-facing affordance. See `TenantCreatedPayload`.
 - **Promoter.** The single actor authorised to emit `Promoted` events for a substrate scope (L2.6). Default: Claude. Tier-1: three signatures (L0.2).
 - **Quarantine.** Cycle halt due to repeated failure (L2.3). Soft = Supervisor auto-releases on new evidence; hard = Claude-only release. Step 2–3 of the §6 sanctions ladder.
 - **Ratchet.** A quality gate that only tightens (L2.4); loosening requires Claude-signed rollback OR first-time bootstrap promotion.

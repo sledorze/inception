@@ -1,11 +1,18 @@
 import { useState } from 'react'
 import { useNavigate } from 'react-router'
-import { useAtomSet, useAtomValue } from '@effect/atom-react'
+import { useAtomRefresh, useAtomSet, useAtomValue } from '@effect/atom-react'
 import { Button } from '@app/design-system/button'
 import { Input } from '@app/design-system/input'
 import { cn } from '@app/design-system/utils'
 import { switchTenant } from '../../hooks/auth.ts'
-import { createTenantAtom, createTenantView, currentTenantAtom, renameTenantAtom, tenantsView } from '../../atoms.ts'
+import {
+  createTenantAtom,
+  createTenantView,
+  currentTenantAtom,
+  renameTenantAtom,
+  tenantsAtom,
+  tenantsView,
+} from '../../atoms.ts'
 
 const toSlug = (name: string) =>
   name
@@ -23,6 +30,7 @@ export function TenantSwitcher() {
   const navigate = useNavigate()
   const currentTenantId = useAtomValue(currentTenantAtom)
   const tenantsResult = useAtomValue(tenantsView)
+  const refreshTenants = useAtomRefresh(tenantsAtom)
   const dispatchCreate = useAtomSet(createTenantAtom)
   const createState = useAtomValue(createTenantView)
   const dispatchRename = useAtomSet(renameTenantAtom)
@@ -59,18 +67,30 @@ export function TenantSwitcher() {
     <div className="relative">
       <Button
         data-testid="tenant-switcher-trigger"
+        disabled={tenantsResult._tag === 'Loading' && !tenantsResult.waiting}
         onClick={() => setOpen(v => !v)}
         size="sm"
         type="button"
         variant="ghost"
       >
-        {currentName}
+        {tenantsResult._tag === 'Loading' && !tenantsResult.waiting ? 'Loading projects…' : currentName}
       </Button>
       {open && (
         <div
           className="absolute right-0 top-full z-50 mt-1 min-w-48 rounded-md border border-border bg-card p-1 shadow-md"
           data-testid="tenant-switcher-dropdown"
         >
+          {tenantsResult._tag === 'Loading' && (
+            <p className="px-2 py-1 text-sm text-muted-foreground">Loading projects…</p>
+          )}
+          {tenantsResult._tag === 'Error' && (
+            <div className="flex flex-col gap-1 p-1">
+              <p className="text-sm text-destructive">Failed to load projects</p>
+              <Button data-testid="tenants-retry" onClick={refreshTenants} size="sm" type="button" variant="ghost">
+                Retry
+              </Button>
+            </div>
+          )}
           {tenants.map(t => (
             <div className="flex items-center gap-1" key={t.id}>
               {renamingId === t.id ?
