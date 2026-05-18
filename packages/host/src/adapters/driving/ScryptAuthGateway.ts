@@ -17,6 +17,7 @@ export interface CredentialEntry {
   readonly salt: string // hex-encoded random salt
   readonly scryptHash: string // hex-encoded scrypt(password, salt, 32)
   readonly subject: string
+  readonly tenantIds?: readonly string[]
 }
 
 /** Hash a plaintext password with a given salt. Used to pre-compute stored credentials. */
@@ -24,6 +25,29 @@ export const hashPassword = (password: string, salt: string): string => scryptSy
 
 /** Generate a random salt suitable for scrypt. */
 export const generateSalt = (): string => randomBytes(16).toString('hex')
+
+// Shared grant-tenant logic: updates in-memory creds + active sessions, then calls persistFn.
+const buildGrantTenant =
+  (mutableCreds: CredentialEntry[], sessions: Map<string, AuthSession>, persistFn: () => Effect.Effect<void>) =>
+  (subject: string, tenantId: string): Effect.Effect<void> =>
+    Effect.gen(function* () {
+      const idx = mutableCreds.findIndex(c => c.subject === subject)
+      if (idx === -1) {
+        return
+      }
+      const cred = mutableCreds[idx]!
+      const ids = cred.tenantIds ?? ['default']
+      if (ids.includes(tenantId)) {
+        return
+      }
+      mutableCreds[idx] = { ...cred, tenantIds: [...ids, tenantId] }
+      for (const [token, session] of sessions) {
+        if (session.subject === subject) {
+          sessions.set(token, { ...session, tenantIds: [...session.tenantIds, tenantId] })
+        }
+      }
+      yield* persistFn()
+    })
 
 // Shared session logic between the in-memory and file-backed layers.
 const buildLogin =
@@ -56,6 +80,7 @@ const buildLogin =
         issuedAtMs: now,
         role: cred.role,
         subject: username,
+        tenantIds: cred.tenantIds ?? ['default'],
         token,
       }
       sessions.set(token, session)
@@ -87,7 +112,7 @@ const buildVerify =
       const renewed: AuthSession = { ...session, expiresAtMs: now + SESSION_TTL_MS }
       sessions.set(token, renewed)
       yield* persist(sessions)
-      return { role: renewed.role, subject: renewed.subject }
+      return { role: renewed.role, subject: renewed.subject, tenantIds: [...renewed.tenantIds] }
     })
 
 const noPersist = (_: Map<string, AuthSession>): Effect.Effect<void> => Effect.void
@@ -107,8 +132,9 @@ export const ScryptAuthGateway = {
    * File-backed layer — sessions are loaded from disk on build and persisted on every
    * login/logout/verify-renew. Expired sessions are filtered out on load.
    * Persist is best-effort: a write failure does not propagate to callers.
+   * credentialsPath: when provided, grantTenant writes updated tenantIds back to disk.
    */
-  fileBackedLayer: (credentials: readonly CredentialEntry[], sessionsPath: string) =>
+  fileBackedLayer: (credentials: readonly CredentialEntry[], sessionsPath: string, credentialsPath?: string) =>
     Layer.effect(
       AuthGateway,
       Effect.gen(function* () {
@@ -121,10 +147,18 @@ export const ScryptAuthGateway = {
         )
         const valid = loaded.filter(s => s.expiresAtMs > now)
         const sessions = new Map<string, AuthSession>(valid.map(s => [s.token, s]))
+        const mutableCreds: CredentialEntry[] = [...credentials]
 
         const persist = filePersist(fs, sessionsPath)
+        const credPersist =
+          credentialsPath !== undefined ?
+            (creds: CredentialEntry[]) =>
+              fs.writeFileString(credentialsPath, JSON.stringify(creds, null, 2)).pipe(Effect.ignore)
+          : (_: CredentialEntry[]) => Effect.void
+
         return AuthGateway.of({
-          login: buildLogin(credentials, sessions, persist),
+          grantTenant: buildGrantTenant(mutableCreds, sessions, () => credPersist(mutableCreds)),
+          login: buildLogin(mutableCreds, sessions, persist),
           logout: buildLogout(sessions, persist),
           verify: buildVerify(sessions, persist),
         })
@@ -140,8 +174,10 @@ export const ScryptAuthGateway = {
       AuthGateway,
       Effect.sync(() => {
         const sessions = new Map<string, AuthSession>()
+        const mutableCreds: CredentialEntry[] = [...credentials]
         return AuthGateway.of({
-          login: buildLogin(credentials, sessions, noPersist),
+          grantTenant: buildGrantTenant(mutableCreds, sessions, () => Effect.void),
+          login: buildLogin(mutableCreds, sessions, noPersist),
           logout: buildLogout(sessions, noPersist),
           verify: buildVerify(sessions, noPersist),
         })

@@ -3,11 +3,12 @@ import { useNavigate, useParams } from 'react-router'
 import { useAtomRefresh, useAtomSet, useAtomValue } from '@effect/atom-react'
 import { Button } from '@app/design-system/button'
 import { cn } from '@app/design-system/utils'
-import { deleteSessionAtom, deleteSessionView, sessionsAtom, sessionsView } from '../../atoms.ts'
+import { currentTenantAtom, deleteSessionAtom, deleteSessionView, sessionsAtom, sessionsView } from '../../atoms.ts'
 
 export function SessionList() {
-  const view = useAtomValue(sessionsView)
-  const refresh = useAtomRefresh(sessionsAtom)
+  const currentTenantId = useAtomValue(currentTenantAtom)
+  const view = useAtomValue(sessionsView(currentTenantId))
+  const refresh = useAtomRefresh(sessionsAtom(currentTenantId))
   const navigate = useNavigate()
   const { sessionId: activeId } = useParams()
   const dispatchDelete = useAtomSet(deleteSessionAtom)

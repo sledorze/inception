@@ -10,6 +10,7 @@
 import { DateTime, Effect } from 'effect'
 import { EventKind } from '../domain/events.ts'
 import { type CorrelationId, makeCorrelationId, type SessionId } from '../domain/ids.ts'
+import { CurrentTenantId } from '../domain/tracing.ts'
 import { EventStore } from '../ports/driven/EventStore.ts'
 
 const REJECTION_THRESHOLD = 3
@@ -26,6 +27,7 @@ export const recordRejection = Effect.fn('rejectionPattern.recordRejection')(fun
   storyRef: string
 }) {
   const store = yield* EventStore
+  const tenantId = yield* CurrentTenantId
   const now = DateTime.formatIso(yield* DateTime.now)
 
   yield* store.append({
@@ -37,6 +39,7 @@ export const recordRejection = Effect.fn('rejectionPattern.recordRejection')(fun
     schemaV: 1,
     sessionId,
     storyRef,
+    tenantId,
   })
 
   // Count UserRejected events for this storyRef across all sessions.
@@ -54,6 +57,7 @@ export const recordRejection = Effect.fn('rejectionPattern.recordRejection')(fun
       schemaV: 1,
       sessionId,
       storyRef,
+      tenantId,
     })
   }
 })

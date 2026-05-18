@@ -1,33 +1,50 @@
-import Database from 'better-sqlite3'
 import { Effect, Layer, Random, Schema } from 'effect'
+import { SqlClient } from 'effect/unstable/sql'
+import * as SqliteClientLib from '@effect/sql-sqlite-node/SqliteClient'
+import * as SqliteMigrator from '@effect/sql-sqlite-node/SqliteMigrator'
 import { makeCorrelationId, makeSessionId } from '../../domain/ids.ts'
 import { computeContentHash, EventStore, EventStoreError } from '../../ports/driven/EventStore.ts'
 import type { NewEvent, StoredEvent } from '../../ports/driven/EventStore.ts'
 
-const DDL = `
-  CREATE TABLE IF NOT EXISTS events (
-    id            TEXT    PRIMARY KEY,
-    kind          TEXT    NOT NULL,
-    actor         TEXT    NOT NULL,
-    story_ref     TEXT    NOT NULL,
-    session_id    TEXT    NOT NULL,
-    correlation_id TEXT   NOT NULL,
-    content_hash  TEXT    NOT NULL UNIQUE,
-    prev_hash     TEXT    NOT NULL,
-    schema_v      INTEGER NOT NULL,
-    occurred_at   TEXT    NOT NULL,
-    payload       TEXT    NOT NULL
-  );
-  CREATE INDEX IF NOT EXISTS idx_events_story_ref      ON events(story_ref);
-  CREATE INDEX IF NOT EXISTS idx_events_session_id     ON events(session_id);
-  CREATE INDEX IF NOT EXISTS idx_events_correlation_id ON events(correlation_id);
-`
+// Migration 1 — initial schema with tenant_id included from the start.
+// Idempotent via IF NOT EXISTS; safe re-run on any database.
+// Migration 2 — adds tenant_id to pre-existing databases (L1.9 §13).
+// PRAGMA table_info detects missing column; ALTER TABLE only runs when absent.
+const loader = SqliteMigrator.fromRecord({
+  '1_initial_schema': Effect.gen(function* () {
+    const sql = yield* SqlClient.SqlClient
+    yield* sql`
+      CREATE TABLE IF NOT EXISTS events (
+        id             TEXT    PRIMARY KEY,
+        kind           TEXT    NOT NULL,
+        actor          TEXT    NOT NULL,
+        story_ref      TEXT    NOT NULL,
+        tenant_id      TEXT    NOT NULL DEFAULT 'default',
+        session_id     TEXT    NOT NULL,
+        correlation_id TEXT    NOT NULL,
+        content_hash   TEXT    NOT NULL UNIQUE,
+        prev_hash      TEXT    NOT NULL,
+        schema_v       INTEGER NOT NULL,
+        occurred_at    TEXT    NOT NULL,
+        payload        TEXT    NOT NULL
+      )
+    `
+    yield* sql`CREATE INDEX IF NOT EXISTS idx_events_story_ref      ON events(story_ref)`
+    yield* sql`CREATE INDEX IF NOT EXISTS idx_events_session_id     ON events(session_id)`
+    yield* sql`CREATE INDEX IF NOT EXISTS idx_events_correlation_id ON events(correlation_id)`
+  }),
 
-const INSERT = `
-  INSERT OR IGNORE INTO events
-    (id, kind, actor, story_ref, session_id, correlation_id, content_hash, prev_hash, schema_v, occurred_at, payload)
-  VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-`
+  '2_tenant_isolation': Effect.gen(function* () {
+    const sql = yield* SqlClient.SqlClient
+    const cols = yield* sql<{ name: string }>`PRAGMA table_info(events)`
+    if (!cols.some(c => c.name === 'tenant_id')) {
+      yield* sql`ALTER TABLE events ADD COLUMN tenant_id TEXT NOT NULL DEFAULT 'default'`
+      yield* sql`UPDATE events SET tenant_id = 'default' WHERE tenant_id IS NULL`
+    }
+    // IF NOT EXISTS — safe whether or not Migration 1 already created this index.
+    yield* sql`CREATE INDEX IF NOT EXISTS idx_events_tenant_id ON events(tenant_id)`
+  }),
+})
 
 const StoredEventRow = Schema.Struct({
   actor: Schema.Literals(['user', 'georges', 'host', 'claude', 'supervisor', 'monitor', 'witness']),
@@ -41,6 +58,7 @@ const StoredEventRow = Schema.Struct({
   schema_v: Schema.Number,
   session_id: Schema.String,
   story_ref: Schema.String,
+  tenant_id: Schema.String,
 })
 
 function rowToStoredEvent(row: unknown): StoredEvent {
@@ -57,110 +75,106 @@ function rowToStoredEvent(row: unknown): StoredEvent {
     schemaV: r.schema_v,
     sessionId: makeSessionId(r.session_id),
     storyRef: r.story_ref,
+    tenantId: r.tenant_id,
   }
 }
 
+const toEventStoreError = (cause: unknown) => new EventStoreError({ cause })
+
 export const SqliteEventStore = {
-  layer: (filename: string) =>
-    Layer.effect(
+  layer: (filename: string) => {
+    const eventStoreLayer = Layer.effect(
       EventStore,
-      Effect.try({
-        catch: cause => new EventStoreError({ cause }),
-        try: () => {
-          const db = new Database(filename)
-          db.pragma('journal_mode = WAL')
-          db.exec(DDL)
+      Effect.gen(function* () {
+        yield* SqliteMigrator.run({ loader }).pipe(Effect.mapError(toEventStoreError))
 
-          return EventStore.of({
-            append: (event: NewEvent) =>
-              Effect.gen(function* () {
-                const id = yield* Random.nextUUIDv4
-                return yield* Effect.try({
-                  catch: cause => new EventStoreError({ cause }),
-                  try: () => {
-                    const contentHash = computeContentHash(event)
-                    const lastRow = db
-                      .prepare<
-                        [string],
-                        { content_hash: string }
-                      >('SELECT content_hash FROM events WHERE session_id = ? ORDER BY rowid DESC LIMIT 1')
-                      .get(event.sessionId)
-                    const prevHash = lastRow?.content_hash ?? 'genesis'
+        const sql = yield* SqlClient.SqlClient
 
-                    const info = db.prepare(INSERT).run(
-                      id,
-                      event.kind,
-                      event.actor,
-                      event.storyRef,
-                      event.sessionId,
-                      event.correlationId,
-                      contentHash,
-                      prevHash,
-                      event.schemaV,
-                      event.occurredAt,
-                      // @effect-diagnostics-next-line preferSchemaOverJson:off
-                      JSON.stringify(event.payload),
-                    )
+        return EventStore.of({
+          append: (event: NewEvent) =>
+            Effect.gen(function* () {
+              const id = yield* Random.nextUUIDv4
+              const contentHash = computeContentHash(event)
 
-                    if (info.changes === 0) {
-                      // Duplicate content hash — return the already-stored event (idempotent)
-                      return rowToStoredEvent(
-                        db.prepare('SELECT * FROM events WHERE content_hash = ?').get(contentHash),
-                      )
-                    }
+              const lastRows = yield* sql<{
+                content_hash: string
+              }>`SELECT content_hash FROM events WHERE session_id = ${event.sessionId} ORDER BY rowid DESC LIMIT 1`.pipe(
+                Effect.mapError(toEventStoreError),
+              )
+              const prevHash = lastRows[0]?.content_hash ?? 'genesis'
 
-                    return { ...event, contentHash, id, prevHash } satisfies StoredEvent
-                  },
-                })
-              }),
+              yield* sql`
+                INSERT OR IGNORE INTO events
+                  (id, kind, actor, story_ref, tenant_id, session_id, correlation_id, content_hash, prev_hash, schema_v, occurred_at, payload)
+                VALUES
+                  (${id}, ${event.kind}, ${event.actor}, ${event.storyRef}, ${event.tenantId}, ${event.sessionId}, ${event.correlationId}, ${contentHash}, ${prevHash}, ${event.schemaV}, ${event.occurredAt}, ${
+                    // @effect-diagnostics-next-line preferSchemaOverJson:off
+                    JSON.stringify(event.payload)
+                  })
+              `.pipe(Effect.mapError(toEventStoreError))
 
-            query: filter =>
-              Effect.try({
-                catch: cause => new EventStoreError({ cause }),
-                try: () => {
-                  const conds: string[] = []
-                  const params: unknown[] = []
-                  if (filter.storyRef !== undefined) {
-                    conds.push('story_ref = ?')
-                    params.push(filter.storyRef)
-                  }
-                  if (filter.sessionId !== undefined) {
-                    conds.push('session_id = ?')
-                    params.push(filter.sessionId)
-                  }
-                  if (filter.correlationId !== undefined) {
-                    conds.push('correlation_id = ?')
-                    params.push(filter.correlationId)
-                  }
-                  const where = conds.length > 0 ? `WHERE ${conds.join(' AND ')}` : ''
-                  const limit = filter.limit === undefined ? '' : `LIMIT ${Number(filter.limit)}`
-                  return db
-                    .prepare(`SELECT * FROM events ${where} ORDER BY rowid ${limit}`)
-                    .all(...params)
-                    .map(rowToStoredEvent)
-                },
-              }),
+              const rows = yield* sql<
+                Record<string, unknown>
+              >`SELECT * FROM events WHERE content_hash = ${contentHash}`.pipe(Effect.mapError(toEventStoreError))
 
-            replay: (fromId, onEvent) =>
-              Effect.gen(function* () {
-                const rows = yield* Effect.try({
-                  catch: cause => new EventStoreError({ cause }),
-                  try: () => {
-                    const anchor = db
-                      .prepare<[string], { rowid: number }>('SELECT rowid FROM events WHERE id = ?')
-                      .get(fromId)
-                    if (anchor === undefined) {
-                      return []
-                    }
-                    return db.prepare('SELECT * FROM events WHERE rowid >= ? ORDER BY rowid').all(anchor.rowid)
-                  },
-                })
-                for (const row of rows) {
-                  yield* onEvent(rowToStoredEvent(row))
-                }
-              }),
-          })
-        },
+              return rowToStoredEvent(rows[0])
+            }),
+
+          query: filter =>
+            Effect.gen(function* () {
+              const conds: string[] = []
+              const params: unknown[] = []
+              if (filter.storyRef !== undefined) {
+                conds.push('story_ref = ?')
+                params.push(filter.storyRef)
+              }
+              if (filter.tenantId !== undefined) {
+                conds.push('tenant_id = ?')
+                params.push(filter.tenantId)
+              }
+              if (filter.sessionId !== undefined) {
+                conds.push('session_id = ?')
+                params.push(filter.sessionId)
+              }
+              if (filter.correlationId !== undefined) {
+                conds.push('correlation_id = ?')
+                params.push(filter.correlationId)
+              }
+              const where = conds.length > 0 ? `WHERE ${conds.join(' AND ')}` : ''
+              const limit = filter.limit === undefined ? '' : `LIMIT ${Number(filter.limit)}`
+
+              const rows = yield* sql
+                .unsafe<Record<string, unknown>>(`SELECT * FROM events ${where} ORDER BY rowid ${limit}`, params)
+                .pipe(Effect.mapError(toEventStoreError))
+
+              return rows.map(rowToStoredEvent)
+            }),
+
+          replay: (fromId, onEvent) =>
+            Effect.gen(function* () {
+              const anchors = yield* sql<{ rowid: number }>`SELECT rowid FROM events WHERE id = ${fromId}`.pipe(
+                Effect.mapError(toEventStoreError),
+              )
+
+              const anchor = anchors[0]
+              if (anchor === undefined) {
+                return
+              }
+
+              const rows = yield* sql<
+                Record<string, unknown>
+              >`SELECT * FROM events WHERE rowid >= ${anchor.rowid} ORDER BY rowid`.pipe(
+                Effect.mapError(toEventStoreError),
+              )
+
+              for (const row of rows) {
+                yield* onEvent(rowToStoredEvent(row))
+              }
+            }),
+        })
       }),
-    ),
+    )
+
+    return eventStoreLayer.pipe(Layer.provide(SqliteClientLib.layer({ filename })))
+  },
 }

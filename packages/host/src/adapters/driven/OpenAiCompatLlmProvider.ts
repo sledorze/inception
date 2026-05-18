@@ -154,6 +154,7 @@ export const OpenAiCompatLlmProvider = {
                   schemaV: 1,
                   sessionId: untracedSessionId,
                   storyRef: 'untraced',
+                  tenantId: 'default',
                 })
                 .pipe(Effect.orDie)
             }),

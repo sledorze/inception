@@ -7,6 +7,7 @@
  */
 import { DateTime, Effect, Schema } from 'effect'
 import { DecisionPayload, EventKind } from '../domain/events.ts'
+import { CurrentTenantId } from '../domain/tracing.ts'
 import { EventStore } from '../ports/driven/EventStore.ts'
 import type { StoredEvent } from '../ports/driven/EventStore.ts'
 
@@ -33,6 +34,7 @@ const emitDecision =
   (proposalId: string, notes?: string): Effect.Effect<void, never, EventStore> =>
     Effect.gen(function* () {
       const store = yield* EventStore
+      const tenantId = yield* CurrentTenantId
       const all = yield* store.query({}).pipe(Effect.orDie)
       const proposal = findProposedEvent(all, proposalId)
       if (proposal === undefined) {
@@ -48,6 +50,7 @@ const emitDecision =
           schemaV: 1,
           sessionId: proposal.sessionId,
           storyRef: 'S2',
+          tenantId,
         })
         .pipe(Effect.orDie)
     }).pipe(Effect.withSpan(`ReviewProposals.${kind}`))

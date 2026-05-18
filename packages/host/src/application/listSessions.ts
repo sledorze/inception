@@ -12,6 +12,7 @@
 import { Effect } from 'effect'
 import { EventKind } from '../domain/events.ts'
 import { type SessionId } from '../domain/ids.ts'
+import { CurrentTenantId } from '../domain/tracing.ts'
 import { EventStore } from '../ports/driven/EventStore.ts'
 
 export interface SessionSummary {
@@ -24,7 +25,8 @@ export interface SessionSummary {
 /** All sessions with event/goal counts and lastActivity, sorted by lastActivity descending. */
 export const listSessions: Effect.Effect<readonly SessionSummary[], never, EventStore> = Effect.gen(function* () {
   const store = yield* EventStore
-  const events = yield* store.query({}).pipe(Effect.orDie)
+  const tenantId = yield* CurrentTenantId
+  const events = yield* store.query({ tenantId }).pipe(Effect.orDie)
   const sessions = new Map<
     SessionId,
     { sessionId: SessionId; eventCount: number; goalCount: number; lastActivity: string }

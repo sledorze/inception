@@ -5,6 +5,29 @@ Convention: fix → move (cut from PAIN.md, paste here in the same commit as the
 
 ---
 
+## P54 — Third e2e tenant-isolation test body is a no-op
+
+**Severity:** annoys  
+**Symptom:** `e2e/tenant-isolation.test.ts` test 3 ended with `expect(true).toBe(true)` — the test name claimed to verify API-level isolation but the body made no real assertion.
+
+FIXED 2026-05-18 in feat/backoffice-deep-linking — test: `e2e/tenant-isolation.test.ts` (third test body replaced with real `page.request` assertions: 200 for Default tenant, 403 for an unentitled fabricated tenant — confirming the `withTenant` middleware rejects cross-tenant access).
+
+---
+
+## P53 — Law tests cover only 15% of application+domain mutants
+
+**Severity:** slows
+
+**Symptom:** `stryker.laws.config.json` `break` threshold set to 10 (baseline calibrated 2026-05-17 at 15.49%). Law tests run against `application/` + `domain/` source — 404/568 mutants have no coverage at all (law tests don't exercise most code paths; they test architectural contracts, not data transforms).
+
+**Candidate fix:** Add behavioural assertions to law specs where laws mandate specific runtime outcomes (L1.4 tamper chain, L3.7 risk supervision). Ratchet `break` up by 5 points once covered-mutant kill rate is ≥ 60%. Acceptance test: CI `law mutation (scoped Stryker)` job.
+
+**Acceptance test:** CI `law mutation (scoped Stryker)` job — red when score < `break`, green when ≥ `break`. Threshold ratcheted in PAIN closure commits.
+
+FIXED 2026-05-18 in feat/backoffice-deep-linking (P53 closure) — test: packages/host/tests/laws/L1.9.spec.ts (4 new behavioural assertions exercising createTenant, listTenants, renameTenant, seedDefaultTenant, listSessions application services); Stryker run stryker.laws.config.json: score 26.38% total / 60.66% covered (was 15.49% total), covered-mutant kill rate ≥ 60% threshold met; break ratcheted 10 → 15.
+
+---
+
 ## P52 — Settings.llmBaseUrl consumed by nothing (moved LLM endpoint unrecoverable from UI)
 
 **Severity:** blocks work

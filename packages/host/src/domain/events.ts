@@ -27,6 +27,8 @@ export const EventKind = {
   SessionQuarantined: 'SessionQuarantined',
   SupervisorDivergence: 'SupervisorDivergence',
   SupervisorTrip: 'SupervisorTrip',
+  TenantCreated: 'TenantCreated',
+  TenantRenamed: 'TenantRenamed',
   ToolResultObserved: 'ToolResultObserved',
   UnknownShapeObserved: 'UnknownShapeObserved',
   UserRejected: 'UserRejected',
@@ -102,6 +104,16 @@ export const ScriptExecutedPayload = Schema.Struct({
 
 export const SessionDeletedPayload = Schema.Struct({
   sessionId: SessionId,
+})
+
+export const TenantCreatedPayload = Schema.Struct({
+  name: Schema.String,
+  tenantId: Schema.String,
+})
+
+export const TenantRenamedPayload = Schema.Struct({
+  name: Schema.String,
+  tenantId: Schema.String,
 })
 
 // ─── HTTP request body schemas ─────────────────────────────────────────────────

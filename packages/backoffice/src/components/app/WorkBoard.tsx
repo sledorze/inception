@@ -1,7 +1,10 @@
 import { useAtomRefresh, useAtomValue } from '@effect/atom-react'
+import Markdown from 'react-markdown'
 import { Button } from '@app/design-system/button'
 import { Card } from '@app/design-system/card'
 import { workAtom, workView } from '../../atoms.ts'
+
+const inlineP = ({ children }: { children?: React.ReactNode }) => <>{children}</>
 
 const STATUS_COLOR: Record<string, string> = {
   blocked: 'bg-destructive/20 text-destructive',
@@ -31,7 +34,9 @@ export function WorkBoard() {
           {items.map(item => (
             <div className="flex items-start gap-2 py-3 text-sm" key={item.id}>
               <span className="font-mono font-medium">{item.id}</span>
-              <span className="flex-1">{item.title}</span>
+              <span className="flex-1">
+                <Markdown components={{ p: inlineP }}>{item.title}</Markdown>
+              </span>
               <span className={`px-1 text-xs ${STATUS_COLOR[item.status] ?? 'bg-secondary text-secondary-foreground'}`}>
                 {item.status}
               </span>

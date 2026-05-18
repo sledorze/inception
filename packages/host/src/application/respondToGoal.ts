@@ -3,7 +3,7 @@ import { LanguageModel } from 'effect/unstable/ai'
 import type { LanguageModel as LanguageModelNS, Tool } from 'effect/unstable/ai'
 import { ClarifyRequestedPayload, EventKind, GoalSubmittedPayload } from '../domain/events.ts'
 import { CorrelationId, nextCorrelationId, type SessionId } from '../domain/ids.ts'
-import { CurrentCorrelationId } from '../domain/tracing.ts'
+import { CurrentCorrelationId, CurrentTenantId } from '../domain/tracing.ts'
 import { DataHandleRegistry } from '../ports/driven/DataHandle.ts'
 import { EventStore } from '../ports/driven/EventStore.ts'
 import type { StoredEvent } from '../ports/driven/EventStore.ts'
@@ -47,6 +47,7 @@ export const makeRespondToGoal = <Tools extends Record<string, Tool.Any>>(
     sessionId: SessionId,
   ) {
     const store = yield* EventStore
+    const tenantId = yield* CurrentTenantId
     // Block deleted sessions before appending.
     yield* checkSessionDeleted(sessionId)
     // Query by correlationId only: ClarifyRequested uses sessionId='bootstrap' (toolkit context).
@@ -68,6 +69,7 @@ export const makeRespondToGoal = <Tools extends Record<string, Tool.Any>>(
       schemaV: 1,
       sessionId,
       storyRef: 'S8',
+      tenantId,
     })
 
     const agentMd = yield* readAgentMd({ path: AGENT_MD_PATH })
@@ -121,6 +123,7 @@ export const makeRespondToGoal = <Tools extends Record<string, Tool.Any>>(
       schemaV: 1,
       sessionId,
       storyRef: 'S8',
+      tenantId,
     })
 
     return { correlationId, sessionId }

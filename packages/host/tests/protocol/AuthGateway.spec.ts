@@ -91,14 +91,42 @@ function runContract(name: string, makeLayer: () => Layer.Layer<AuthGateway>) {
       ),
     )
 
-    it.effect('verify of valid token returns Principal with correct role', () =>
+    it.effect('verify of valid token returns Principal with correct role and tenantIds', () =>
       run(
         Effect.gen(function* () {
           const auth = yield* AuthGateway
           const session = yield* auth.login('alice', 'secret')
+          expect(session.tenantIds).toContain('default')
           const principal = yield* auth.verify(session.token)
           expect(principal.subject).toBe('alice')
           expect(principal.role).toBe('admin')
+          expect(principal.tenantIds).toContain('default')
+        }),
+      ),
+    )
+
+    it.effect('grantTenant adds the tenant to principal tenantIds after next verify', () =>
+      run(
+        Effect.gen(function* () {
+          const auth = yield* AuthGateway
+          const session = yield* auth.login('alice', 'secret')
+          yield* auth.grantTenant('alice', 'acme')
+          const principal = yield* auth.verify(session.token)
+          expect(principal.tenantIds).toContain('default')
+          expect(principal.tenantIds).toContain('acme')
+        }),
+      ),
+    )
+
+    it.effect('grantTenant is idempotent — double-grant does not duplicate tenantId', () =>
+      run(
+        Effect.gen(function* () {
+          const auth = yield* AuthGateway
+          yield* auth.grantTenant('alice', 'acme')
+          yield* auth.grantTenant('alice', 'acme')
+          const session = yield* auth.login('alice', 'secret')
+          const principal = yield* auth.verify(session.token)
+          expect(principal.tenantIds.filter(id => id === 'acme').length).toBe(1)
         }),
       ),
     )

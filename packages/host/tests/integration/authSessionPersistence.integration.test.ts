@@ -20,7 +20,7 @@ import { AuthGateway } from '../../src/ports/driving/AuthGateway.ts'
 
 const salt = generateSalt()
 const creds: readonly CredentialEntry[] = [
-  { role: 'admin', salt, scryptHash: hashPassword('secret', salt), subject: 'alice' },
+  { role: 'admin', salt, scryptHash: hashPassword('secret', salt), subject: 'alice', tenantIds: ['default'] },
 ]
 
 const makeAuthLayer = (sessionsPath: string): Layer.Layer<AuthGateway> =>
@@ -49,6 +49,7 @@ describe('P51 (a) — token verified by a fresh layer instance from same session
 
       expect(principal.subject).toBe('alice')
       expect(principal.role).toBe('admin')
+      expect(principal.tenantIds).toContain('default')
     }),
   )
 })

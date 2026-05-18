@@ -67,3 +67,29 @@ export const deleteSession = (sessionId: string): Promise<void> =>
   authedFetch(`/api/sessions/${encodeURIComponent(sessionId)}`, { method: 'DELETE' })
     .then(handleErr)
     .then(() => undefined)
+
+export interface TenantSummary {
+  readonly id: string
+  readonly name: string
+}
+
+export const listTenants = (): Promise<readonly TenantSummary[]> =>
+  authedFetch('/api/tenants', { method: 'GET' })
+    .then(handleErr)
+    .then(res => res.json() as Promise<readonly TenantSummary[]>)
+
+export const createTenant = (id: string, name: string): Promise<void> =>
+  authedFetch('/api/tenants', {
+    body: JSON.stringify({ id, name }),
+    method: 'POST',
+  })
+    .then(handleErr)
+    .then(() => undefined)
+
+export const renameTenant = (id: string, name: string): Promise<void> =>
+  authedFetch(`/api/tenants/${encodeURIComponent(id)}`, {
+    body: JSON.stringify({ name }),
+    method: 'PATCH',
+  })
+    .then(handleErr)
+    .then(() => undefined)

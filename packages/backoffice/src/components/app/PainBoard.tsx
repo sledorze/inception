@@ -1,7 +1,10 @@
 import { useAtomRefresh, useAtomValue } from '@effect/atom-react'
+import Markdown from 'react-markdown'
 import { Button } from '@app/design-system/button'
 import { Card } from '@app/design-system/card'
 import { painAtom, painView } from '../../atoms.ts'
+
+const inlineP = ({ children }: { children?: React.ReactNode }) => <>{children}</>
 
 export function PainBoard() {
   const view = useAtomValue(painView)
@@ -23,7 +26,9 @@ export function PainBoard() {
           {items.map(item => (
             <div className="flex items-start gap-2 py-3 text-sm" key={item.id}>
               <span className="font-mono font-medium">{item.id}</span>
-              <span className="flex-1">{item.title}</span>
+              <span className="flex-1">
+                <Markdown components={{ p: inlineP }}>{item.title}</Markdown>
+              </span>
               <span className="bg-secondary px-1 text-xs text-secondary-foreground">{item.severity}</span>
             </div>
           ))}

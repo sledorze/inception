@@ -26,6 +26,7 @@ const baseEvent = (): NewEvent => ({
   schemaV: 1,
   sessionId: randomUUID(),
   storyRef: 'S1',
+  tenantId: 'default',
 })
 
 // Helpers that avoid false-positive lint rules (react-hooks, unicorn/no-array-method-this-argument).

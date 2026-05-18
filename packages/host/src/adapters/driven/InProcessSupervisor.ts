@@ -12,6 +12,7 @@
 import { DateTime, Effect, Layer } from 'effect'
 import { EventKind } from '../../domain/events.ts'
 import { makeCorrelationId } from '../../domain/ids.ts'
+import { CurrentTenantId } from '../../domain/tracing.ts'
 import { EventStore } from '../../ports/driven/EventStore.ts'
 import { Supervisor, SupervisorError } from '../../ports/driven/Supervisor.ts'
 import type { SignalResult } from '../../ports/driven/Supervisor.ts'
@@ -76,6 +77,7 @@ export const InProcessSupervisor = {
               computeR5(sessionId, events),
             ]
 
+            const tenantId = yield* CurrentTenantId
             for (const result of results) {
               if (result.tripped) {
                 const now = DateTime.formatIso(yield* DateTime.now)
@@ -92,6 +94,7 @@ export const InProcessSupervisor = {
                   schemaV: 1,
                   sessionId,
                   storyRef: 'supervision',
+                  tenantId,
                 })
                 // R5 (sandbox escape) quarantines the session immediately (L2.3).
                 if (result.riskId === 'R5') {
@@ -104,6 +107,7 @@ export const InProcessSupervisor = {
                     schemaV: 1,
                     sessionId,
                     storyRef: 'supervision',
+                    tenantId,
                   })
                 }
               }

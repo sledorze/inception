@@ -35,6 +35,7 @@ function runContract(name: string, makeRuntime: () => ManagedRuntime.ManagedRunt
         }),
       )
       expect(settings).toHaveProperty('llmBaseUrl')
+      expect(settings).toHaveProperty('llmMaxConcurrency')
       expect(settings).toHaveProperty('llmModel')
       expect(settings).toHaveProperty('sessionMaxTurns')
     })

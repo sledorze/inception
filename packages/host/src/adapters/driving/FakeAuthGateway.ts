@@ -10,6 +10,7 @@ export interface FakeCred {
   readonly password: string
   readonly role: Role
   readonly username: string
+  readonly tenantIds?: readonly string[]
 }
 
 export const FakeAuthGateway = {
@@ -18,11 +19,31 @@ export const FakeAuthGateway = {
       AuthGateway,
       Effect.sync(() => {
         const sessions = new Map<string, AuthSession>()
+        const mutableCreds: FakeCred[] = [...creds]
 
         return AuthGateway.of({
+          grantTenant: (subject, tenantId) =>
+            Effect.sync(() => {
+              const idx = mutableCreds.findIndex(c => c.username === subject)
+              if (idx === -1) {
+                return
+              }
+              const cred = mutableCreds[idx]!
+              const ids = cred.tenantIds ?? ['default']
+              if (ids.includes(tenantId)) {
+                return
+              }
+              mutableCreds[idx] = { ...cred, tenantIds: [...ids, tenantId] }
+              for (const [token, session] of sessions) {
+                if (session.subject === subject) {
+                  sessions.set(token, { ...session, tenantIds: [...session.tenantIds, tenantId] })
+                }
+              }
+            }),
+
           login: (username, password) =>
             Effect.gen(function* () {
-              const cred = creds.find(c => c.username === username && c.password === password)
+              const cred = mutableCreds.find(c => c.username === username && c.password === password)
               if (cred === undefined) {
                 return yield* new InvalidCredentials({ subject: username })
               }
@@ -33,6 +54,7 @@ export const FakeAuthGateway = {
                 issuedAtMs: now,
                 role: cred.role,
                 subject: username,
+                tenantIds: cred.tenantIds ?? ['default'],
                 token,
               }
               sessions.set(token, session)
@@ -54,7 +76,7 @@ export const FakeAuthGateway = {
               if (now > session.expiresAtMs) {
                 return yield* new SessionExpired()
               }
-              return { role: session.role, subject: session.subject }
+              return { role: session.role, subject: session.subject, tenantIds: [...session.tenantIds] }
             }),
         })
       }),

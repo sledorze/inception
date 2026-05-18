@@ -4,7 +4,17 @@ import * as Layer from 'effect/Layer'
 import * as AsyncResult from 'effect/unstable/reactivity/AsyncResult'
 import * as Atom from 'effect/unstable/reactivity/Atom'
 import * as Reactivity from 'effect/unstable/reactivity/Reactivity'
-import { deleteSession, getTurns, listSessions, respondToGoal, sendMessage } from './hooks/chat.ts'
+import { getTenantId } from './api/auth.ts'
+import {
+  createTenant,
+  deleteSession,
+  getTurns,
+  listSessions,
+  listTenants,
+  renameTenant,
+  respondToGoal,
+  sendMessage,
+} from './hooks/chat.ts'
 
 export type AsyncView<T> =
   | { readonly _tag: 'Loading'; readonly waiting: boolean }
@@ -20,14 +30,26 @@ const toView = <T>(result: AsyncResult.AsyncResult<T, string>): AsyncView<T> =>
 
 const fetchAtom = <T>(fn: () => Promise<T>) => Atom.make(Effect.tryPromise({ catch: e => String(e), try: fn }))
 
+// ── Current tenant (writable — updated by App.tsx on tenant:changed events) ──
+export const currentTenantAtom = Atom.make(getTenantId() ?? 'default')
+
+// ── Tenants list ──────────────────────────────────────────────────────────────
+const tenantsAtom = Atom.withReactivity(['tenants'])(fetchAtom(listTenants))
+export const tenantsView = Atom.map(tenantsAtom, toView)
+
 // Topic keys for the decoupled Reactivity key-bus. A session's turns live under
 // a per-session topic so dispatching in one session never refetches another.
 const turnsKey = (sessionId: string) => `turns:${sessionId}`
-const sessionsKey = 'sessions'
+const sessionsKey = (tenantId: string) => `sessions:${tenantId}`
 
-// ── Sessions list — read atom subscribed to the "sessions" topic ─────────────
-export const sessionsAtom = Atom.withReactivity([sessionsKey])(fetchAtom(listSessions))
-export const sessionsView = Atom.map(sessionsAtom, toView)
+// ── Sessions list — family keyed by tenantId; key bus is "sessions:<tenantId>" ─
+const sessionsAtomFamily = Atom.family((tenantId: string) =>
+  Atom.withReactivity([sessionsKey(tenantId)])(fetchAtom(() => listSessions())),
+)
+const sessionsViewFamily = Atom.family((tenantId: string) => Atom.map(sessionsAtomFamily(tenantId), toView))
+
+export const sessionsAtom = sessionsAtomFamily
+export const sessionsView = sessionsViewFamily
 
 // ── Per-session transcript — Atom.family keyed by sessionId, each subscribed ──
 // to its own "turns:<id>" topic so it self-refreshes on send/respond.
@@ -46,11 +68,12 @@ const atomRuntime = Atom.runtime(Layer.empty)
 export const sendGoalAtom = atomRuntime.fn(
   ({ goal, handleId, sessionId }: { sessionId: string; goal: string; handleId: string }) =>
     Effect.gen(function* () {
+      const tenantId = getTenantId() ?? 'default'
       const result = yield* Effect.tryPromise({
         catch: e => String(e),
         try: () => sendMessage(sessionId, goal, handleId),
       })
-      yield* Reactivity.invalidate([turnsKey(sessionId), sessionsKey])
+      yield* Reactivity.invalidate([turnsKey(sessionId), sessionsKey(tenantId)])
       return result
     }),
 )
@@ -59,11 +82,12 @@ export const sendGoalView = Atom.map(sendGoalAtom, toView)
 export const respondAtom = atomRuntime.fn(
   ({ answer, correlationId, sessionId }: { sessionId: string; correlationId: string; answer: string }) =>
     Effect.gen(function* () {
+      const tenantId = getTenantId() ?? 'default'
       const result = yield* Effect.tryPromise({
         catch: e => String(e),
         try: () => respondToGoal(sessionId, correlationId, answer),
       })
-      yield* Reactivity.invalidate([turnsKey(sessionId), sessionsKey])
+      yield* Reactivity.invalidate([turnsKey(sessionId), sessionsKey(tenantId)])
       return result
     }),
 )
@@ -71,9 +95,25 @@ export const respondView = Atom.map(respondAtom, toView)
 
 export const deleteSessionAtom = atomRuntime.fn(({ sessionId }: { sessionId: string }) =>
   Effect.gen(function* () {
+    const tenantId = getTenantId() ?? 'default'
     yield* Effect.tryPromise({ catch: e => String(e), try: () => deleteSession(sessionId) })
-    yield* Reactivity.invalidate([sessionsKey, turnsKey(sessionId)])
+    yield* Reactivity.invalidate([sessionsKey(tenantId), turnsKey(sessionId)])
     return { sessionId }
   }),
 )
 export const deleteSessionView = Atom.map(deleteSessionAtom, toView)
+
+export const createTenantAtom = atomRuntime.fn(({ id, name }: { id: string; name: string }) =>
+  Effect.gen(function* () {
+    yield* Effect.tryPromise({ catch: e => String(e), try: () => createTenant(id, name) })
+    yield* Reactivity.invalidate(['tenants'])
+  }),
+)
+export const createTenantView = Atom.map(createTenantAtom, toView)
+
+export const renameTenantAtom = atomRuntime.fn(({ id, name }: { id: string; name: string }) =>
+  Effect.gen(function* () {
+    yield* Effect.tryPromise({ catch: e => String(e), try: () => renameTenant(id, name) })
+    yield* Reactivity.invalidate(['tenants'])
+  }),
+)

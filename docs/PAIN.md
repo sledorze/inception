@@ -9,6 +9,38 @@ in the same commit as the fix. This file holds OPEN items only, severity-sorted.
 
 ---
 
+## P55 — Silent `tenantIds[0] ?? 'default'` fallback on empty entitlements array
+
+**Severity:** annoys  
+**Symptom:** `packages/shared-api/src/index.ts` (or `Login.tsx`) resolves the initial tenant via `tenantIds[0] ?? 'default'`. If a principal has no entitlements (misconfigured identity), the cookie silently defaults to `'default'` and a cross-tenant read attempt follows. The server will 403 but the UX provides no explanation.  
+**Candidate fix:** Surface a clear "No projects available — contact admin" message when `tenantIds` is empty; avoid setting the cookie at all in that state.
+
+---
+
+## P56 — Error state not surfaced in TenantSwitcher when tenants fail to load
+
+**Severity:** annoys  
+**Symptom:** `TenantSwitcher.tsx` reads `tenantsResult._tag === 'Ready'` but falls through to an empty list on `'Loading'` or `'Error'` — there is no spinner or error message. If the `/api/tenants` call errors (network down, 500), the switcher silently shows the tenant id as the label with no projects listed.  
+**Candidate fix:** Add an error branch in `TenantSwitcher.tsx` rendering `"Failed to load projects"` and a retry button; the `'Loading'` branch should show a skeleton or spinner.
+
+---
+
+## P57 — `sessionsAtom` re-export is a semantically confusing alias
+
+**Severity:** annoys  
+**Symptom:** `packages/app/src/atoms.ts` exports `sessionsAtom = sessionsAtomFamily` — an alias that exposes the internal family directly. Callers write `sessionsAtom(tenantId)` which is correct but the name suggests a single atom, not a family factory.  
+**Candidate fix:** Rename the export to `sessionsAtomFamily` (matches `sessionsViewFamily`) or remove the alias entirely and have callers import the view family directly.
+
+---
+
+## P58 — SQLite migration 2 issues redundant PRAGMA on a fresh DB
+
+**Severity:** annoys  
+**Symptom:** `SqliteEventStore` runs `PRAGMA table_info(events)` on every boot to decide whether to add `tenant_id`. On a fresh DB (no `events` table yet) the PRAGMA returns zero rows, triggering `ALTER TABLE` which fails because the table doesn't exist. The `CREATE TABLE IF NOT EXISTS` after the PRAGMA re-creates it with `tenant_id` already present — so behaviour is correct but the PRAGMA + ALTER path is unreachable on fresh DBs, creating dead code.  
+**Candidate fix:** Simplify to: (1) `CREATE TABLE IF NOT EXISTS events (... tenant_id TEXT DEFAULT 'default' ...)`, (2) skip the PRAGMA path entirely. For existing DBs without the column, use a separate idempotent migration step run only if the table pre-exists without the column.
+
+---
+
 <!-- Hunt log 2026-05-17
 Triggers that fired: explicit /hunt invocation + 5 open PAIN items (≥3 threshold)
 Hunt start time: 13:58
@@ -105,9 +137,3 @@ Candidates:
 
 Stopped because: 3 candidates surfaced and landed.
 -->
-
-**P53** — severity: slows | Law tests cover only 15% of application+domain mutants
-
-- **Symptom:** `stryker.laws.config.json` `break` threshold set to 10 (baseline calibrated 2026-05-17 at 15.49%). Law tests run against `application/` + `domain/` source — 404/568 mutants have no coverage at all (law tests don't exercise most code paths; they test architectural contracts, not data transforms).
-- **Candidate fix:** Add behavioural assertions to law specs where laws mandate specific runtime outcomes (L1.4 tamper chain, L3.7 risk supervision). Ratchet `break` up by 5 points once covered-mutant kill rate is ≥ 60%. Acceptance test: CI `law mutation (scoped Stryker)` job.
-- **Acceptance test:** CI `law mutation (scoped Stryker)` job — red when score < `break`, green when ≥ `break`. Threshold ratcheted in PAIN closure commits.

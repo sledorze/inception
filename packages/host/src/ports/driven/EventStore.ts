@@ -11,6 +11,7 @@ export interface StoredEvent {
   readonly kind: string
   readonly actor: Actor
   readonly storyRef: string
+  readonly tenantId: string
   readonly sessionId: SessionId
   readonly correlationId: CorrelationId
   readonly contentHash: string
@@ -21,10 +22,12 @@ export interface StoredEvent {
 }
 
 // Store assigns id, contentHash, and prevHash — caller provides business fields.
+// tenantId is required: callers should read it from CurrentTenantId FiberRef (domain/tracing.ts).
 export type NewEvent = Omit<StoredEvent, 'id' | 'contentHash' | 'prevHash'>
 
 export interface EventStoreQuery {
   readonly storyRef?: string
+  readonly tenantId?: string
   readonly sessionId?: SessionId
   readonly correlationId?: CorrelationId
   readonly limit?: number

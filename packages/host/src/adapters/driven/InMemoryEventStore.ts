@@ -20,7 +20,9 @@ export const InMemoryEventStore = {
             const sessionEvents = events.filter(e => e.sessionId === event.sessionId)
             const prevHash = sessionEvents.length > 0 ? (sessionEvents.at(-1)?.contentHash ?? 'genesis') : 'genesis'
             const id = yield* Random.nextUUIDv4
-            const stored: StoredEvent = { ...event, contentHash, id, prevHash }
+            // Mirror SQLite DEFAULT 'default' on tenant_id: events appended without
+            // a tenantId (e.g. legacy seeds) are treated as belonging to 'default'.
+            const stored: StoredEvent = { ...event, contentHash, id, prevHash, tenantId: event.tenantId ?? 'default' }
             yield* Ref.update(store, es => [...es, stored])
             return stored
           }),
@@ -31,6 +33,9 @@ export const InMemoryEventStore = {
             let result = [...events]
             if (filter.storyRef !== undefined) {
               result = result.filter(e => e.storyRef === filter.storyRef)
+            }
+            if (filter.tenantId !== undefined) {
+              result = result.filter(e => e.tenantId === filter.tenantId)
             }
             if (filter.sessionId !== undefined) {
               result = result.filter(e => e.sessionId === filter.sessionId)
