@@ -1,11 +1,12 @@
 import { useEffect, useRef, useState } from 'react'
 import Markdown from 'react-markdown'
 import type { Components } from 'react-markdown'
+import { useNavigate, useParams } from 'react-router'
+import { useAtomSet, useAtomValue } from '@effect/atom-react'
 import { Button } from '@app/design-system/button'
 import { Input } from '@app/design-system/input'
 import { Textarea } from '@app/design-system/textarea'
-import { getTurns, respondToGoal, sendMessage } from '../../hooks/chat.ts'
-import type { Turn } from '../../hooks/chat.ts'
+import { respondAtom, respondView, sendGoalAtom, sendGoalView, turnsView } from '../../atoms.ts'
 
 const mdComponents: Components = {
   code: ({ children }) => <code className="rounded bg-background px-1 py-0.5 font-mono text-xs">{children}</code>,
@@ -23,25 +24,55 @@ const mdComponents: Components = {
   ul: ({ children }) => <ul className="mb-2 list-disc pl-4">{children}</ul>,
 }
 
-interface PendingClarify {
-  correlationId: string
-  question: string
-}
-
-interface TurnWithClarify extends Turn {
-  pendingAnswer?: string
-}
-
 export function Conversation() {
-  const [sessionId] = useState(() => crypto.randomUUID())
+  const { sessionId } = useParams()
+  const navigate = useNavigate()
+
+  const view = useAtomValue(turnsView(sessionId ?? ''))
+  const send = useAtomSet(sendGoalAtom)
+  const sendState = useAtomValue(sendGoalView)
+  const respond = useAtomSet(respondAtom)
+  const respondState = useAtomValue(respondView)
+
   const [goal, setGoal] = useState('')
   const [handleId, setHandleId] = useState('synthetic-001')
-  const [turns, setTurns] = useState<TurnWithClarify[]>([])
-  const [busy, setBusy] = useState(false)
-  const [convError, setConvError] = useState<string | null>(null)
-  const [pendingClarify, setPendingClarify] = useState<PendingClarify | null>(null)
+  const [pendingGoal, setPendingGoal] = useState<string | null>(null)
+  const [answeredCid, setAnsweredCid] = useState<string | null>(null)
   const [clarifyAnswer, setClarifyAnswer] = useState('')
   const scrollRef = useRef<HTMLDivElement>(null)
+
+  const turns = view._tag === 'Ready' ? view.value : []
+  const loadError = view._tag === 'Error' ? view.message : null
+  const sendError = sendState._tag === 'Error' ? sendState.message : null
+  const respondErr = respondState._tag === 'Error' ? respondState.message : null
+  const error = sendError ?? respondErr ?? loadError
+  const busy = sendState.waiting || respondState.waiting
+
+  // Clarification is in-flight state for the just-sent goal — read it from the
+  // authoritative POST response (sendGoalView), not the /turns transcript:
+  // ClarifyRequested is persisted under sessionId='bootstrap' (toolkit context
+  // gap), so it never appears in GET /api/sessions/:id/turns.
+  const sentClarify =
+    sendState._tag === 'Ready' && sendState.value.clarifyQuestion !== undefined ?
+      { correlationId: sendState.value.correlationId, question: sendState.value.clarifyQuestion }
+    : null
+  const pendingClarify = sentClarify !== null && sentClarify.correlationId !== answeredCid ? sentClarify : null
+  const clarifyPending = pendingClarify !== null
+
+  // Drop the optimistic bubble once the send settles with no pending clarify
+  // (the key-bus refetch has hydrated the authoritative transcript by then).
+  useEffect(() => {
+    if (!sendState.waiting && !respondState.waiting && !clarifyPending) {
+      setPendingGoal(null)
+    }
+  }, [sendState.waiting, respondState.waiting, clarifyPending])
+
+  // Avoid a duplicate user bubble once the real turn arrives in the transcript.
+  useEffect(() => {
+    if (pendingGoal !== null && turns.some(t => t.goal === pendingGoal)) {
+      setPendingGoal(null)
+    }
+  }, [turns, pendingGoal])
 
   useEffect(() => {
     const el = scrollRef.current
@@ -50,86 +81,44 @@ export function Conversation() {
     }
   }, [turns.length, busy])
 
-  const handleSend = async () => {
-    if (!goal.trim()) {
-      return
-    }
-    const pendingGoal = goal
-    const tempId = crypto.randomUUID()
-    // Optimistic: show user bubble and clear input immediately
-    setTurns(prev => [...prev, { correlationId: tempId, goal: pendingGoal, turnIndex: prev.length }])
-    setGoal('')
-    setBusy(true)
-    setConvError(null)
-    try {
-      const result = await sendMessage(sessionId, pendingGoal, handleId)
-      if (result.clarifyQuestion !== undefined) {
-        const q = result.clarifyQuestion
-        setTurns(prev =>
-          prev.map(t =>
-            t.correlationId === tempId ? { ...t, clarifyQuestion: q, correlationId: result.correlationId } : t,
-          ),
-        )
-        setPendingClarify({ correlationId: result.correlationId, question: q })
-      } else {
-        setTurns(prev =>
-          prev.map(t =>
-            t.correlationId === tempId ? { ...t, correlationId: result.correlationId, reply: result.text ?? '' } : t,
-          ),
-        )
-      }
-    } catch (err: unknown) {
-      setConvError(String(err))
-      setTurns(prev => prev.filter(t => t.correlationId !== tempId))
-    } finally {
-      setBusy(false)
-    }
+  if (sessionId === undefined) {
+    return null
   }
 
-  const handleClarifySubmit = async () => {
-    if (!pendingClarify || !clarifyAnswer.trim()) {
+  const handleSend = () => {
+    const trimmed = goal.trim()
+    if (!trimmed) {
       return
     }
-    const { correlationId } = pendingClarify
-    const submittedAnswer = clarifyAnswer
-    setBusy(true)
-    setConvError(null)
-    try {
-      await respondToGoal(sessionId, correlationId, submittedAnswer)
-      setTurns(prev =>
-        prev.map(t => {
-          if (t.correlationId !== correlationId) {
-            return t
-          }
-          const { pendingAnswer: _removed, ...rest } = t
-          return { ...rest, clarifyAnswer: submittedAnswer }
-        }),
-      )
-      setPendingClarify(null)
-      setClarifyAnswer('')
-      const updatedTurns = await getTurns(sessionId)
-      setTurns(updatedTurns.map(t => ({ ...t })))
-    } catch (err: unknown) {
-      setConvError(String(err))
-    } finally {
-      setBusy(false)
+    setPendingGoal(trimmed)
+    setGoal('')
+    send({ goal: trimmed, handleId, sessionId })
+  }
+
+  const handleClarifySubmit = () => {
+    const trimmed = clarifyAnswer.trim()
+    if (pendingClarify === null || !trimmed) {
+      return
     }
+    setClarifyAnswer('')
+    setAnsweredCid(pendingClarify.correlationId)
+    respond({ answer: trimmed, correlationId: pendingClarify.correlationId, sessionId })
   }
 
   return (
     <div className="mx-auto flex min-h-0 w-full max-w-2xl flex-1 flex-col">
-      {/* Compact intro strip */}
-      <div className="shrink-0 border-b border-border px-4 py-2">
-        <h2 className="text-sm font-semibold">Chat with Georges</h2>
-        <p className="text-xs text-muted-foreground">
-          Ask Georges to describe, analyse, or run scripts against the dataset selected below.
-        </p>
-        <p className="font-mono text-[11px] text-muted-foreground" data-testid="conv-session-id">
-          New conversation · Session: {sessionId}
-        </p>
+      <div className="flex shrink-0 items-center gap-3 border-b border-border px-4 py-2">
+        <Button data-testid="conv-back" onClick={() => navigate('/')} size="sm" type="button" variant="ghost">
+          ← Conversations
+        </Button>
+        <div className="min-w-0">
+          <h2 className="text-sm font-semibold">Chat with Georges</h2>
+          <p className="truncate font-mono text-[11px] text-muted-foreground" data-testid="conv-session-id">
+            Session: {sessionId}
+          </p>
+        </div>
       </div>
 
-      {/* Transcript — fills remaining height, scrolls independently */}
       <div
         aria-label="Conversation with Georges"
         aria-live="polite"
@@ -138,7 +127,7 @@ export function Conversation() {
         ref={scrollRef}
         role="log"
       >
-        {turns.length === 0 && !busy && (
+        {turns.length === 0 && pendingGoal === null && !busy && (
           <div className="m-auto flex flex-col items-center gap-3 text-center">
             <p className="text-sm font-medium">No messages yet</p>
             <p className="max-w-xs text-xs text-muted-foreground">
@@ -153,11 +142,9 @@ export function Conversation() {
 
         {turns.map((t, i) => (
           <div className="flex flex-col gap-1" key={t.correlationId}>
-            {/* User bubble */}
             <p className="ml-auto max-w-[80%] rounded-lg bg-primary px-3 py-2 text-sm text-primary-foreground">
               {t.goal}
             </p>
-            {/* Assistant reply */}
             {t.reply !== undefined && (
               <div
                 className="mr-auto max-w-[80%] rounded-lg bg-muted px-3 py-2 text-sm text-foreground"
@@ -166,7 +153,6 @@ export function Conversation() {
                 <Markdown components={mdComponents}>{t.reply}</Markdown>
               </div>
             )}
-            {/* Clarify question */}
             {t.clarifyQuestion !== undefined && t.reply === undefined && (
               <p
                 className="mr-auto max-w-[80%] rounded-lg bg-muted px-3 py-2 text-sm italic text-muted-foreground"
@@ -175,14 +161,30 @@ export function Conversation() {
                 Georges asks: {t.clarifyQuestion}
               </p>
             )}
-            {/* User's clarify answer echo */}
             {t.clarifyAnswer !== undefined && (
               <p className="ml-auto text-right text-xs text-muted-foreground">You answered: {t.clarifyAnswer}</p>
             )}
           </div>
         ))}
 
-        {/* Typing indicator while Georges is working */}
+        {pendingGoal !== null && (
+          <p
+            className="ml-auto max-w-[80%] rounded-lg bg-primary px-3 py-2 text-sm text-primary-foreground opacity-70"
+            data-testid="conv-pending-goal"
+          >
+            {pendingGoal}
+          </p>
+        )}
+
+        {pendingClarify !== null && (
+          <p
+            className="mr-auto max-w-[80%] rounded-lg bg-muted px-3 py-2 text-sm italic text-muted-foreground"
+            data-testid={`conv-clarify-${turns.length}`}
+          >
+            Georges asks: {pendingClarify.question}
+          </p>
+        )}
+
         {busy && (
           <div className="mr-auto flex max-w-[80%] items-center gap-1 rounded-lg bg-muted px-3 py-3">
             <span
@@ -202,9 +204,8 @@ export function Conversation() {
         )}
       </div>
 
-      {/* Composer — pinned at bottom, never scrolls */}
       <div className="shrink-0 border-t border-border bg-background px-4 py-3">
-        {pendingClarify && (
+        {pendingClarify !== null && (
           <div className="flex items-start gap-2" data-testid="conv-clarify-input-area">
             <Textarea
               aria-label={`Answer: ${pendingClarify.question}`}
@@ -227,7 +228,7 @@ export function Conversation() {
           </div>
         )}
 
-        {!pendingClarify && (
+        {pendingClarify === null && (
           <div className="flex flex-col gap-2 sm:flex-row sm:items-end">
             <div className="flex w-full flex-col gap-0.5 sm:w-36 sm:shrink-0">
               <label className="text-xs text-muted-foreground" htmlFor="conv-handle-id">
@@ -264,9 +265,9 @@ export function Conversation() {
           </div>
         )}
 
-        {convError && (
+        {error && (
           <pre aria-live="polite" className="mt-2 rounded bg-destructive/10 p-2 text-xs text-destructive" role="alert">
-            {convError}
+            {error}
           </pre>
         )}
       </div>

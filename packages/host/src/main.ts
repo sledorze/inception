@@ -17,7 +17,7 @@
  *   GET  /api/admin/pain                      — admin: open PAIN items
  *   GET  /api/admin/work                      — admin: TODO work items
  *   GET  /api/admin/trace                     — admin: event trace (replaces GET /events)
- *   GET  /api/sessions                        — admin: list all sessions with metadata (S8)
+ *   GET  /api/sessions                        — admin/enduser: list all sessions with metadata (S8)
  *   GET  /api/sessions/:id/events             — admin: raw events for a session (S8)
  *   POST /api/exchanges/:id/flag              — admin: flag an exchange with a note (S8)
  *   GET  /api/patterns                        — admin: naively-bucketed rejection patterns (S8)
@@ -62,6 +62,7 @@ import {
   RespondBody,
   SubmitGoalBody,
 } from './domain/events.ts'
+import { listSessions } from './application/listSessions.ts'
 import { makeSubmitGoal } from './application/submitGoal.ts'
 import { makeRespondToGoal } from './application/respondToGoal.ts'
 import { recordRejection } from './application/rejectionPattern.ts'
@@ -351,41 +352,7 @@ const toolRoute = HttpRouter.add(
 
 // ─── S8: Exchange review loop routes ─────────────────────────────────────────
 
-const listSessionsRoute = HttpRouter.add(
-  'GET',
-  '/api/sessions',
-  withRole('admin')(
-    Effect.gen(function* () {
-      const store = yield* EventStore
-      const events = yield* store.query({})
-      const sessions = new Map<
-        string,
-        { sessionId: string; eventCount: number; lastActivity: string; goalCount: number }
-      >()
-      for (const e of events) {
-        const s = sessions.get(e.sessionId)
-        if (s === undefined) {
-          sessions.set(e.sessionId, {
-            eventCount: 1,
-            goalCount: e.kind === EventKind.GoalSubmitted ? 1 : 0,
-            lastActivity: e.occurredAt,
-            sessionId: e.sessionId,
-          })
-        } else {
-          s.eventCount++
-          if (e.occurredAt > s.lastActivity) {
-            s.lastActivity = e.occurredAt
-          }
-          if (e.kind === EventKind.GoalSubmitted) {
-            s.goalCount++
-          }
-        }
-      }
-      const sorted = [...sessions.values()].toSorted((a, b) => b.lastActivity.localeCompare(a.lastActivity))
-      return jsonOk(sorted)
-    }),
-  ),
-)
+const listSessionsRoute = HttpRouter.add('GET', '/api/sessions', withRole('enduser')(Effect.map(listSessions, jsonOk)))
 
 const sessionEventsRoute = HttpRouter.add(
   'GET',

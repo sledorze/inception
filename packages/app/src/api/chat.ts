@@ -9,6 +9,13 @@ export interface Turn {
   turnIndex: number
 }
 
+export interface SessionSummary {
+  sessionId: string
+  eventCount: number
+  goalCount: number
+  lastActivity: string
+}
+
 export interface SendResult {
   correlationId: string
   sessionId: string
@@ -28,6 +35,11 @@ export const sendMessage = (sessionId: string, goal: string, handleId: string): 
   })
     .then(handleErr)
     .then(res => res.json() as Promise<SendResult>)
+
+export const listSessions = (): Promise<readonly SessionSummary[]> =>
+  authedFetch('/api/sessions', { method: 'GET' })
+    .then(handleErr)
+    .then(res => res.json() as Promise<readonly SessionSummary[]>)
 
 export const getTurns = (sessionId: string): Promise<readonly Turn[]> =>
   authedFetch(`/api/sessions/${encodeURIComponent(sessionId)}/turns`, { method: 'GET' })
