@@ -15,11 +15,20 @@
  */
 import * as fs from 'node:fs'
 import * as path from 'node:path'
-import { Effect } from 'effect'
+import { DateTime, Effect, Layer } from 'effect'
+import { LanguageModel } from 'effect/unstable/ai'
 import { describe, expect, it } from '@effect/vitest'
+import * as NodeFileSystem from '@effect/platform-node/NodeFileSystem'
+import { InMemoryDataHandleRegistry } from '../../src/adapters/driven/InMemoryDataHandleRegistry.ts'
+import { InMemoryEventStore } from '../../src/adapters/driven/InMemoryEventStore.ts'
+import { InMemoryToolRegistry } from '../../src/adapters/driven/InMemoryToolRegistry.ts'
 import { InMemoryWorkspaceMount } from '../../src/adapters/driven/InMemoryWorkspaceMount.ts'
-import { WorkspaceMount } from '../../src/ports/driven/WorkspaceMount.ts'
+import { SessionDeletedError, deleteSession } from '../../src/application/deleteSession.ts'
+import { makeSubmitGoal } from '../../src/application/submitGoal.ts'
 import { buildInitialMessages, RECALL_WINDOW } from '../../src/application/submitGoal.ts'
+import { EventKind } from '../../src/domain/events.ts'
+import { EventStore } from '../../src/ports/driven/EventStore.ts'
+import { WorkspaceMount } from '../../src/ports/driven/WorkspaceMount.ts'
 
 const REPO = path.resolve(import.meta.dirname, '../../../..')
 
@@ -102,4 +111,73 @@ describe('L3.5 — Externalized Memory', () => {
       'recall must include prior assistant turns',
     ).toBe(true)
   })
+
+  it.effect(
+    "a tombstoned session's prior turns never enter Georges' recall prompt (if-absent: deleted history leaks into LLM)",
+    () => {
+      type Prompt = Parameters<LanguageModel.Service['generateText']>[0]['prompt']
+      const captured: Prompt[] = []
+      const sessionId = 'l35-tombstone-test'
+      const NOW = '2024-01-01T00:00:00.000Z'
+
+      const stubLM = Layer.succeed(
+        LanguageModel.LanguageModel,
+        LanguageModel.LanguageModel.of({
+          generateObject: (() => Effect.die('not used')) as LanguageModel.Service['generateObject'],
+          generateText: opts => {
+            captured.push(opts.prompt)
+            return Effect.succeed(
+              new LanguageModel.GenerateTextResponse([{ text: 'Stub.', type: 'text' }]),
+            ) as ReturnType<LanguageModel.Service['generateText']>
+          },
+          streamObject: (() => Effect.die('not used')) as LanguageModel.Service['streamObject'],
+          streamText: (() => Effect.die('not used')) as LanguageModel.Service['streamText'],
+        }),
+      )
+
+      const testLayer = Layer.mergeAll(
+        InMemoryEventStore.layer,
+        stubLM,
+        NodeFileSystem.layer,
+        InMemoryToolRegistry.layer([]),
+        InMemoryDataHandleRegistry.layer(),
+      )
+
+      return Effect.gen(function* () {
+        // Seed a completed prior turn.
+        const store = yield* EventStore
+        yield* store.append({
+          actor: 'user',
+          correlationId: 'prior-cid-l35',
+          kind: EventKind.GoalSubmitted,
+          occurredAt: NOW,
+          payload: { goal: 'Prior question', handleId: 'h1' },
+          schemaV: 1,
+          sessionId,
+          storyRef: 'S6',
+        })
+        yield* store.append({
+          actor: 'host',
+          correlationId: 'prior-cid-l35',
+          kind: EventKind.GoalCompleted,
+          occurredAt: NOW,
+          payload: { text: 'Prior answer' },
+          schemaV: 1,
+          sessionId,
+          storyRef: 'S6',
+        })
+
+        // Tombstone the session.
+        yield* deleteSession(sessionId)
+
+        // Attempting to submit a new goal to the deleted session MUST fail.
+        const toolkit = {} as Parameters<typeof makeSubmitGoal>[0]
+        const err = yield* Effect.flip(makeSubmitGoal(toolkit)({ goal: 'New goal', handleId: 'h1', sessionId }))
+        expect(err, 'must fail with SessionDeletedError').toBeInstanceOf(SessionDeletedError)
+
+        // The LLM must never have been called — the guard fired before recall was built.
+        expect(captured.length, 'zero LLM calls — deleted turns must not enter the prompt').toBe(0)
+      }).pipe(Effect.provide(testLayer), Effect.provide(DateTime.layerCurrentZoneLocal))
+    },
+  )
 })

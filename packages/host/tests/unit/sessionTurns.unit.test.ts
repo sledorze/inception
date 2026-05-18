@@ -145,4 +145,47 @@ describe('projectSessionTurns', () => {
       expect(turns[1]?.turnIndex).toBe(1)
     }),
   )
+
+  it.effect('ScriptExecuted event attaches to the matching turn by correlationId', () =>
+    Effect.gen(function* () {
+      const events: StoredEvent[] = [
+        makeEvent({
+          actor: 'user',
+          correlationId: 'cid-s',
+          kind: EventKind.GoalSubmitted,
+          payload: { goal: 'Run something', handleId: 'h1' },
+        }),
+        makeEvent({ correlationId: 'cid-s', kind: EventKind.GoalCompleted, payload: { text: 'Done.' } }),
+        makeEvent({
+          actor: 'host',
+          correlationId: 'cid-s',
+          kind: EventKind.ScriptExecuted,
+          payload: { exitCode: 0, handleId: 'h1', role: 'Implementer', script: 'console.log(1)', summary: '1' },
+          sessionId: 'bootstrap',
+        }),
+      ]
+      const turns = yield* projectSessionTurns(events)
+      expect(turns).toHaveLength(1)
+      expect(turns[0]?.scripts).toHaveLength(1)
+      expect(turns[0]?.scripts?.[0]?.script).toBe('console.log(1)')
+      expect(turns[0]?.scripts?.[0]?.exitCode).toBe(0)
+      expect(turns[0]?.scripts?.[0]?.handleId).toBe('h1')
+    }),
+  )
+
+  it.effect('ScriptExecuted on a cid with no reply/clarify is not emitted as a turn', () =>
+    Effect.gen(function* () {
+      const events: StoredEvent[] = [
+        makeEvent({
+          actor: 'host',
+          correlationId: 'cid-orphan',
+          kind: EventKind.ScriptExecuted,
+          payload: { exitCode: 0, handleId: 'h1', role: 'Implementer', script: 'x', summary: 'y' },
+          sessionId: 'bootstrap',
+        }),
+      ]
+      const turns = yield* projectSessionTurns(events)
+      expect(turns).toHaveLength(0)
+    }),
+  )
 })

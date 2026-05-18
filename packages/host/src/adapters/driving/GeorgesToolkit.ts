@@ -335,6 +335,25 @@ export const GeorgesToolkitLive = GeorgesToolkit.toLayer(
               Effect.fail({ message: `sensitivity violation: declared ${e.declared} > max ${e.max} (${e.norm})` }),
           }),
         )
+        const correlationId = yield* CurrentCorrelationId
+        yield* store
+          .append({
+            actor: 'host',
+            correlationId,
+            kind: EventKind.ScriptExecuted,
+            occurredAt: DateTime.formatIso(yield* DateTime.now),
+            payload: {
+              exitCode: aggregate.exitCode,
+              handleId,
+              role,
+              script,
+              summary: aggregate.summary,
+            },
+            schemaV: 1,
+            sessionId: 'bootstrap',
+            storyRef: 'S1',
+          })
+          .pipe(Effect.orDie)
         yield* emitCorroborator('run-script', { handleId, role })
         return {
           bitsConsumed: aggregate.bitsConsumed,

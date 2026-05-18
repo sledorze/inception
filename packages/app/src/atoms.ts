@@ -4,7 +4,7 @@ import * as Layer from 'effect/Layer'
 import * as AsyncResult from 'effect/unstable/reactivity/AsyncResult'
 import * as Atom from 'effect/unstable/reactivity/Atom'
 import * as Reactivity from 'effect/unstable/reactivity/Reactivity'
-import { getTurns, listSessions, respondToGoal, sendMessage } from './hooks/chat.ts'
+import { deleteSession, getTurns, listSessions, respondToGoal, sendMessage } from './hooks/chat.ts'
 
 export type AsyncView<T> =
   | { readonly _tag: 'Loading'; readonly waiting: boolean }
@@ -68,3 +68,12 @@ export const respondAtom = atomRuntime.fn(
     }),
 )
 export const respondView = Atom.map(respondAtom, toView)
+
+export const deleteSessionAtom = atomRuntime.fn(({ sessionId }: { sessionId: string }) =>
+  Effect.gen(function* () {
+    yield* Effect.tryPromise({ catch: e => String(e), try: () => deleteSession(sessionId) })
+    yield* Reactivity.invalidate([sessionsKey, turnsKey(sessionId)])
+    return { sessionId }
+  }),
+)
+export const deleteSessionView = Atom.map(deleteSessionAtom, toView)

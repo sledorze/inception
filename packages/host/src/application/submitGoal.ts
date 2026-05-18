@@ -8,6 +8,7 @@ import { canonicalJson, EventStore } from '../ports/driven/EventStore.ts'
 import { ToolRegistry } from '../ports/driven/ToolRegistry.ts'
 import type { GoalSubmission } from '../ports/driving/UserGateway.ts'
 import { checkQuarantine } from './quarantine.ts'
+import { checkSessionDeleted } from './deleteSession.ts'
 import { AGENT_MD_PATH, readAgentMd } from './session.ts'
 import { projectSessionTurns } from './sessionTurns.ts'
 
@@ -147,6 +148,8 @@ export const makeSubmitGoal = <Tools extends Record<string, Tool.Any>>(
     const correlationId = yield* Random.nextUUIDv4
     const store = yield* EventStore
 
+    // Block deleted sessions before touching the LLM.
+    yield* checkSessionDeleted(sessionId)
     // L2.3: block cycles for quarantined sessions before touching the LLM.
     yield* checkQuarantine(sessionId)
 

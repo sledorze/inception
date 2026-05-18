@@ -10,6 +10,7 @@ import { ToolRegistry } from '../ports/driven/ToolRegistry.ts'
 import { AGENT_MD_PATH, readAgentMd } from './session.ts'
 import { buildInitialMessages, RECALL_WINDOW } from './submitGoal.ts'
 import { projectSessionTurns } from './sessionTurns.ts'
+import { checkSessionDeleted } from './deleteSession.ts'
 
 export class ClarifyNotFoundError extends Schema.TaggedErrorClass<ClarifyNotFoundError>()(
   '@app/host/ClarifyNotFoundError',
@@ -41,6 +42,8 @@ export const makeRespondToGoal = <Tools extends Record<string, Tool.Any>>(
 ) =>
   Effect.fn('application.respondToGoal')(function* (correlationId: string, answer: string, sessionId: string) {
     const store = yield* EventStore
+    // Block deleted sessions before appending.
+    yield* checkSessionDeleted(sessionId)
     // Query by correlationId only: ClarifyRequested uses sessionId='bootstrap' (toolkit context).
     const events = yield* store.query({ correlationId })
 

@@ -25,7 +25,12 @@ export const listSessions: Effect.Effect<readonly SessionSummary[], never, Event
   const store = yield* EventStore
   const events = yield* store.query({}).pipe(Effect.orDie)
   const sessions = new Map<string, { sessionId: string; eventCount: number; goalCount: number; lastActivity: string }>()
+  const deleted = new Set<string>()
   for (const e of events) {
+    if (e.kind === EventKind.SessionDeleted) {
+      deleted.add(e.sessionId)
+      continue
+    }
     const s = sessions.get(e.sessionId)
     if (s === undefined) {
       sessions.set(e.sessionId, {
@@ -44,5 +49,7 @@ export const listSessions: Effect.Effect<readonly SessionSummary[], never, Event
       }
     }
   }
-  return [...sessions.values()].toSorted((a, b) => b.lastActivity.localeCompare(a.lastActivity))
+  return [...sessions.values()]
+    .filter(s => !deleted.has(s.sessionId))
+    .toSorted((a, b) => b.lastActivity.localeCompare(a.lastActivity))
 }).pipe(Effect.withSpan('ListSessions.list'))

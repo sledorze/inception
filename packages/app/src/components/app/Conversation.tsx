@@ -5,6 +5,7 @@ import remarkGfm from 'remark-gfm'
 import { useNavigate, useParams } from 'react-router'
 import { useAtomSet, useAtomValue } from '@effect/atom-react'
 import { Button } from '@app/design-system/button'
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@app/design-system/collapsible'
 import { Input } from '@app/design-system/input'
 import { Textarea } from '@app/design-system/textarea'
 import { respondAtom, respondView, sendGoalAtom, sendGoalView, turnsView } from '../../atoms.ts'
@@ -163,6 +164,24 @@ export function Conversation() {
             <p className="ml-auto max-w-[80%] rounded-lg bg-primary px-3 py-2 text-sm text-primary-foreground">
               {t.goal}
             </p>
+            {t.scripts !== undefined &&
+              t.scripts.length > 0 &&
+              t.scripts.map((s, j) => (
+                <Collapsible
+                  className="mr-auto max-w-[80%] rounded-lg bg-muted px-3 py-1 text-sm"
+                  data-testid={`conv-script-${i}-${j}`}
+                  key={`${i}-${j}`}
+                >
+                  <CollapsibleTrigger className="w-full text-left text-xs text-muted-foreground hover:text-foreground">
+                    Georges ran code (exit {s.exitCode}) on {s.handleId}
+                  </CollapsibleTrigger>
+                  <CollapsibleContent>
+                    <Markdown components={mdComponents} remarkPlugins={[remarkGfm]}>
+                      {`\`\`\`\n${s.script}\n\`\`\``}
+                    </Markdown>
+                  </CollapsibleContent>
+                </Collapsible>
+              ))}
             {t.reply !== undefined && (
               <div
                 className="mr-auto max-w-[80%] rounded-lg bg-muted px-3 py-2 text-sm text-foreground"

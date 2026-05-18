@@ -11,9 +11,10 @@
  *   (d) empty store → []
  */
 import { describe, expect, it } from '@effect/vitest'
-import { Effect } from 'effect'
+import { DateTime, Effect } from 'effect'
 import { InMemoryEventStore } from '../../src/adapters/driven/InMemoryEventStore.ts'
 import { listSessions } from '../../src/application/listSessions.ts'
+import { deleteSession } from '../../src/application/deleteSession.ts'
 import { EventKind } from '../../src/domain/events.ts'
 import { EventStore } from '../../src/ports/driven/EventStore.ts'
 
@@ -80,5 +81,16 @@ describe('listSessions', () => {
       const sessions = yield* listSessions
       expect(sessions).toEqual([])
     }).pipe(Effect.provide(InMemoryEventStore.layer)),
+  )
+
+  it.effect('excludes sessions with a SessionDeleted tombstone', () =>
+    Effect.gen(function* () {
+      yield* seed
+      // s1 is tombstoned; s2 must still appear.
+      yield* deleteSession('s1')
+      const sessions = yield* listSessions
+      expect(sessions.map(s => s.sessionId)).not.toContain('s1')
+      expect(sessions.map(s => s.sessionId)).toContain('s2')
+    }).pipe(Effect.provide(InMemoryEventStore.layer), Effect.provide(DateTime.layerCurrentZoneLocal)),
   )
 })

@@ -1,5 +1,13 @@
 import { authedFetch, handleErr } from './auth.ts'
 
+export interface ScriptEntry {
+  exitCode: number
+  handleId: string
+  role: string
+  script: string
+  summary: string
+}
+
 export interface Turn {
   correlationId: string
   goal: string
@@ -7,6 +15,7 @@ export interface Turn {
   clarifyQuestion?: string
   clarifyAnswer?: string
   turnIndex: number
+  scripts?: readonly ScriptEntry[]
 }
 
 export interface SessionSummary {
@@ -53,3 +62,8 @@ export const respondToGoal = (sessionId: string, correlationId: string, answer: 
   })
     .then(handleErr)
     .then(res => res.json() as Promise<RespondResult>)
+
+export const deleteSession = (sessionId: string): Promise<void> =>
+  authedFetch(`/api/sessions/${encodeURIComponent(sessionId)}`, { method: 'DELETE' })
+    .then(handleErr)
+    .then(() => undefined)

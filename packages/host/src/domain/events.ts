@@ -21,6 +21,8 @@ export const EventKind = {
   RejectionPatternCandidate: 'RejectionPatternCandidate',
   RoleSwitched: 'RoleSwitched',
   SandboxEscapeAttempt: 'SandboxEscapeAttempt',
+  ScriptExecuted: 'ScriptExecuted',
+  SessionDeleted: 'SessionDeleted',
   SessionQuarantined: 'SessionQuarantined',
   SupervisorDivergence: 'SupervisorDivergence',
   SupervisorTrip: 'SupervisorTrip',
@@ -87,6 +89,18 @@ export const AgentMdAmendedPayload = Schema.Struct({
   patternIds: Schema.optional(Schema.Array(Schema.String)),
   prevHash: Schema.String,
   rationale: Schema.String,
+})
+
+export const ScriptExecutedPayload = Schema.Struct({
+  exitCode: Schema.Number,
+  handleId: Schema.String,
+  role: Schema.String,
+  script: Schema.String,
+  summary: Schema.String.check(Schema.isMaxLength(512)),
+})
+
+export const SessionDeletedPayload = Schema.Struct({
+  sessionId: Schema.String,
 })
 
 // ─── HTTP request body schemas ─────────────────────────────────────────────────
