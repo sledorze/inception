@@ -1,35 +1,24 @@
-import { useState } from 'react'
+import { useAtomRefresh, useAtomValue } from '@effect/atom-react'
 import { Button } from '@app/design-system/button'
-import type { SessionEvent } from '../../hooks/admin.ts'
-import { getSessionEvents } from '../../hooks/admin.ts'
+import { sessionEventsAtom, sessionEventsView } from '../../atoms.ts'
 import { EventRow } from './EventRow.tsx'
 
 export function SessionDetail({ sessionId, onBack }: { sessionId: string; onBack: () => void }) {
-  const [events, setEvents] = useState<readonly SessionEvent[] | null>(null)
-  const [err, setErr] = useState<string | null>(null)
-  const [loading, setLoading] = useState(false)
+  const view = useAtomValue(sessionEventsView(sessionId))
+  const refresh = useAtomRefresh(sessionEventsAtom(sessionId))
 
-  const load = async () => {
-    setLoading(true)
-    setErr(null)
-    try {
-      const e = await getSessionEvents(sessionId)
-      setEvents(e)
-    } catch (e: unknown) {
-      setErr(String(e))
-    } finally {
-      setLoading(false)
-    }
-  }
+  const events = view._tag === 'Ready' ? view.value : null
+  const error = view._tag === 'Error' ? view.message : null
+  const loading = view.waiting
 
   return (
-    <div className="space-y-2">
+    <div className="space-y-4">
       <div className="flex items-center gap-2">
-        <Button onClick={onBack} size="sm" type="button" variant="ghost">
+        <Button className="text-ring" onClick={onBack} size="sm" type="button" variant="ghost">
           ← Back
         </Button>
         <span className="break-all font-mono text-xs text-muted-foreground">{sessionId}</span>
-        <Button disabled={loading} onClick={load} size="sm" type="button" variant="secondary">
+        <Button disabled={loading} onClick={refresh} size="sm" type="button" variant="secondary">
           {loading ?
             'Loading…'
           : events === null ?
@@ -37,7 +26,7 @@ export function SessionDetail({ sessionId, onBack }: { sessionId: string; onBack
           : 'Refresh'}
         </Button>
       </div>
-      {err && <p className="text-sm text-destructive">{err}</p>}
+      {error && <p className="text-sm text-destructive">{error}</p>}
       {events !== null && (
         <div className="space-y-1">
           {events.length === 0 && <p className="text-sm text-muted-foreground">No events.</p>}

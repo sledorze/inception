@@ -77,7 +77,7 @@ const makeListenEffect = <R>(
         yield* Effect.forkDetach(onGoal(submission))
       }),
     )
-  }) as Effect.Effect<void, UserGatewayError, R>
+  }) as Effect.Effect<void, UserGatewayError, R> // cast: Effect.forever infers Effect<never,...> with queue/fork errors collapsed; port type is Effect<void,...>
 
 export const CliUserGateway = {
   layer: (port?: number) =>

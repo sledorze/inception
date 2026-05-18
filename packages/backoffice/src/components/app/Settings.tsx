@@ -41,18 +41,18 @@ export function Settings() {
   }
 
   return (
-    <Card className="space-y-4 p-4">
-      <div className="flex items-center justify-between">
-        <h2 className="font-semibold">Runtime Settings</h2>
+    <Card className="p-6">
+      <div className="mb-4 flex items-center justify-between border-b border-border pb-3">
+        <h2 className="text-base font-semibold tracking-tight">Runtime Settings</h2>
         <Button data-testid="settings-load" onClick={load} size="sm" type="button" variant="secondary">
           Load
         </Button>
       </div>
 
       {settings && (
-        <div className="space-y-3">
+        <div className="space-y-4">
           <div className="space-y-1">
-            <label className="text-sm font-medium" htmlFor="llm-base-url">
+            <label className="text-xs font-medium uppercase tracking-wide text-muted-foreground" htmlFor="llm-base-url">
               LLM Base URL
             </label>
             <Input
@@ -66,7 +66,7 @@ export function Settings() {
           </div>
 
           <div className="space-y-1">
-            <label className="text-sm font-medium" htmlFor="llm-model">
+            <label className="text-xs font-medium uppercase tracking-wide text-muted-foreground" htmlFor="llm-model">
               LLM Model
             </label>
             <Input
@@ -80,7 +80,10 @@ export function Settings() {
           </div>
 
           <div className="space-y-1">
-            <label className="text-sm font-medium" htmlFor="session-max-turns">
+            <label
+              className="text-xs font-medium uppercase tracking-wide text-muted-foreground"
+              htmlFor="session-max-turns"
+            >
               Session Max Turns
             </label>
             <Input

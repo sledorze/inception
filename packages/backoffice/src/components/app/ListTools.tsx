@@ -11,29 +11,33 @@ export function ListTools() {
   const [result, setResult] = useState<HandlerResult | null>(null)
 
   return (
-    <Card className="p-4 space-y-2">
-      <h2 className="font-semibold">list-tools</h2>
-      <div className="flex gap-2">
-        <Input
-          className="flex-1"
-          data-testid="lt-role"
-          onChange={e => setRole(e.target.value)}
-          placeholder="role"
-          value={role}
-        />
-        <Button
-          data-testid="lt-submit"
-          onClick={async () => {
-            setResult(await callTool('list-tools', { role }))
-          }}
-          size="sm"
-          type="button"
-        >
-          Call
-        </Button>
+    <Card className="p-6">
+      <div className="mb-4 border-b border-border pb-3">
+        <h2 className="text-base font-semibold tracking-tight">list-tools</h2>
       </div>
-      <div data-testid="lt-result">
-        <ResultBox result={result} />
+      <div className="space-y-3">
+        <div className="flex gap-2">
+          <Input
+            className="flex-1"
+            data-testid="lt-role"
+            onChange={e => setRole(e.target.value)}
+            placeholder="role"
+            value={role}
+          />
+          <Button
+            data-testid="lt-submit"
+            onClick={async () => {
+              setResult(await callTool('list-tools', { role }))
+            }}
+            size="sm"
+            type="button"
+          >
+            Call
+          </Button>
+        </div>
+        <div data-testid="lt-result">
+          <ResultBox result={result} />
+        </div>
       </div>
     </Card>
   )

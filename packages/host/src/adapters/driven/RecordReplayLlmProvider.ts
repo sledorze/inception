@@ -162,13 +162,11 @@ function makeRecordReplayFetch(
       if (Option.isSome(contentOpt)) {
         return new Response(contentOpt.value, { headers: { 'Content-Type': 'application/json' }, status: 200 })
       }
-      // cast-ok: spreading all original request fields for determinism; schema-decoded
-      // `body` is only used for the hash and fake-mode trigger detection above.
-      const deterministicBody = { ...(rawParsed as Record<string, unknown>), seed: 42, temperature: 0 }
+      const deterministicBody = { ...(rawParsed as Record<string, unknown>), seed: 42, temperature: 0 } // cast: JSON.parse returns any; spread requires object shape; validated by schema-decode above
       const url =
         typeof input === 'string' ? input
         : input instanceof URL ? input.href
-        : (input as Request).url
+        : (input as Request).url // cast: input is string|URL|Request; prior branches rule out string+URL; narrowing to Request is safe
       return baseFetch(url, {
         body: JSON.stringify(deterministicBody),
         headers: { 'Content-Type': 'application/json' },

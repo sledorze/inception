@@ -157,7 +157,7 @@ const llmLayer = Layer.unwrap(
     const mode = yield* Config.string('LLM_MODE').pipe(Config.withDefault(''))
     if (mode === 'record' || mode === 'replay' || mode === 'fake') {
       yield* Effect.logInfo(`LLM mode: ${mode} (cassette dir: ${CASSETTE_DIR})`)
-      return RecordReplayLlmProvider.layer({ cassetteDir: CASSETTE_DIR, mode: mode as RecordReplayMode })
+      return RecordReplayLlmProvider.layer({ cassetteDir: CASSETTE_DIR, mode: mode as RecordReplayMode }) // cast: if-branch already narrowed mode to the three RecordReplayMode values
     }
     yield* Effect.logInfo('LLM mode: live (base URL resolved from Settings per request)')
     return OpenAiCompatLlmProvider.layer().pipe(Layer.provide(eventStoreLayer), Layer.provide(settingsLayer))

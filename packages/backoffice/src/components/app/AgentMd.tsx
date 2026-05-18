@@ -45,9 +45,9 @@ export function AgentMd() {
   }
 
   return (
-    <Card className="space-y-3 p-4">
-      <div className="flex items-center justify-between">
-        <h2 className="font-semibold">agent.md Amendment</h2>
+    <Card className="p-6">
+      <div className="mb-4 flex items-center justify-between border-b border-border pb-3">
+        <h2 className="text-base font-semibold tracking-tight">agent.md Amendment</h2>
         <Button
           data-testid="agentmd-load"
           disabled={loading}
@@ -60,7 +60,7 @@ export function AgentMd() {
         </Button>
       </div>
       {content !== null && (
-        <>
+        <div className="space-y-3">
           <Textarea
             className="min-h-64 font-mono text-xs"
             data-testid="agentmd-content"
@@ -84,7 +84,7 @@ export function AgentMd() {
           >
             {saving ? 'Saving…' : 'Save amendment'}
           </Button>
-        </>
+        </div>
       )}
       {result && (
         <p className="font-mono text-xs text-muted-foreground">

@@ -14,43 +14,47 @@ export function WriteWorkspace() {
   const [result, setResult] = useState<HandlerResult | null>(null)
 
   return (
-    <Card className="p-4 space-y-2">
-      <h2 className="font-semibold">write-workspace</h2>
-      <div className="flex gap-2">
-        <Input
-          className="flex-1"
-          data-testid="ww-role"
-          onChange={e => setRole(e.target.value)}
-          placeholder="role"
-          value={role}
-        />
-        <Input
-          className="flex-1"
-          data-testid="ww-path"
-          onChange={e => setPath(e.target.value)}
-          placeholder="path"
-          value={path}
-        />
+    <Card className="p-6">
+      <div className="mb-4 border-b border-border pb-3">
+        <h2 className="text-base font-semibold tracking-tight">write-workspace</h2>
       </div>
-      <Textarea
-        data-testid="ww-content"
-        onChange={e => setContent(e.target.value)}
-        placeholder="content"
-        rows={3}
-        value={content}
-      />
-      <Button
-        data-testid="ww-submit"
-        onClick={async () => {
-          setResult(await callTool('write-workspace', { content, path, role }))
-        }}
-        size="sm"
-        type="button"
-      >
-        Call
-      </Button>
-      <div data-testid="ww-result">
-        <ResultBox result={result} />
+      <div className="space-y-3">
+        <div className="flex gap-2">
+          <Input
+            className="flex-1"
+            data-testid="ww-role"
+            onChange={e => setRole(e.target.value)}
+            placeholder="role"
+            value={role}
+          />
+          <Input
+            className="flex-1"
+            data-testid="ww-path"
+            onChange={e => setPath(e.target.value)}
+            placeholder="path"
+            value={path}
+          />
+        </div>
+        <Textarea
+          data-testid="ww-content"
+          onChange={e => setContent(e.target.value)}
+          placeholder="content"
+          rows={3}
+          value={content}
+        />
+        <Button
+          data-testid="ww-submit"
+          onClick={async () => {
+            setResult(await callTool('write-workspace', { content, path, role }))
+          }}
+          size="sm"
+          type="button"
+        >
+          Call
+        </Button>
+        <div data-testid="ww-result">
+          <ResultBox result={result} />
+        </div>
       </div>
     </Card>
   )

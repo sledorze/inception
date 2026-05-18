@@ -18,7 +18,7 @@ export const parseTodoMd = (md: string): readonly TodoItem[] => {
     }
     const id = m[2] ?? ''
     const title = m[3]?.trim() ?? ''
-    items.push({ id, phase: phaseLabel, status: m[1] as TodoItem['status'], title })
+    items.push({ id, phase: phaseLabel, status: m[1] as TodoItem['status'], title }) // cast: regex guarantees m[1] is a valid TodoItem status literal
   }
   return items
 }
