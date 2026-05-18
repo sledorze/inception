@@ -9,14 +9,6 @@ in the same commit as the fix. This file holds OPEN items only, severity-sorted.
 
 ---
 
-## P54 — Third e2e tenant-isolation test body is a no-op
-
-**Severity:** annoys  
-**Symptom:** `e2e/tenant-isolation.test.ts` test 3 ("cross-tenant session invisible without switching…") ends with `expect(true).toBe(true)` — the test name claims to verify API-level isolation but the body makes no real assertion. It will never catch a regression.  
-**Candidate fix:** Replace the no-op with a `page.request.get('/api/sessions')` call and assert the response is 200 + JSON array, then attempt the same call with `X-Tenant-Id: <unknown-tenant>` and assert 403. Acceptance test: the existing e2e test itself, once the no-op is removed.
-
----
-
 ## P55 — Silent `tenantIds[0] ?? 'default'` fallback on empty entitlements array
 
 **Severity:** annoys  

@@ -5,6 +5,15 @@ Convention: fix → move (cut from PAIN.md, paste here in the same commit as the
 
 ---
 
+## P54 — Third e2e tenant-isolation test body is a no-op
+
+**Severity:** annoys  
+**Symptom:** `e2e/tenant-isolation.test.ts` test 3 ended with `expect(true).toBe(true)` — the test name claimed to verify API-level isolation but the body made no real assertion.
+
+FIXED 2026-05-18 in feat/backoffice-deep-linking — test: `e2e/tenant-isolation.test.ts` (third test body replaced with real `page.request` assertions: 200 for Default tenant, 403 for an unentitled fabricated tenant — confirming the `withTenant` middleware rejects cross-tenant access).
+
+---
+
 ## P53 — Law tests cover only 15% of application+domain mutants
 
 **Severity:** slows
