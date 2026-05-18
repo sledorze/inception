@@ -5,7 +5,10 @@
 # Fixes P29: "(target)" sections drift silently.
 set -euo pipefail
 
-ROOT="$(git -C "$(dirname "$0")" rev-parse --show-toplevel)"
+# Resolve the git root robustly: works in regular clones and git worktrees alike.
+# Worktrees have a .git FILE (not dir) so dirname-based lookup can resolve to the
+# main worktree instead; `git rev-parse --show-toplevel` in the CWD is always correct.
+ROOT="$(git rev-parse --show-toplevel)"
 CLAUDE_MD="$ROOT/CLAUDE.md"
 
 errors=0
