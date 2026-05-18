@@ -814,6 +814,7 @@ Every calibration below ships as `bootstrap=true` per L3.8. Each is replaced by 
 | stdio MCP `ObservabilityGateway`     | MCP tools                                                                                                | §10.1 Q4             | Likely stays MCP; dashboard adapter when read-only viewers needed                                                                     |
 | `FileBackedHandle`                   | local file + sidecar yaml                                                                                | §10.1 Q6             | S5 sensitive-data fixture → swap to `SqlViewHandle` / `EncryptedHandle` / `SyntheticHandle`                                           |
 | Sandbox (Wasmtime/WASI)              | Wasmtime + WASI; CPU / wall / mem budgets; frozen time + seeded PRNG (L3.6)                              | §8                   | R5 escape rate, perf cliffs, missing syscalls → fallback to nsjail / microvm; never to plain OS-process                               |
+| S6 recall window N                   | 3 (bootstrap)                                                                                            | L3.5 / S6            | recall-vs-context-loss telemetry; prompt-bloat vs answer quality                                                                      |
 
 ---
 

@@ -8,7 +8,8 @@ import { EventStore } from '../ports/driven/EventStore.ts'
 import type { StoredEvent } from '../ports/driven/EventStore.ts'
 import { ToolRegistry } from '../ports/driven/ToolRegistry.ts'
 import { AGENT_MD_PATH, readAgentMd } from './session.ts'
-import { buildInitialMessages } from './submitGoal.ts'
+import { buildInitialMessages, RECALL_WINDOW } from './submitGoal.ts'
+import { projectSessionTurns } from './sessionTurns.ts'
 
 export class ClarifyNotFoundError extends Schema.TaggedErrorClass<ClarifyNotFoundError>()(
   '@app/host/ClarifyNotFoundError',
@@ -63,6 +64,13 @@ export const makeRespondToGoal = <Tools extends Record<string, Tool.Any>>(
 
     const agentMd = yield* readAgentMd({ path: AGENT_MD_PATH })
 
+    // Load prior completed turns for Host-curated session recall (S6/L3.5, §12: RECALL_WINDOW=3).
+    const priorEvents = yield* store.query({ sessionId })
+    const priorTurns = (yield* projectSessionTurns(priorEvents))
+      .filter(t => t.correlationId !== correlationId)
+      .flatMap(t => (t.reply !== undefined ? [{ goal: t.goal, reply: t.reply }] : []))
+      .slice(-RECALL_WINDOW)
+
     // Rebuild the same brief as submitGoal so the model has full tool/handle context
     // on the clarification-answer turn (same root cause as P42 if omitted).
     const registry = yield* ToolRegistry
@@ -77,6 +85,7 @@ export const makeRespondToGoal = <Tools extends Record<string, Tool.Any>>(
       agentMd,
       goal,
       handles: handleShape,
+      priorTurns,
       role: 'enduser',
       tools: tools.map(t => ({ description: t.description, name: t.name })),
     })

@@ -4,14 +4,18 @@ import type { LanguageModel as LanguageModelNS, Tool } from 'effect/unstable/ai'
 import { EventKind } from '../domain/events.ts'
 import { CurrentCorrelationId } from '../domain/tracing.ts'
 import { DataHandleRegistry } from '../ports/driven/DataHandle.ts'
-import { EventStore } from '../ports/driven/EventStore.ts'
+import { canonicalJson, EventStore } from '../ports/driven/EventStore.ts'
 import { ToolRegistry } from '../ports/driven/ToolRegistry.ts'
 import type { GoalSubmission } from '../ports/driving/UserGateway.ts'
 import { checkQuarantine } from './quarantine.ts'
 import { AGENT_MD_PATH, readAgentMd } from './session.ts'
+import { projectSessionTurns } from './sessionTurns.ts'
 
 // Max LLM rounds per goal to prevent infinite tool-call loops.
 const MAX_AGENT_ROUNDS = 4
+
+// §12 Bootstrap inventory: S6 session recall window. bootstrap=true; L3.5/S6. SPEC:459-463.
+export const RECALL_WINDOW = 3
 
 type MsgEntry = { role: string; content: unknown }
 
@@ -21,24 +25,29 @@ export interface AgentBrief {
   readonly role: string
   readonly tools: readonly { name: string; description: string }[]
   readonly handles: readonly { id: string; schema: unknown; redactedSample: unknown }[]
+  readonly priorTurns: readonly { goal: string; reply: string }[]
 }
 
 // Pure function — testable without Effect context.
+// Message layout (most-stable → most-volatile) optimises llama.cpp prefix-KV reuse:
+//   [0] system: agent.md verbatim — byte-identical across ALL requests; shared static cache root.
+//   [1] system: session brief (role, handle schemas) — volatile per session, stable within it.
+//   [2..N] prior turn pairs (user: goal, assistant: reply) — bounded to RECALL_WINDOW; curated
+//          (no raw tool rounds) per L3.5/S6; oldest→newest; prefix stable until window slides
+//          at >RECALL_WINDOW (drop-oldest); accepted tradeoff at bootstrap N=3.
+//   [N+1] user: current goal
+//   [N+2+] assistant/tool rounds appended by runAgentLoop (append-only, preserves prefix)
+// Tools are passed structurally via the LanguageModel toolkit; prose tool list is intentionally
+// absent to keep [1] free of per-registry-call volatility. redactedSample is excluded; the
+// model inspects schemas at tool-call time via fetch-handle-shape. canonicalJson ensures
+// byte-identical schema rendering regardless of JS key-insertion order.
 export const buildInitialMessages = (b: AgentBrief): MsgEntry[] => {
-  const toolLines = b.tools.map(t => `- **${t.name}**: ${t.description}`)
-  const handleLines = b.handles.map(
-    h => `- **${h.id}**: schema = ${JSON.stringify(h.schema)}, sample = ${JSON.stringify(h.redactedSample)}`,
-  )
-  const brief = [
-    b.agentMd,
-    '',
+  const handleLines = b.handles.map(h => `- **${h.id}**: schema = ${canonicalJson(h.schema)}`)
+  const briefText = [
     '## Session brief',
     '',
     `Your active role in this session is: **${b.role}**`,
     `When calling tools that require a role parameter, always pass role="${b.role}".`,
-    '',
-    '### Available tools',
-    ...toolLines,
     '',
     '### Data handles in scope',
     ...handleLines,
@@ -48,8 +57,15 @@ export const buildInitialMessages = (b: AgentBrief): MsgEntry[] => {
     'If the goal is ambiguous, call `request-clarification` rather than guessing.',
   ].join('\n')
 
+  const recallPairs: MsgEntry[] = b.priorTurns.flatMap(t => [
+    { content: [{ text: t.goal, type: 'text' }], role: 'user' },
+    { content: [{ text: t.reply, type: 'text' }], role: 'assistant' },
+  ])
+
   return [
-    { content: brief, role: 'system' },
+    { content: b.agentMd, role: 'system' },
+    { content: briefText, role: 'system' },
+    ...recallPairs,
     { content: [{ text: b.goal, type: 'text' }], role: 'user' },
   ]
 }
@@ -147,6 +163,15 @@ export const makeSubmitGoal = <Tools extends Record<string, Tool.Any>>(
 
     const agentMd = yield* readAgentMd({ path: AGENT_MD_PATH })
 
+    // Load prior completed turns for Host-curated session recall (S6/L3.5, §12: RECALL_WINDOW=3).
+    // Query after GoalSubmitted append: the current turn has no reply yet, so the flatMap
+    // filter excludes it; the correlationId guard is belt-and-braces.
+    const priorEvents = yield* store.query({ sessionId })
+    const priorTurns = (yield* projectSessionTurns(priorEvents))
+      .filter(t => t.correlationId !== correlationId)
+      .flatMap(t => (t.reply !== undefined ? [{ goal: t.goal, reply: t.reply }] : []))
+      .slice(-RECALL_WINDOW)
+
     // Build session brief: enumerate available tools and fetch the handle shape.
     // Both ToolRegistry and DataHandleRegistry are driven ports (L2.14-clean).
     const registry = yield* ToolRegistry
@@ -163,6 +188,7 @@ export const makeSubmitGoal = <Tools extends Record<string, Tool.Any>>(
       agentMd,
       goal: s.goal,
       handles: handleShape,
+      priorTurns,
       role: 'enduser',
       tools: tools.map(t => ({ description: t.description, name: t.name })),
     }
