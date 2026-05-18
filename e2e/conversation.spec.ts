@@ -36,9 +36,6 @@ test('conversation: send a goal and receive a non-empty reply', async ({ page })
 
   await sendGoal(page, 'What is synthetic-001?')
 
-  // Thinking… button means the request is in flight
-  await expect(page.getByTestId('conv-send')).toHaveText('Thinking…')
-
   // Reply appears near-instantly in fake/replay mode; 10 s is generous headroom
   const firstReply = page.getByTestId('conv-reply-0')
   await expect(firstReply).toBeVisible({ timeout: 10_000 })

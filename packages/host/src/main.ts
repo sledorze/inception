@@ -86,7 +86,7 @@ import { createTenant } from './application/createTenant.ts'
 import { grantTenant, TenantNotFoundTag } from './application/grantTenant.ts'
 import { renameTenant } from './application/renameTenant.ts'
 import { seedDefaultTenant } from './application/seedDefaultTenant.ts'
-import { EventStore } from './ports/driven/EventStore.ts'
+import { EventStore, EventStoreErrorTag } from './ports/driven/EventStore.ts'
 import type { StoredEvent } from './ports/driven/EventStore.ts'
 import type { AppSettings } from './ports/driven/Settings.ts'
 import { AppSettingsSchema, Settings } from './ports/driven/Settings.ts'
@@ -179,7 +179,10 @@ const createTenantRoute = HttpRouter.add(
       // createTenant guarantees the tenant exists so TenantNotFound cannot occur here.
       yield* grantTenant(principal.subject, tenantId)
       return jsonOk({ id: tenantId, name: body.name.trim() })
-    }),
+    }).pipe(
+      Effect.catchTag(TenantNotFoundTag, () => Effect.succeed(textErr('server error', 500))),
+      Effect.catchTag(EventStoreErrorTag, () => Effect.succeed(textErr('server error', 500))),
+    ),
   ),
 )
 
@@ -196,7 +199,7 @@ const renameTenantRoute = HttpRouter.add(
       }
       yield* renameTenant(tenantId, body.name.trim())
       return HttpServerResponse.empty({ status: 204 })
-    }),
+    }).pipe(Effect.catchTag(EventStoreErrorTag, () => Effect.succeed(textErr('server error', 500)))),
   ),
 )
 
@@ -208,7 +211,7 @@ const grantTenantRoute = HttpRouter.add(
     Effect.gen(function* () {
       const { tenantId } = yield* HttpRouter.schemaPathParams(Schema.Struct({ tenantId: Schema.String }))
       const body = yield* parseBody(Schema.Struct({ subject: Schema.String }))
-      if (body === null) {
+      if (body === null || body.subject.trim() === '') {
         return textErr('missing subject', 422)
       }
       return yield* grantTenant(body.subject, tenantId).pipe(

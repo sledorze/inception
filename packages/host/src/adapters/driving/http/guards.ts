@@ -11,7 +11,7 @@ import type { Principal } from '../../../ports/driving/AuthGateway.ts'
 import type { AuthGateway } from '../../../ports/driving/AuthGateway.ts'
 import { SessionExpiredTag, SessionNotFoundTag } from '../../../ports/driving/AuthGateway.ts'
 
-export const extractBearer = Effect.gen(function* () {
+const extractBearer = Effect.gen(function* () {
   const req = yield* HttpServerRequest.HttpServerRequest
   const auth = (req.headers['authorization'] as string | undefined) ?? ''
   return auth.startsWith('Bearer ') ? auth.slice(7) : undefined

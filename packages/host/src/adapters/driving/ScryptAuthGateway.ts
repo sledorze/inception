@@ -1,5 +1,5 @@
 import { randomBytes, scryptSync, timingSafeEqual } from 'node:crypto'
-import { Clock, Effect, FileSystem, Layer, Option, Schema } from 'effect'
+import { Clock, Effect, FileSystem, Layer, Schema } from 'effect'
 import type { AuthSession, Role } from '../../ports/driving/AuthGateway.ts'
 import {
   AuthGateway,
@@ -8,10 +8,9 @@ import {
   SessionExpired,
   SessionNotFound,
 } from '../../ports/driving/AuthGateway.ts'
-import { EventKind, TenantGrantedPayload } from '../../domain/events.ts'
-import { TENANTS_SESSION_ID } from '../../domain/tenantRegistry.ts'
-import type { EventStoreError, EventStoreQuery, StoredEvent } from '../../ports/driven/EventStore.ts'
+import type { EventStoreError } from '../../ports/driven/EventStore.ts'
 import { EventStore } from '../../ports/driven/EventStore.ts'
+import { makeTenantGrantsResolver } from './tenantGrantsResolver.ts'
 
 // Session TTL: 7 days in milliseconds (sliding — renewed on every successful verify).
 const SESSION_TTL_MS = 7 * 24 * 60 * 60 * 1_000
@@ -29,27 +28,6 @@ export const hashPassword = (password: string, salt: string): string => scryptSy
 
 /** Generate a random salt suitable for scrypt. */
 export const generateSalt = (): string => randomBytes(16).toString('hex')
-
-// Build a resolver that queries the captured store directly (no Effect context requirement at call site).
-// EventStoreError is in the error channel — callers pipe through Effect.orDie since the store is always present.
-const makeResolver =
-  (
-    credentials: readonly CredentialEntry[],
-    queryFn: (filter: EventStoreQuery) => Effect.Effect<readonly StoredEvent[], EventStoreError>,
-  ) =>
-  (subject: string): Effect.Effect<readonly string[], EventStoreError> =>
-    Effect.gen(function* () {
-      const cred = credentials.find(c => c.subject === subject)
-      const baseTenantIds = [...(cred?.tenantIds ?? ['default'])]
-      const events = yield* queryFn({ sessionId: TENANTS_SESSION_ID })
-      const grantedIds = events
-        .filter(e => e.kind === EventKind.TenantGranted)
-        .flatMap(e => {
-          const p = Schema.decodeUnknownOption(TenantGrantedPayload)(e.payload)
-          return Option.isSome(p) && p.value.subject === subject ? [p.value.tenantId] : []
-        })
-      return [...new Set([...baseTenantIds, ...grantedIds])] as readonly string[]
-    })
 
 // Shared session logic between the in-memory and file-backed layers.
 const buildLogin =
@@ -164,7 +142,13 @@ export const ScryptAuthGateway = {
         const sessions = new Map<string, AuthSession>(valid.map(s => [s.token, s]))
 
         const persist = filePersist(fs, sessionsPath)
-        const getTenantIds = makeResolver(credentials, filter => store.query(filter))
+        const getTenantIds = makeTenantGrantsResolver(
+          subject => {
+            const cred = credentials.find(c => c.subject === subject)
+            return cred?.tenantIds ?? ['default']
+          },
+          filter => store.query(filter),
+        )
 
         return AuthGateway.of({
           login: buildLogin(credentials, sessions, persist, getTenantIds),
@@ -184,7 +168,13 @@ export const ScryptAuthGateway = {
       Effect.gen(function* () {
         const store = yield* EventStore
         const sessions = new Map<string, AuthSession>()
-        const getTenantIds = makeResolver(credentials, filter => store.query(filter))
+        const getTenantIds = makeTenantGrantsResolver(
+          subject => {
+            const cred = credentials.find(c => c.subject === subject)
+            return cred?.tenantIds ?? ['default']
+          },
+          filter => store.query(filter),
+        )
         return AuthGateway.of({
           login: buildLogin(credentials, sessions, noPersist, getTenantIds),
           logout: buildLogout(sessions, noPersist),

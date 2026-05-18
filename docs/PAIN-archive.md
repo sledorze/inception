@@ -1056,4 +1056,4 @@ FIXED 2026-05-18 in e3d3432a (TODO 12.2) — test: packages/host/tests/laws/L1.4
 **Symptom:** `createTenant.ts`, `renameTenant.ts`, and `seedDefaultTenant.ts` each ended their `EventStore.append` call with `.pipe(Effect.orDie)`. If `append` fails, the fiber died with a Defect — no structured error reached the caller, invisible to `/api/admin/trace`. Violated L1.4.
 **Candidate fix:** Remove `.pipe(Effect.orDie)`; let typed `EventStoreError` propagate to callers.
 
-FIXED 2026-05-18 in e3d3432a (TODO 13.4) — test: packages/host/tests/laws/L1.4.spec.ts (append errors now surface as typed Effect failures, not Defects).
+FIXED 2026-05-18 in e3d3432a (TODO 13.4); acceptance test added 2026-05-18 — test: packages/host/tests/laws/L1.4.spec.ts ("EventStoreError propagates as typed failure — not a Defect (P73 green)"): injects a failing EventStore into grantTenant, asserts err.\_tag === EventStoreErrorTag (typed failure, not Defect).

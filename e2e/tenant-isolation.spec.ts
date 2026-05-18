@@ -11,7 +11,7 @@
  * The fake LLM responds deterministically with a canned reply.
  */
 import { expect, test } from '@playwright/test'
-import { AUTH_HEADER, TENANT_HEADER, TENANT_ID_KEY, TOKEN_KEY } from '../../packages/shared-api/src/contract.ts'
+import { AUTH_HEADER, TENANT_HEADER, TENANT_ID_KEY, TOKEN_KEY } from '../packages/shared-api/src/contract.ts'
 import { loginViaUi } from './helpers/auth.ts'
 import { sendGoal } from './helpers/conversation.ts'
 

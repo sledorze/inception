@@ -33,7 +33,8 @@ export interface EventStoreQuery {
   readonly limit?: number
 }
 
-export class EventStoreError extends Schema.TaggedErrorClass<EventStoreError>()('@app/host/EventStoreError', {
+export const EventStoreErrorTag = '@app/host/EventStoreError' as const
+export class EventStoreError extends Schema.TaggedErrorClass<EventStoreError>()(EventStoreErrorTag, {
   cause: Schema.Defect,
 }) {}
 

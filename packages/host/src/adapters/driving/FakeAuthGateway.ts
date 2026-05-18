@@ -1,11 +1,9 @@
 import { randomBytes } from 'node:crypto'
-import { Clock, Effect, Layer, Option, Schema } from 'effect'
+import { Clock, Effect, Layer } from 'effect'
 import type { AuthSession, Role } from '../../ports/driving/AuthGateway.ts'
 import { AuthGateway, InvalidCredentials, SessionExpired, SessionNotFound } from '../../ports/driving/AuthGateway.ts'
-import { EventKind, TenantGrantedPayload } from '../../domain/events.ts'
-import { TENANTS_SESSION_ID } from '../../domain/tenantRegistry.ts'
-import type { EventStoreError } from '../../ports/driven/EventStore.ts'
 import { EventStore } from '../../ports/driven/EventStore.ts'
+import { makeTenantGrantsResolver } from './tenantGrantsResolver.ts'
 
 // Session TTL: 7 days in milliseconds (matches ScryptAuthGateway; sliding renewal in verify).
 const SESSION_TTL_MS = 7 * 24 * 60 * 60 * 1_000
@@ -27,19 +25,13 @@ export const FakeAuthGateway = {
 
         // Resolves effective tenantIds: static cred tenantIds + TenantGranted events in EventStore.
         // Uses the store captured at layer build time — no EventStore requirement at call site.
-        const getTenantIds = (subject: string): Effect.Effect<readonly string[], EventStoreError> =>
-          Effect.gen(function* () {
+        const getTenantIds = makeTenantGrantsResolver(
+          subject => {
             const cred = creds.find(c => c.username === subject)
-            const baseTenantIds = [...(cred?.tenantIds ?? ['default'])]
-            const events = yield* store.query({ sessionId: TENANTS_SESSION_ID })
-            const grantedIds = events
-              .filter(e => e.kind === EventKind.TenantGranted)
-              .flatMap(e => {
-                const p = Schema.decodeUnknownOption(TenantGrantedPayload)(e.payload)
-                return Option.isSome(p) && p.value.subject === subject ? [p.value.tenantId] : []
-              })
-            return [...new Set([...baseTenantIds, ...grantedIds])] as readonly string[]
-          })
+            return cred?.tenantIds ?? ['default']
+          },
+          filter => store.query(filter),
+        )
 
         return AuthGateway.of({
           login: (username, password) =>

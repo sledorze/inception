@@ -1,12 +1,12 @@
-import { DateTime, Effect, Schema } from 'effect'
-import { EventKind } from '../domain/events.ts'
+import { DateTime, Effect, Option, Schema } from 'effect'
+import { EventKind, TenantGrantedPayload } from '../domain/events.ts'
 import { SYSTEM_TENANT_ID, TENANTS_SESSION_ID } from '../domain/tenantRegistry.ts'
 import { CurrentCorrelationId } from '../domain/tracing.ts'
 import { EventStore } from '../ports/driven/EventStore.ts'
 import { listTenants } from './listTenants.ts'
 
 export const TenantNotFoundTag = '@app/host/TenantNotFound' as const
-export class TenantNotFound extends Schema.TaggedErrorClass<TenantNotFound>()(TenantNotFoundTag, {
+class TenantNotFound extends Schema.TaggedErrorClass<TenantNotFound>()(TenantNotFoundTag, {
   tenantId: Schema.String,
 }) {}
 
@@ -18,6 +18,19 @@ export const grantTenant = Effect.fn('grantTenant')(function* (subject: string, 
   }
 
   const store = yield* EventStore
+
+  // Idempotency: skip append if this subject was already granted access to this tenant.
+  const existing = yield* store.query({ sessionId: TENANTS_SESSION_ID })
+  const alreadyGranted = existing
+    .filter(e => e.kind === EventKind.TenantGranted)
+    .some(e => {
+      const p = Schema.decodeUnknownOption(TenantGrantedPayload)(e.payload)
+      return Option.isSome(p) && p.value.subject === subject && p.value.tenantId === tenantId
+    })
+  if (alreadyGranted) {
+    return
+  }
+
   const correlationId = yield* CurrentCorrelationId
   yield* store.append({
     actor: 'host',
