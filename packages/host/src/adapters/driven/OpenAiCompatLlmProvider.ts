@@ -6,7 +6,7 @@
  * Replaces the hand-rolled OpenAiLlmProvider (AL.7 adoption).
  * Target: LMStudio (or any OpenAI-compatible endpoint) via LLM_BASE_URL env.
  */
-import { Config, Context, DateTime, Effect, Layer, Option, Schema } from 'effect'
+import { Config, Context, DateTime, Effect, Layer, Option, Schema, Semaphore } from 'effect'
 import { OpenAiClient, OpenAiLanguageModel } from '@effect/ai-openai-compat'
 import { FetchHttpClient } from 'effect/unstable/http'
 import { EventKind } from '../../domain/events.ts'
@@ -136,6 +136,19 @@ export const OpenAiCompatLlmProvider = {
         // Capture the full service context so we can run Effects from Promise territory (P10).
         const ctx = yield* Effect.context<EventStore>()
 
+        // Admission control: cap concurrent in-flight LLM calls to the server's slot count.
+        // Settings.llmMaxConcurrency is boot-time (semaphore size fixed here; restart to change).
+        // Falls back to 4 if Settings is absent from context (e.g., test scenarios without it).
+        const maybeSettingsSvc = Context.getOption(ctx as Context.Context<EventStore | Settings>, Settings)
+        const maxConcurrency =
+          Option.isSome(maybeSettingsSvc) ?
+            yield* maybeSettingsSvc.value.get().pipe(
+              Effect.map(s => s.llmMaxConcurrency),
+              Effect.orElseSucceed(() => 4),
+            )
+          : 4
+        const sem = yield* Semaphore.make(maxConcurrency)
+
         // P10: bridge Promise-territory shape alerts back into the Effect runtime.
         // Effect.runPromiseWith(ctx) runs the append in the same scheduler as the outer fiber,
         // so the store write is visible to subsequent queries in the same test/session.
@@ -160,7 +173,11 @@ export const OpenAiCompatLlmProvider = {
         }
 
         const baseFetch = yield* FetchHttpClient.Fetch
-        const fetch = makeReasoningAwareFetch(baseFetch, onShapeAlert, ctx, baseUrl)
+        const rawFetch = makeReasoningAwareFetch(baseFetch, onShapeAlert, ctx, baseUrl)
+        // Gate every LLM HTTP round-trip (URL rewrite + network + body mutation) behind the semaphore.
+        // One permit per call; held until the full response body is consumed (non-streaming).
+        const fetch: typeof globalThis.fetch = (input, init) =>
+          Effect.runPromiseWith(ctx)(sem.withPermits(1)(Effect.promise(() => rawFetch(input, init))))
         return OpenAiLanguageModel.layer({ model }).pipe(
           Layer.provide(OpenAiClient.layer({ apiUrl: baseUrl })),
           Layer.provide(FetchHttpClient.layer),
