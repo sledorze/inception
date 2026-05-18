@@ -14,6 +14,10 @@ Applies to `packages/app/`, `packages/backoffice/`, and `packages/design-system/
 Primitives live in `packages/design-system/src/` and are published as subpath exports
 from the `@app/design-system` package. There is no `src/components/ui/` directory and
 no shadcn CLI in this repo — primitives are hand-maintained in the design-system package.
+The shadcn MCP server (`mcp__shadcn__*`) **is** wired (`.mcp.json`) for read-only reference:
+use `search_items_in_registries`/`view_items_in_registries` to look up shadcn component
+source as a design reference when adding a new primitive — do NOT run `shadcn add` or
+generate a `components.json`.
 
 - **Import via subpath:** `import { Button } from '@app/design-system/button'`
 - **Never** use `@/components/ui/button` — that path does not resolve (no `src/components/ui/` exists).
