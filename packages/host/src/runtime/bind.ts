@@ -30,6 +30,7 @@ const FIXTURE_PATH = new URL('../bootstrap/fixtures/synthetic-001.csv', import.m
 const REGISTRY_PATH = new URL('../../data/capability-registry.json', import.meta.url).pathname
 const DATA_DIR = new URL('../../data/', import.meta.url).pathname
 const CREDENTIALS_PATH = new URL('../../data/credentials.json', import.meta.url).pathname
+const GRANTS_PATH = new URL('../../data/grants.json', import.meta.url).pathname
 const SESSIONS_PATH = new URL('../../data/sessions.json', import.meta.url).pathname
 const SETTINGS_PATH = new URL('../../data/settings.json', import.meta.url).pathname
 
@@ -52,7 +53,7 @@ const authGatewayLayer: Layer.Layer<
     const parsed = yield* Schema.decodeUnknownEffect(Schema.fromJsonString(Schema.Array(CredentialEntrySchema)))(
       raw,
     ).pipe(Effect.orElseSucceed(() => [] as readonly CredentialEntry[]))
-    return ScryptAuthGateway.fileBackedLayer(parsed, SESSIONS_PATH, CREDENTIALS_PATH)
+    return ScryptAuthGateway.fileBackedLayer(parsed, SESSIONS_PATH, GRANTS_PATH)
   }),
 )
 

@@ -15,12 +15,13 @@ npm-debug.log*
 .env
 .env.local
 
-# Data (SQLite databases, WAL files, runtime JSON — credentials.json is tracked separately)
+# Data (SQLite databases, WAL files, runtime JSON — credentials.json is tracked as seed)
 **/data/*.db
 **/data/*.db-shm
 **/data/*.db-wal
 *.db
 **/data/capability-registry.json
+**/data/grants.json
 **/data/sessions.json
 **/data/settings.json
 
