@@ -52,7 +52,6 @@ import * as HttpServerResponse from 'effect/unstable/http/HttpServerResponse'
 import * as HttpStaticServer from 'effect/unstable/http/HttpStaticServer'
 import {
   AmendAgentMdBody,
-  ClarifyAnsweredPayload,
   ClarifyRequestedPayload,
   EventKind,
   FlagExchangeBody,
@@ -63,6 +62,7 @@ import {
   SubmitGoalBody,
 } from './domain/events.ts'
 import { listSessions } from './application/listSessions.ts'
+import { projectSessionTurns } from './application/sessionTurns.ts'
 import { makeSubmitGoal } from './application/submitGoal.ts'
 import { makeRespondToGoal } from './application/respondToGoal.ts'
 import { recordRejection } from './application/rejectionPattern.ts'
@@ -230,47 +230,7 @@ const sessionTurnsRoute = HttpRouter.add(
       const { sessionId } = yield* HttpRouter.schemaPathParams(Schema.Struct({ sessionId: Schema.String }))
       const store = yield* EventStore
       const events = yield* store.query({ sessionId })
-      const goals = new Map<string, string>()
-      const replies = new Map<string, string>()
-      const clarifyQuestions = new Map<string, string>()
-      const clarifyAnswers = new Map<string, string>()
-      const order: string[] = []
-      for (const e of events) {
-        if (e.kind === EventKind.GoalSubmitted) {
-          const p = yield* Schema.decodeUnknownEffect(GoalSubmittedPayload)(e.payload).pipe(Effect.orDie)
-          goals.set(e.correlationId, p.goal)
-          order.push(e.correlationId)
-        } else if (e.kind === EventKind.GoalCompleted) {
-          const p = yield* Schema.decodeUnknownEffect(GoalCompletedPayload)(e.payload).pipe(Effect.orDie)
-          replies.set(e.correlationId, p.text)
-        } else if (e.kind === EventKind.ClarifyAnswered) {
-          const p = yield* Schema.decodeUnknownEffect(ClarifyAnsweredPayload)(e.payload).pipe(Effect.orDie)
-          clarifyAnswers.set(e.correlationId, p.answer)
-        } else if (e.kind === EventKind.ClarifyRequested) {
-          // Collect inline — avoids N+1 store.query calls per turn.
-          const p = yield* Schema.decodeUnknownEffect(ClarifyRequestedPayload)(e.payload).pipe(Effect.orDie)
-          clarifyQuestions.set(e.correlationId, p.question)
-        }
-      }
-      let idx = 0
-      const turns = order
-        .filter(cid => replies.has(cid) || clarifyQuestions.has(cid))
-        .map(cid => {
-          const turn: Record<string, unknown> = { correlationId: cid, goal: goals.get(cid) ?? '', turnIndex: idx++ }
-          const reply = replies.get(cid)
-          const clarifyQuestion = clarifyQuestions.get(cid)
-          const clarifyAnswer = clarifyAnswers.get(cid)
-          if (reply !== undefined) {
-            turn['reply'] = reply
-          }
-          if (clarifyQuestion !== undefined) {
-            turn['clarifyQuestion'] = clarifyQuestion
-          }
-          if (clarifyAnswer !== undefined) {
-            turn['clarifyAnswer'] = clarifyAnswer
-          }
-          return turn
-        })
+      const turns = yield* projectSessionTurns(events)
       return jsonOk(turns)
     }),
   ),
